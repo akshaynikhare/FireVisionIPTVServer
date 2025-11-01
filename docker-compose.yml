@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: firevision-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: firevision-iptv
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - firevision-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/firevision-iptv --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: firevision-api
+    restart: unless-stopped
+    ports:
+      - "8009:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      API_KEY: ${API_KEY:-change-this-secret-key}
+      ALLOWED_ORIGINS: "*"
+      APK_STORAGE_PATH: /app/apks
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - ./apks:/app/apks
+      - ./uploads:/app/uploads
+      - ./versions.json:/app/versions.json:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - firevision-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8009/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Reverse Proxy (optional, for SSL termination)
+  nginx:
+    image: nginx:alpine
+    container_name: firevision-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./apks:/var/www/apks:ro
+    depends_on:
+      - api
+    networks:
+      - firevision-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  firevision-network:
+    driver: bridge

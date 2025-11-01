@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireVision IPTV Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 48px 40px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .version {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 32px;
+            font-weight: 500;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0fdf4;
+            color: #15803d;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 32px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #2d3748;
+            border: 2px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            transform: translateY(-2px);
+        }
+
+        .btn-icon {
+            font-size: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            padding: 16px;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .info-card-version {
+            background: #f7fafc;
+            padding: 16px;
+            border-radius: 10px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .info-label {
+            color: #718096;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: #1a202c;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .download-mini-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .download-mini-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-mini-btn:disabled,
+        .download-mini-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .endpoints {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: left;
+        }
+
+        .endpoints h3 {
+            color: #1a202c;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .endpoint-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .endpoint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #4a5568;
+            font-size: 14px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .endpoint-method {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .footer {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            color: #718096;
+            font-size: 13px;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 32px 24px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📺</div>
+        <h1>FireVision IPTV Server</h1>
+        <p class="version">Version 1.0.0</p>
+
+        <div class="status">
+            <span class="status-dot"></span>
+            Server Online
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-label">Channels</div>
+                <div class="info-value" id="channelCount">
+                    <span>Loading...</span>
+                </div>
+            </div>
+            <div class="info-card-version">
+                <div style="flex: 1;">
+                    <div class="info-label">Latest APK</div>
+                    <div class="info-value" id="latestVersion">
+                        <span>Loading...</span>
+                    </div>
+                </div>
+                <a href="#" id="downloadBtn" class="download-mini-btn">
+                    <span>📱</span>
+                    <span>Download</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/admin" class="btn btn-primary">
+                <span class="btn-icon">⚙️</span>
+                <span>Admin Dashboard</span>
+            </a>
+        </div>
+
+        <div class="endpoints">
+            <h3>API Endpoints</h3>
+            <div class="endpoint-list">
+                <div class="endpoint">
+                    <span class="endpoint-method">GET</span>
+                    <span>/health</span>
+                </div>
+                <div class="endpoint">
+                    <span class="endpoint-method">GET</span>
+                    <span>/api/v1/channels</span>
+                </div>
+                <div class="endpoint">
+                    <span class="endpoint-method">GET</span>
+                    <span>/api/v1/app/version</span>
+                </div>
+                <div class="endpoint">
+                    <span class="endpoint-method">GET</span>
+                    <span>/api/v1/app/download</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Powered by FireVision IPTV &copy; 2025
+        </div>
+    </div>
+
+    <script>
+        // Fetch stats on page load
+        async function loadStats() {
+            try {
+                // Fetch channel count
+                const channelsRes = await fetch('/api/v1/channels');
+                if (channelsRes.ok) {
+                    const channelsData = await channelsRes.json();
+                    // The API returns {success: true, count: X, data: [...]}
+                    const channelCount = channelsData.count || (Array.isArray(channelsData.data) ? channelsData.data.length : 0);
+                    document.getElementById('channelCount').innerHTML =
+                        `<span>${channelCount}</span>`;
+                } else {
+                    document.getElementById('channelCount').innerHTML = '<span>0</span>';
+                }
+
+                // Fetch latest app version using /latest endpoint
+                const versionRes = await fetch('/api/v1/app/latest');
+                if (versionRes.ok) {
+                    const versionData = await versionRes.json();
+                    if (versionData.success && versionData.data && versionData.data.versionName) {
+                        document.getElementById('latestVersion').innerHTML =
+                            `<span>v${versionData.data.versionName}</span>`;
+
+                        // Update download button
+                        const downloadBtn = document.getElementById('downloadBtn');
+                        downloadBtn.href = '/api/v1/app/download';
+                        downloadBtn.download = `FireVisionIPTV-v${versionData.data.versionName}.apk`;
+                        downloadBtn.classList.remove('disabled');
+                    } else {
+                        document.getElementById('latestVersion').innerHTML =
+                            '<span>N/A</span>';
+                        const downloadBtn = document.getElementById('downloadBtn');
+                        downloadBtn.classList.add('disabled');
+                        downloadBtn.title = 'No APK available';
+                    }
+                } else {
+                    document.getElementById('latestVersion').innerHTML = '<span>N/A</span>';
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.classList.add('disabled');
+                    downloadBtn.title = 'No APK available';
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                document.getElementById('channelCount').innerHTML = '<span>Error</span>';
+                document.getElementById('latestVersion').innerHTML = '<span>Error</span>';
+            }
+        }
+
+        // Load stats when page loads
+        loadStats();
+    </script>
+</body>
+</html>

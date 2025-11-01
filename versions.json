@@ -1,0 +1,30 @@
+{
+  "versions": [
+    {
+      "versionName": "1.0",
+      "versionCode": 1,
+      "apkFileName": "firevision-iptv-1.0.apk",
+      "apkFileSize": 55275706,
+      "releaseNotes": "Initial release of FireVision IPTV\n- Live TV streaming\n- Channel categories\n- Favorites support\n- Fire TV optimized UI",
+      "isActive": true,
+      "isMandatory": false,
+      "minCompatibleVersion": 1,
+      "releasedAt": "2025-01-15T00:00:00.000Z"
+    },
+    {
+      "versionName": "1.4",
+      "versionCode": 4,
+      "apkFileName": "firevision-iptv-1.4.apk",
+      "apkFileSize": 55275706,
+      "releaseNotes": "Initial release of FireVision IPTV\n- Live TV streaming\n- Channel categories\n- Favorites support\n- Fire TV optimized UI",
+      "isActive": true,
+      "isMandatory": false,
+      "minCompatibleVersion": 1,
+      "releasedAt": "2025-11-15T00:00:00.000Z"
+    }
+  ],
+  "latestVersion": {
+    "versionName": "1.4",
+    "versionCode": 4
+  }
+}
