@@ -1,0 +1,32 @@
+# Dependencies
+/node_modules
+
+# Environment variables
+# Never commit .env files - they contain secrets!
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploads and Backups
+# These directories are managed by scripts/manage.sh
+/uploads
+/backups
+
+# Build output
+/build
+/dist
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode
