@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+const axios = require('axios');
 const Channel = require('../models/Channel');
 const { requireAuth } = require('./auth');
 
@@ -170,65 +168,98 @@ router.post('/test-all', async (req, res) => {
 });
 
 // Helper function to test a channel stream
-async function testChannelStream(url, timeout = 10000) {
-    return new Promise((resolve) => {
-        try {
-            const parsedUrl = new URL(url);
-            const protocol = parsedUrl.protocol === 'https:' ? https : http;
+async function testChannelStream(url, timeout = 15000) {
+    const startTime = Date.now();
 
-            const startTime = Date.now();
+    try {
+        // Use axios with the same configuration as stream-proxy
+        // This ensures we test the stream the same way the player accesses it
+        const response = await axios.get(url, {
+            timeout: timeout,
+            maxRedirects: 5,
+            validateStatus: (status) => status >= 200 && status < 500, // Accept redirects and client errors
+            headers: {
+                'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+                'Accept': '*/*',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            },
+            // Only fetch first 1KB to check if manifest is valid (for m3u8 files)
+            maxContentLength: url.includes('.m3u8') ? 10240 : 1024,
+            responseType: url.includes('.m3u8') ? 'text' : 'stream'
+        });
 
-            const req = protocol.request(url, {
-                method: 'HEAD',
-                timeout: timeout
-            }, (res) => {
-                const responseTime = Date.now() - startTime;
+        const responseTime = Date.now() - startTime;
+        const statusCode = response.status;
+        const working = statusCode >= 200 && statusCode < 400;
 
-                const working = res.statusCode >= 200 && res.statusCode < 400;
+        // For m3u8 files, validate the manifest content
+        let manifestValid = true;
+        let manifestInfo = {};
 
-                resolve({
-                    working,
-                    statusCode: res.statusCode,
-                    responseTime,
-                    contentType: res.headers['content-type'],
-                    message: working ? 'Stream is accessible' : `HTTP ${res.statusCode}`
-                });
+        if (url.includes('.m3u8') && response.data) {
+            const manifest = response.data.toString();
+            manifestValid = manifest.includes('#EXTM3U') || manifest.includes('#EXT-X-');
 
-                req.destroy();
-            });
-
-            req.on('error', (error) => {
-                const responseTime = Date.now() - startTime;
-                resolve({
-                    working: false,
-                    statusCode: null,
-                    responseTime,
-                    error: error.message,
-                    message: 'Stream is not accessible'
-                });
-            });
-
-            req.on('timeout', () => {
-                req.destroy();
-                resolve({
-                    working: false,
-                    statusCode: null,
-                    responseTime: timeout,
-                    error: 'Timeout',
-                    message: 'Stream request timed out'
-                });
-            });
-
-            req.end();
-        } catch (error) {
-            resolve({
-                working: false,
-                statusCode: null,
-                error: error.message,
-                message: 'Invalid URL or request failed'
-            });
+            // Extract some basic info from manifest
+            if (manifestValid) {
+                manifestInfo = {
+                    isLive: manifest.includes('#EXT-X-PLAYLIST-TYPE') === false,
+                    hasVideo: manifest.includes('#EXTINF') || manifest.includes('#EXT-X-STREAM-INF'),
+                    segmentCount: (manifest.match(/#EXTINF/g) || []).length
+                };
+            }
         }
-    });
+
+        // Cleanup stream response if needed
+        if (response.data && typeof response.data.destroy === 'function') {
+            response.data.destroy();
+        }
+
+        return {
+            working: working && manifestValid,
+            statusCode: statusCode,
+            responseTime: responseTime,
+            contentType: response.headers['content-type'],
+            manifestValid: url.includes('.m3u8') ? manifestValid : undefined,
+            manifestInfo: url.includes('.m3u8') ? manifestInfo : undefined,
+            message: working && manifestValid
+                ? 'Stream is accessible and valid'
+                : !working
+                    ? `HTTP ${statusCode}`
+                    : 'Invalid manifest format'
+        };
+
+    } catch (error) {
+        const responseTime = Date.now() - startTime;
+
+        // Determine error type
+        let errorType = 'Unknown error';
+        let statusCode = null;
+
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            errorType = 'Timeout - Stream took too long to respond';
+        } else if (error.code === 'ENOTFOUND') {
+            errorType = 'DNS resolution failed - Host not found';
+        } else if (error.code === 'ECONNREFUSED') {
+            errorType = 'Connection refused - Stream server is down';
+        } else if (error.response) {
+            statusCode = error.response.status;
+            errorType = `HTTP ${statusCode} - ${error.response.statusText || 'Error'}`;
+        } else if (error.code) {
+            errorType = `${error.code} - ${error.message}`;
+        } else {
+            errorType = error.message || 'Unknown error';
+        }
+
+        return {
+            working: false,
+            statusCode: statusCode,
+            responseTime: responseTime,
+            error: errorType,
+            message: 'Stream is not accessible'
+        };
+    }
 }
 
 module.exports = router;
