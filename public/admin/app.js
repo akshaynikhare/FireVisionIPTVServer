@@ -4,12 +4,16 @@ let sessionId = localStorage.getItem('sessionId');
 let currentView = 'channels';
 let channels = [];
 let iptvOrgChannels = [];
+let users = [];
 let selectedChannels = new Set();
 let selectedIptvOrgChannels = new Set();
 let channelsDataTable = null;
 let iptvOrgDataTable = null;
+let usersDataTable = null;
+let assignChannelsDataTable = null;
 let currentChannelDetail = null;
 let hlsInstance = null;
+let currentUserId = null;
 
 // Image proxy helper function
 function getProxiedImageUrl(imageUrl) {
@@ -135,9 +139,15 @@ function initializeEventListeners() {
     document.querySelectorAll('.btn-filter').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const filter = e.target.dataset.filter;
-            loadQuickFilter(filter);
+            applyQuickFilter(filter);
         });
     });
+
+    // Load all IPTV-org channels
+    document.getElementById('loadAllIptvOrgBtn').addEventListener('click', loadAllIptvOrgChannels);
+
+    // Clear cache button
+    document.getElementById('clearCacheBtn').addEventListener('click', clearCacheAndRefresh);
 
     // Channel details modal
     document.getElementById('detailPreviewBtn').addEventListener('click', handleDetailPreview);
@@ -145,6 +155,15 @@ function initializeEventListeners() {
     // Test
     document.getElementById('testAllChannelsBtn').addEventListener('click', () => testChannels('all'));
     document.getElementById('testSelectedChannelsBtn').addEventListener('click', () => testChannels('selected'));
+
+    // User management
+    document.getElementById('addUserBtn').addEventListener('click', () => openUserModal());
+    document.getElementById('saveUserBtn').addEventListener('click', handleUserSubmit);
+    document.getElementById('copyCodeBtn').addEventListener('click', copyPlaylistCode);
+    document.getElementById('regenerateCodeBtn').addEventListener('click', handleRegenerateCode);
+    document.getElementById('saveChannelsBtn').addEventListener('click', handleSaveChannels);
+    document.getElementById('selectAllChannelsBtn').addEventListener('click', selectAllChannels);
+    document.getElementById('deselectAllChannelsBtn').addEventListener('click', deselectAllChannels);
 }
 
 // Sequential Image Loading Function
@@ -274,6 +293,9 @@ function switchView(view) {
     switch(view) {
         case 'channels':
             loadChannels();
+            break;
+        case 'users':
+            loadUsers();
             break;
         case 'iptv-org':
             loadIptvOrgPlaylists();
@@ -659,9 +681,18 @@ async function handleBulkDelete() {
 // Bulk Test
 async function handleBulkTest() {
     if (selectedChannels.size === 0) {
-        alert('Please select channels to test');
+        showToast('Please select channels to test', 'warning');
         return;
     }
+
+    // Limit to 100 channels
+    let channelsToTest = Array.from(selectedChannels);
+    if (channelsToTest.length > 100) {
+        showToast(`Testing limited to 100 channels. You selected ${channelsToTest.length}, testing first 100.`, 'warning');
+        channelsToTest = channelsToTest.slice(0, 100);
+    }
+
+    showToast('Testing channels...', 'info');
 
     const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
         method: 'POST',
@@ -669,11 +700,12 @@ async function handleBulkTest() {
             'Content-Type': 'application/json',
             'X-Session-Id': sessionId
         },
-        body: JSON.stringify({ channelIds: Array.from(selectedChannels) })
+        body: JSON.stringify({ channelIds: channelsToTest })
     });
 
     const data = await response.json();
-    alert(`Tested ${data.tested} channels\nWorking: ${data.results.filter(r => r.working).length}`);
+    const workingCount = data.results.filter(r => r.working).length;
+    showToast(`Tested ${data.tested} channels - ${workingCount} working, ${data.tested - workingCount} failed`, 'success');
     loadChannels();
 }
 
@@ -843,7 +875,7 @@ function renderIptvOrgTable(channels) {
             // Add event listeners for action buttons
             $('#iptvOrgTable').on('click', '.btn-preview-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = channels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     previewIptvOrgChannel(channel);
                 }
@@ -851,7 +883,7 @@ function renderIptvOrgTable(channels) {
 
             $('#iptvOrgTable').on('click', '.btn-info-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = channels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     showChannelDetails(channel);
                 }
@@ -985,27 +1017,37 @@ async function testSingleChannel(id) {
         const data = await response.json();
 
         if (data.success) {
-            alert(`Channel: ${data.channel.name}\nStatus: ${data.working ? 'Working ✓' : 'Not Working ✗'}\nResponse Time: ${data.responseTime}ms`);
+            const status = data.working ? '✓ Working' : '✗ Not Working';
+            const statusType = data.working ? 'success' : 'error';
+            showToast(`${data.channel.name}: ${status} (${data.responseTime}ms)`, statusType);
             loadChannels(); // Reload to get updated status
         }
     } catch (error) {
         console.error('Error testing channel:', error);
-        alert('Failed to test channel');
+        showToast('Failed to test channel', 'error');
         loadChannels(); // Reload to clear loading state
     }
 }
 
 async function testChannels(mode) {
-    const channelsToTest = mode === 'all' ? channels.map(c => c._id) : Array.from(selectedChannels);
+    let channelsToTest = mode === 'all' ? channels.map(c => c._id) : Array.from(selectedChannels);
 
     if (channelsToTest.length === 0) {
-        alert('No channels to test');
+        showToast('No channels to test', 'warning');
         return;
     }
 
-    if (!confirm(`Test ${channelsToTest.length} channels? This may take several minutes.`)) return;
+    // Limit to 100 channels
+    let limitMessage = '';
+    if (channelsToTest.length > 100) {
+        limitMessage = `\n\nNote: Testing limited to 100 channels. You have ${channelsToTest.length} channels, only the first 100 will be tested.`;
+        channelsToTest = channelsToTest.slice(0, 100);
+    }
+
+    if (!confirm(`Test ${channelsToTest.length} channels? This may take several minutes.${limitMessage}`)) return;
 
     document.getElementById('testProgress').textContent = 'Testing...';
+    showToast(`Testing ${channelsToTest.length} channels...`, 'info');
 
     try {
         const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
@@ -1020,12 +1062,12 @@ async function testChannels(mode) {
         const data = await response.json();
         document.getElementById('testProgress').textContent = '';
 
-        alert(`Tested: ${data.tested}\nWorking: ${data.working}\nNot Working: ${data.notWorking}`);
+        showToast(`Tested: ${data.tested} - Working: ${data.working}, Not Working: ${data.notWorking}`, 'success');
         loadChannels();
         loadTestResults();
     } catch (error) {
         console.error('Error testing channels:', error);
-        alert('Failed to test channels');
+        showToast('Failed to test channels', 'error');
         document.getElementById('testProgress').textContent = '';
     }
 }
@@ -1044,7 +1086,7 @@ async function loadTestResults() {
         renderTestResultsTable(testChannels);
     } catch (error) {
         console.error('Error loading test results:', error);
-        alert('Failed to load channels for testing');
+        showToast('Failed to load channels for testing', 'error');
     }
 }
 
@@ -1220,6 +1262,7 @@ function renderCategoryChart(groups) {
 // Global Video.js player instance
 let videoJsPlayer = null;
 let currentChannel = null;
+let videoEventHandlers = null;
 
 // Copy channel link to clipboard
 function copyChannelLink(channel) {
@@ -1273,40 +1316,69 @@ function fallbackCopyToClipboard(text, channelName) {
     document.body.removeChild(textArea);
 }
 
+// Cleanup video player and remove event listeners
+function cleanupVideoPlayer() {
+    const video = document.getElementById('videoPlayer');
+
+    // Destroy HLS instance
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+
+    // Remove all event listeners if they exist
+    if (videoEventHandlers) {
+        video.removeEventListener('playing', videoEventHandlers.playing);
+        video.removeEventListener('pause', videoEventHandlers.pause);
+        video.removeEventListener('waiting', videoEventHandlers.waiting);
+        video.removeEventListener('error', videoEventHandlers.error);
+        video.removeEventListener('loadedmetadata', videoEventHandlers.loadedmetadata);
+        videoEventHandlers = null;
+    }
+
+    // Reset video element
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+}
+
 // Play channel in video player
 function playChannel(channel) {
     const modal = document.getElementById('playerModal');
     const errorBox = document.getElementById('playerError');
     const errorDetails = errorBox.querySelector('.error-details');
+    const loadingBox = document.getElementById('playerLoading');
     const video = document.getElementById('videoPlayer');
     const status = document.getElementById('playerStatus');
     const name = document.getElementById('playerChannelName');
     const urlDisplay = document.getElementById('playerUrl');
 
+    // Cleanup any previous player state
+    cleanupVideoPlayer();
+
     // Reset state
     errorBox.classList.add('hidden');
-    status.textContent = 'Loading...';
+    loadingBox.classList.remove('hidden');
+    status.textContent = '⏳ Loading stream...';
+    status.className = 'status-loading';
     name.textContent = channel.channelName || 'Unnamed Channel';
     urlDisplay.textContent = channel.channelUrl;
     urlDisplay.title = channel.channelUrl;
 
-    // Stop any previous playback
-    if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
-    }
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-
-    // Prepare stream URL (proxy if needed)
+    // Prepare stream URL - Use proxy for external streams to bypass CORS
     let streamUrl = channel.channelUrl;
-    // const isExternal = streamUrl.startsWith('http://') || streamUrl.startsWith('https://');
-    // const isLocalhost = streamUrl.includes('localhost') || streamUrl.includes('127.0.0.1');
-    // if (isExternal && !isLocalhost && !streamUrl.includes('/api/v1/stream-proxy')) {
-    //     streamUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(channel.channelUrl)}`;
-    //     console.log('Auto-proxying external stream:', streamUrl);
-    // }
+    const isExternal = streamUrl.startsWith('http://') || streamUrl.startsWith('https://');
+    const isLocalhost = streamUrl.includes('localhost') || streamUrl.includes('127.0.0.1');
+
+    // Auto-proxy external streams (not localhost) to bypass CORS restrictions
+    if (isExternal && !isLocalhost && !streamUrl.includes('/api/v1/stream-proxy')) {
+        streamUrl = `${API_BASE}/api/v1/stream-proxy?url=${encodeURIComponent(channel.channelUrl)}`;
+        console.log('🔄 Using stream proxy for CORS bypass');
+    }
+
+    console.log('🎬 Loading channel:', channel.channelName);
+    console.log('📡 Stream URL:', channel.channelUrl);
+    console.log('🌐 Proxied URL:', streamUrl);
 
     // Use HLS.js if supported
     if (Hls.isSupported()) {
@@ -1314,55 +1386,233 @@ function playChannel(channel) {
             enableWorker: true,
             lowLatencyMode: true,
             backBufferLength: 90,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            manifestLoadingTimeOut: 10000,
+            manifestLoadingMaxRetry: 3,
+            levelLoadingTimeOut: 10000,
+            levelLoadingMaxRetry: 3,
+            fragLoadingTimeOut: 20000,
+            fragLoadingMaxRetry: 3,
+            xhrSetup: function(xhr, url) {
+                // Add authentication header for stream proxy requests
+                if (url.includes('/api/v1/stream-proxy') && sessionId) {
+                    xhr.setRequestHeader('X-Session-Id', sessionId);
+                }
+            }
         });
-        console.log('Loading stream via HLS.js:', streamUrl);
+
+        console.log('✅ Loading stream via HLS.js');
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
 
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(err => console.warn('Autoplay blocked:', err));
-            status.textContent = 'Playing';
+        // Track loading progress
+        let manifestLoaded = false;
+
+        hlsInstance.on(Hls.Events.MANIFEST_LOADING, () => {
+            console.log('📥 Loading manifest...');
+            status.textContent = '⏳ Loading manifest...';
+        });
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+            console.log('✅ Manifest parsed successfully');
+            manifestLoaded = true;
+            status.textContent = '▶️ Starting playback...';
+            loadingBox.classList.add('hidden');
+
+            // Display stream info if available
+            if (data.levels && data.levels.length > 0) {
+                const level = data.levels[0];
+                console.log(`📺 Stream quality: ${level.width}x${level.height} @ ${level.bitrate}bps`);
+            }
+
+            video.play()
+                .then(() => {
+                    console.log('✅ Playback started');
+                    status.textContent = '✅ Playing';
+                    status.className = 'status-playing';
+                })
+                .catch(err => {
+                    console.warn('⚠️ Autoplay blocked:', err);
+                    status.textContent = '⏸️ Click to play';
+                    status.className = 'status-paused';
+                });
+        });
+
+        hlsInstance.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+            console.log('📊 Level loaded:', data.details);
+        });
+
+        hlsInstance.on(Hls.Events.FRAG_LOADING, () => {
+            if (!manifestLoaded) {
+                status.textContent = '⏳ Loading video fragments...';
+            }
         });
 
         hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-            console.error('HLS.js error:', data);
-            status.textContent = 'Error';
-            errorBox.classList.remove('hidden');
-            errorDetails.textContent = data.details || 'Stream load failed';
+            console.error('❌ HLS.js error:', data);
+
+            // Determine error severity
+            if (data.fatal) {
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
+
+                // Provide detailed error messages
+                let errorMessage = '';
+                switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        errorMessage = `Network Error: ${data.details}. The stream may be offline or unreachable.`;
+
+                        // Attempt to recover from network errors
+                        console.log('🔄 Attempting to recover from network error...');
+                        hlsInstance.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        errorMessage = `Media Error: ${data.details}. The stream format may be incompatible.`;
+
+                        // Attempt to recover from media errors
+                        console.log('🔄 Attempting to recover from media error...');
+                        hlsInstance.recoverMediaError();
+                        break;
+                    default:
+                        errorMessage = `Fatal Error: ${data.details || 'Unknown error occurred'}`;
+                        break;
+                }
+
+                errorDetails.textContent = errorMessage;
+            } else {
+                // Non-fatal error, just log it
+                console.warn('⚠️ Non-fatal HLS error:', data.details);
+            }
         });
+
+        // Create and store event handlers for HLS.js playback
+        videoEventHandlers = {
+            playing: () => {
+                loadingBox.classList.add('hidden');
+                status.textContent = '✅ Playing';
+                status.className = 'status-playing';
+            },
+            pause: () => {
+                status.textContent = '⏸️ Paused';
+                status.className = 'status-paused';
+            },
+            waiting: () => {
+                status.textContent = '⏳ Buffering...';
+                status.className = 'status-loading';
+            },
+            error: (e) => {
+                console.error('❌ Video element error:', e);
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
+
+                // Get more detailed error info
+                if (video.error) {
+                    const errorCode = video.error.code;
+                    const errorMessages = {
+                        1: 'MEDIA_ERR_ABORTED: Playback was aborted',
+                        2: 'MEDIA_ERR_NETWORK: Network error occurred',
+                        3: 'MEDIA_ERR_DECODE: Decoding error occurred',
+                        4: 'MEDIA_ERR_SRC_NOT_SUPPORTED: Stream format not supported'
+                    };
+                    errorDetails.textContent = errorMessages[errorCode] || 'Unknown playback error';
+                } else {
+                    errorDetails.textContent = 'Video playback error: ' + (e.message || 'Unknown error');
+                }
+            },
+            loadedmetadata: null // Placeholder
+        };
+
+        // Add event listeners
+        video.addEventListener('playing', videoEventHandlers.playing);
+        video.addEventListener('pause', videoEventHandlers.pause);
+        video.addEventListener('waiting', videoEventHandlers.waiting);
+        video.addEventListener('error', videoEventHandlers.error);
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Safari HLS support
+        console.log('✅ Using native HLS support (Safari)');
         video.src = streamUrl;
-        video.addEventListener('loadedmetadata', () => {
-            video.play().catch(() => {});
-            status.textContent = 'Playing';
-        });
-        video.addEventListener('error', (e) => {
-            status.textContent = 'Error loading stream';
-            errorBox.classList.remove('hidden');
-            errorDetails.textContent = e.message || 'Failed to load HLS stream';
-        });
+
+        // Create and store event handlers for native HLS
+        videoEventHandlers = {
+            playing: () => {
+                loadingBox.classList.add('hidden');
+                status.textContent = '✅ Playing';
+                status.className = 'status-playing';
+            },
+            pause: () => {
+                status.textContent = '⏸️ Paused';
+                status.className = 'status-paused';
+            },
+            waiting: () => {
+                status.textContent = '⏳ Buffering...';
+                status.className = 'status-loading';
+            },
+            error: (e) => {
+                console.error('❌ Native HLS error:', e);
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error loading stream';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
+
+                if (video.error) {
+                    const errorCode = video.error.code;
+                    const errorMessages = {
+                        1: 'MEDIA_ERR_ABORTED: Playback was aborted',
+                        2: 'MEDIA_ERR_NETWORK: Network error - stream may be offline',
+                        3: 'MEDIA_ERR_DECODE: Codec/format not supported in Safari',
+                        4: 'MEDIA_ERR_SRC_NOT_SUPPORTED: HLS stream format not supported'
+                    };
+                    errorDetails.textContent = errorMessages[errorCode] || 'Failed to load HLS stream';
+                } else {
+                    errorDetails.textContent = e.message || 'Failed to load HLS stream. The stream may be offline or incompatible.';
+                }
+            },
+            loadedmetadata: () => {
+                console.log('✅ Metadata loaded');
+                loadingBox.classList.add('hidden');
+                video.play()
+                    .then(() => {
+                        status.textContent = '✅ Playing';
+                        status.className = 'status-playing';
+                    })
+                    .catch(() => {
+                        status.textContent = '⏸️ Click to play';
+                        status.className = 'status-paused';
+                    });
+            }
+        };
+
+        // Add event listeners
+        video.addEventListener('playing', videoEventHandlers.playing);
+        video.addEventListener('pause', videoEventHandlers.pause);
+        video.addEventListener('waiting', videoEventHandlers.waiting);
+        video.addEventListener('error', videoEventHandlers.error);
+        video.addEventListener('loadedmetadata', videoEventHandlers.loadedmetadata);
     } else {
-        status.textContent = 'HLS not supported';
+        console.error('❌ HLS not supported in this browser');
+        loadingBox.classList.add('hidden');
+        status.textContent = '❌ HLS not supported';
+        status.className = 'status-error';
         errorBox.classList.remove('hidden');
-        errorDetails.textContent = 'Try using Chrome or Safari.';
+        errorDetails.textContent = 'Your browser does not support HLS streaming. Please try using Chrome, Firefox, or Safari.';
     }
 
     modal.classList.add('active');
+    console.log('🎭 Player modal opened');
 }
 
 // Close player modal and cleanup
 document.querySelectorAll('[data-close="playerModal"]').forEach(btn => {
     btn.addEventListener('click', () => {
         const modal = document.getElementById('playerModal');
-        const video = document.getElementById('videoPlayer');
         modal.classList.remove('active');
-        video.pause();
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
+        cleanupVideoPlayer();
     });
 });
 
@@ -1408,27 +1658,22 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Quick Filter Functions
-async function loadQuickFilter(filter) {
-    const filterMap = {
-        'india-hindi': { country: 'IN', language: 'hin' },
-        'india-marathi': { country: 'IN', language: 'mar' },
-        'india-english': { country: 'IN', language: 'eng' },
-        'english-kids': { language: 'eng', category: 'kids' }
-    };
-
-    const params = filterMap[filter];
-    if (!params) return;
-
+// Load all IPTV-org channels (cached on server)
+async function loadAllIptvOrgChannels() {
     try {
-        // Build query string
-        const queryParams = new URLSearchParams(params).toString();
-        const response = await fetch(`${API_BASE}/api/v1/iptv-org/filter?${queryParams}`, {
+        document.getElementById('iptvOrgChannels').classList.add('hidden');
+        document.getElementById('iptvOrgPlaceholder').classList.add('hidden');
+        document.getElementById('iptvOrgLoading').classList.remove('hidden');
+
+        showToast('Loading all IPTV-org channels...', 'info');
+
+        // Use the /fetch endpoint without URL to get ALL enriched data
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=all`, {
             headers: { 'X-Session-Id': sessionId }
         });
 
         if (!response.ok) {
-            throw new Error('Filter fetch failed');
+            throw new Error('Failed to load channels');
         }
 
         const data = await response.json();
@@ -1436,14 +1681,111 @@ async function loadQuickFilter(filter) {
 
         document.getElementById('iptvOrgCount').textContent = iptvOrgChannels.length;
         renderIptvOrgTable(iptvOrgChannels);
+        document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
-    } catch (error) {
-        console.error('Error loading quick filter:', error);
-        alert(`Failed to load ${filter} channels. Using fallback...`);
 
-        // Fallback: fetch all and filter client-side
-        await loadIptvOrgPlaylists();
+        showToast(`Loaded ${iptvOrgChannels.length} channels from cache`, 'success');
+    } catch (error) {
+        console.error('Error loading all IPTV-org channels:', error);
+        document.getElementById('iptvOrgLoading').classList.add('hidden');
+        showToast('Failed to load channels', 'error');
     }
+}
+
+// Clear cache and refresh
+async function clearCacheAndRefresh() {
+    try {
+        showToast('Clearing cache...', 'info');
+
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/clear-cache`, {
+            method: 'POST',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to clear cache');
+        }
+
+        const data = await response.json();
+        showToast(data.message || 'Cache cleared successfully', 'success');
+
+        // Reload the data
+        setTimeout(() => loadAllIptvOrgChannels(), 500);
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        showToast('Failed to clear cache', 'error');
+    }
+}
+
+// Quick Filter Functions - Use DataTables search instead of fetching new data
+function applyQuickFilter(filter) {
+    // For active channels, filter the main channels table
+    if (filter === 'active-channels') {
+        if (!channelsDataTable) {
+            // Load channels first, then apply filter
+            loadChannels().then(() => {
+                setTimeout(() => applyQuickFilter('active-channels'), 500);
+            });
+            return;
+        }
+
+        // Apply search for active channels (Column 4 is isActive, renders as 'Active' or 'Inactive')
+        channelsDataTable.search('').columns().search('');
+        channelsDataTable.column(4).search('Active', false, false).draw();
+
+        const visibleRows = channelsDataTable.rows({ search: 'applied' }).count();
+        showToast(`Showing ${visibleRows} active channels`, 'info');
+
+        // Switch to channels view
+        switchView('channels');
+        return;
+    }
+
+    // For IPTV-org filters, ensure data is loaded first
+    if (!iptvOrgDataTable) {
+        showToast('Please load IPTV-org channels first by clicking "Load All Channels"', 'warning');
+        return;
+    }
+
+    // Clear all previous searches
+    iptvOrgDataTable.search('').columns().search('');
+
+    const filterMap = {
+        'india-hindi': { country: 'IN', language: 'hindi' },
+        'india-marathi': { country: 'IN', language: 'marathi' },
+        'india-english': { country: 'IN', language: 'english' },
+        'english-kids': { language: 'english', category: 'kids' },
+        'show-all': {}
+    };
+
+    const params = filterMap[filter];
+    if (!params) return;
+
+    // For "Show All", just clear filters
+    if (filter === 'show-all') {
+        iptvOrgDataTable.draw();
+        showToast('Showing all channels', 'info');
+        return;
+    }
+
+    // Apply filters using DataTables column search
+    // Column indices: 2=Name, 3=Group, 4=Language, 5=Country
+    if (params.country) {
+        iptvOrgDataTable.column(5).search(params.country, false, false);
+    }
+
+    if (params.language) {
+        iptvOrgDataTable.column(4).search(params.language, false, false);
+    }
+
+    if (params.category) {
+        iptvOrgDataTable.column(3).search(params.category, false, false);
+    }
+
+    iptvOrgDataTable.draw();
+
+    const visibleRows = iptvOrgDataTable.rows({ search: 'applied' }).count();
+    showToast(`Showing ${visibleRows} filtered channels`, 'info');
 }
 
 // Show Channel Details Modal
@@ -1834,3 +2176,478 @@ switchView = function(view) {
         loadApkVersions();
     }
 };
+
+// ============================================
+// USER MANAGEMENT FUNCTIONS
+// ============================================
+
+// Load Users
+async function loadUsers() {
+    try {
+        document.getElementById('loadingUsers').classList.remove('hidden');
+
+        const response = await fetch(`${API_BASE}/api/v1/users`, {
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load users');
+        }
+
+        const data = await response.json();
+        users = data.data || [];
+
+        renderUsersTable(users);
+        updateUserStats(users);
+
+        document.getElementById('loadingUsers').classList.add('hidden');
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showToast('Failed to load users', 'error');
+        document.getElementById('loadingUsers').classList.add('hidden');
+    }
+}
+
+// Render Users Table
+function renderUsersTable(usersToRender) {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+        console.log('Waiting for jQuery/DataTables to load...');
+        setTimeout(() => renderUsersTable(usersToRender), 100);
+        return;
+    }
+
+    if (usersDataTable) {
+        usersDataTable.destroy();
+        usersDataTable = null;
+    }
+
+    usersDataTable = $('#usersTable').DataTable({
+        data: usersToRender,
+        pageLength: 25,
+        order: [[6, 'desc']], // Sort by Last Login descending
+        columns: [
+            {
+                data: 'username',
+                render: function(data, type, row) {
+                    return `<strong>${data}</strong>`;
+                }
+            },
+            {
+                data: 'email'
+            },
+            {
+                data: 'role',
+                render: function(data, type, row) {
+                    const badge = data === 'Admin' ? 'status-admin' : 'status-user';
+                    return `<span class="status-badge ${badge}">${data}</span>`;
+                }
+            },
+            {
+                data: 'playlistCode',
+                render: function(data, type, row) {
+                    return `<span style="font-weight: bold; letter-spacing: 2px; font-family: monospace;">${data}</span>`;
+                }
+            },
+            {
+                data: 'channels',
+                render: function(data, type, row) {
+                    if (row.role === 'Admin') {
+                        return '<span class="status-badge status-all">All Channels</span>';
+                    }
+                    return data.length || 0;
+                }
+            },
+            {
+                data: 'isActive',
+                render: function(data, type, row) {
+                    return `<span class="status-badge ${data ? 'status-active' : 'status-inactive'}">${data ? 'Active' : 'Inactive'}</span>`;
+                }
+            },
+            {
+                data: 'lastLogin',
+                render: function(data, type, row) {
+                    if (!data) return 'Never';
+                    return formatDate(data);
+                }
+            },
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    return `
+                        <div class="actions">
+                            <button class="btn-icon btn-edit-user" data-id="${row._id}" title="Edit">✏️</button>
+                            <button class="btn-icon btn-assign-channels" data-id="${row._id}" title="Assign Channels">📋</button>
+                            <button class="btn-icon btn-copy-code-user" data-id="${row._id}" title="Copy Code">📋</button>
+                            <button class="btn-icon btn-delete-user" data-id="${row._id}" title="Delete">🗑️</button>
+                        </div>
+                    `;
+                }
+            }
+        ],
+        initComplete: function() {
+            $('#usersTable').on('click', '.btn-edit-user', function() {
+                const id = $(this).data('id');
+                editUser(id);
+            });
+
+            $('#usersTable').on('click', '.btn-assign-channels', function() {
+                const id = $(this).data('id');
+                openAssignChannelsModal(id);
+            });
+
+            $('#usersTable').on('click', '.btn-copy-code-user', function() {
+                const id = $(this).data('id');
+                const user = users.find(u => u._id === id);
+                if (user) {
+                    navigator.clipboard.writeText(user.playlistCode);
+                    showToast(`Playlist code ${user.playlistCode} copied!`, 'success');
+                }
+            });
+
+            $('#usersTable').on('click', '.btn-delete-user', function() {
+                const id = $(this).data('id');
+                deleteUser(id);
+            });
+        }
+    });
+}
+
+// Update User Stats
+function updateUserStats(users) {
+    document.getElementById('totalUsers').textContent = users.length;
+    document.getElementById('activeUsers').textContent = users.filter(u => u.isActive).length;
+    document.getElementById('adminUsers').textContent = users.filter(u => u.role === 'Admin').length;
+}
+
+// Open User Modal (Add/Edit)
+function openUserModal(userId = null) {
+    currentUserId = userId;
+    const modal = document.getElementById('userModal');
+    const title = document.getElementById('userModalTitle');
+    const form = document.getElementById('userForm');
+    const passwordHint = document.getElementById('passwordHint');
+    const playlistCodeDisplay = document.getElementById('playlistCodeDisplay');
+
+    form.reset();
+
+    if (userId) {
+        // Edit mode
+        title.textContent = 'Edit User';
+        passwordHint.classList.remove('hidden');
+        playlistCodeDisplay.style.display = 'block';
+
+        const user = users.find(u => u._id === userId);
+        if (user) {
+            document.getElementById('userId').value = user._id;
+            document.getElementById('userUsername').value = user.username;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userRole').value = user.role;
+            document.getElementById('userIsActive').checked = user.isActive;
+            document.getElementById('userPlaylistCode').value = user.playlistCode;
+            document.getElementById('userPassword').removeAttribute('required');
+        }
+    } else {
+        // Add mode
+        title.textContent = 'Add User';
+        passwordHint.classList.add('hidden');
+        playlistCodeDisplay.style.display = 'none';
+        document.getElementById('userPassword').setAttribute('required', 'required');
+    }
+
+    modal.classList.add('active');
+}
+
+// Handle User Form Submit
+async function handleUserSubmit(e) {
+    e.preventDefault();
+
+    const userId = currentUserId;
+    const username = document.getElementById('userUsername').value;
+    const email = document.getElementById('userEmail').value;
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+    const isActive = document.getElementById('userIsActive').checked;
+
+    const userData = {
+        username,
+        email,
+        role,
+        isActive
+    };
+
+    // Only send password if it's set (for edit mode)
+    if (password) {
+        userData.password = password;
+    }
+
+    try {
+        let response;
+        if (userId) {
+            // Update user
+            response = await fetch(`${API_BASE}/api/v1/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': sessionId
+                },
+                body: JSON.stringify(userData)
+            });
+        } else {
+            // Create user
+            response = await fetch(`${API_BASE}/api/v1/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': sessionId
+                },
+                body: JSON.stringify(userData)
+            });
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(userId ? 'User updated successfully' : 'User created successfully', 'success');
+            closeUserModal();
+            loadUsers();
+        } else {
+            showToast(data.error || 'Failed to save user', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving user:', error);
+        showToast('Failed to save user', 'error');
+    }
+}
+
+// Edit User
+function editUser(userId) {
+    openUserModal(userId);
+}
+
+// Delete User
+async function deleteUser(userId) {
+    const user = users.find(u => u._id === userId);
+    if (!user) return;
+
+    if (!confirm(`Delete user "${user.username}"?`)) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('User deleted successfully', 'success');
+            loadUsers();
+        } else {
+            showToast(data.error || 'Failed to delete user', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showToast('Failed to delete user', 'error');
+    }
+}
+
+// Close User Modal
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('active');
+    currentUserId = null;
+}
+
+// Copy Playlist Code
+function copyPlaylistCode() {
+    const code = document.getElementById('userPlaylistCode').value;
+    if (code) {
+        navigator.clipboard.writeText(code);
+        showToast(`Playlist code ${code} copied!`, 'success');
+    }
+}
+
+// Regenerate Playlist Code
+async function handleRegenerateCode() {
+    if (!currentUserId) return;
+
+    if (!confirm('Regenerate playlist code? This will invalidate the current code.')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${currentUserId}/regenerate-code`, {
+            method: 'PUT',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('userPlaylistCode').value = data.data.playlistCode;
+            showToast('Playlist code regenerated successfully', 'success');
+            loadUsers(); // Refresh table
+        } else {
+            showToast(data.error || 'Failed to regenerate code', 'error');
+        }
+    } catch (error) {
+        console.error('Error regenerating code:', error);
+        showToast('Failed to regenerate code', 'error');
+    }
+}
+
+// Open Assign Channels Modal
+async function openAssignChannelsModal(userId) {
+    const user = users.find(u => u._id === userId);
+    if (!user) return;
+
+    document.getElementById('assignUserId').value = userId;
+    document.getElementById('assignUserName').textContent = user.username;
+
+    // Load all channels
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/channels`, {
+            headers: { 'X-Session-Id': sessionId }
+        });
+        const data = await response.json();
+        const allChannels = data.data || [];
+
+        renderAssignChannelsTable(allChannels, user.channels);
+
+        document.getElementById('assignChannelsModal').classList.add('active');
+    } catch (error) {
+        console.error('Error loading channels:', error);
+        showToast('Failed to load channels', 'error');
+    }
+}
+
+// Render Assign Channels Table
+function renderAssignChannelsTable(allChannels, userChannelIds) {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+        console.log('Waiting for jQuery/DataTables to load...');
+        setTimeout(() => renderAssignChannelsTable(allChannels, userChannelIds), 100);
+        return;
+    }
+
+    if (assignChannelsDataTable) {
+        assignChannelsDataTable.destroy();
+        assignChannelsDataTable = null;
+    }
+
+    const userChannelSet = new Set(userChannelIds.map(id => id.toString()));
+
+    assignChannelsDataTable = $('#assignChannelsTable').DataTable({
+        data: allChannels,
+        pageLength: 10,
+        order: [[1, 'asc']],
+        columns: [
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    const checked = userChannelSet.has(row._id.toString()) ? 'checked' : '';
+                    return `<input type="checkbox" class="channel-assign-checkbox" data-id="${row._id}" ${checked}>`;
+                }
+            },
+            {
+                data: 'channelName'
+            },
+            {
+                data: 'channelGroup',
+                render: function(data, type, row) {
+                    return data || 'N/A';
+                }
+            }
+        ]
+    });
+
+    updateSelectedCount();
+
+    // Update selected count when checkboxes change
+    $('#assignChannelsTable').on('change', '.channel-assign-checkbox', function() {
+        updateSelectedCount();
+    });
+
+    // Select all checkbox
+    $('#selectAllCheck').on('change', function() {
+        const isChecked = $(this).is(':checked');
+        $('.channel-assign-checkbox').prop('checked', isChecked);
+        updateSelectedCount();
+    });
+}
+
+// Update Selected Count
+function updateSelectedCount() {
+    const count = $('.channel-assign-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = `${count} channels selected`;
+}
+
+// Select All Channels
+function selectAllChannels() {
+    $('.channel-assign-checkbox').prop('checked', true);
+    $('#selectAllCheck').prop('checked', true);
+    updateSelectedCount();
+}
+
+// Deselect All Channels
+function deselectAllChannels() {
+    $('.channel-assign-checkbox').prop('checked', false);
+    $('#selectAllCheck').prop('checked', false);
+    updateSelectedCount();
+}
+
+// Handle Save Channels
+async function handleSaveChannels() {
+    const userId = document.getElementById('assignUserId').value;
+    const selectedChannelIds = [];
+
+    $('.channel-assign-checkbox:checked').each(function() {
+        selectedChannelIds.push($(this).data('id'));
+    });
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${userId}/channels`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId
+            },
+            body: JSON.stringify({ channelIds: selectedChannelIds })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`Assigned ${selectedChannelIds.length} channels successfully`, 'success');
+            document.getElementById('assignChannelsModal').classList.remove('active');
+            loadUsers(); // Refresh users table
+        } else {
+            showToast(data.error || 'Failed to assign channels', 'error');
+        }
+    } catch (error) {
+        console.error('Error assigning channels:', error);
+        showToast('Failed to assign channels', 'error');
+    }
+}
+
+// Close modals when clicking close button or outside
+document.addEventListener('click', function(e) {
+    if (e.target.matches('[data-close]')) {
+        const modalId = e.target.getAttribute('data-close');
+        document.getElementById(modalId).classList.remove('active');
+
+        if (modalId === 'userModal') {
+            currentUserId = null;
+        }
+    }
+
+    // Close modals if clicking outside
+    const userModal = document.getElementById('userModal');
+    if (e.target === userModal) {
+        userModal.classList.remove('active');
+        currentUserId = null;
+    }
+
+    const assignModal = document.getElementById('assignChannelsModal');
+    if (e.target === assignModal) {
+        assignModal.classList.remove('active');
+    }
+});

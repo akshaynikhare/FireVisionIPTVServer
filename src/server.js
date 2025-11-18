@@ -18,11 +18,12 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.datatables.net", "https://vjs.zencdn.net"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      connectSrc: ["'self'", "https:", "http:", "https://cdn.jsdelivr.net"],
+      connectSrc: ["'self'", "https:", "http:", "blob:", "data:", "ws:", "wss:", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:", "http:"],
+      mediaSrc: ["'self'", "blob:", "data:", "https:", "http:"],
       frameSrc: ["'none'"],
+      workerSrc: ["'self'", "blob:"],
     },
   },
 }));
@@ -64,6 +65,8 @@ app.use('/api/v1/iptv-org', require('./routes/iptv-org'));
 app.use('/api/v1/test', require('./routes/channel-test'));
 app.use('/api/v1/image-proxy', require('./routes/image-proxy'));
 app.use('/api/v1/stream-proxy', require('./routes/stream-proxy'));
+app.use('/api/v1/users', require('./routes/users'));
+app.use('/api/v1/tv', require('./routes/tv'));
 
 // Health check
 app.get('/health', (req, res) => {
