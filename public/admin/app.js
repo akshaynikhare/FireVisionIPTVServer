@@ -659,9 +659,11 @@ async function handleBulkDelete() {
 // Bulk Test
 async function handleBulkTest() {
     if (selectedChannels.size === 0) {
-        alert('Please select channels to test');
+        showToast('Please select channels to test', 'warning');
         return;
     }
+
+    showToast('Testing channels...', 'info');
 
     const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
         method: 'POST',
@@ -673,7 +675,8 @@ async function handleBulkTest() {
     });
 
     const data = await response.json();
-    alert(`Tested ${data.tested} channels\nWorking: ${data.results.filter(r => r.working).length}`);
+    const workingCount = data.results.filter(r => r.working).length;
+    showToast(`Tested ${data.tested} channels - ${workingCount} working, ${data.tested - workingCount} failed`, 'success');
     loadChannels();
 }
 
@@ -985,12 +988,14 @@ async function testSingleChannel(id) {
         const data = await response.json();
 
         if (data.success) {
-            alert(`Channel: ${data.channel.name}\nStatus: ${data.working ? 'Working ✓' : 'Not Working ✗'}\nResponse Time: ${data.responseTime}ms`);
+            const status = data.working ? '✓ Working' : '✗ Not Working';
+            const statusType = data.working ? 'success' : 'error';
+            showToast(`${data.channel.name}: ${status} (${data.responseTime}ms)`, statusType);
             loadChannels(); // Reload to get updated status
         }
     } catch (error) {
         console.error('Error testing channel:', error);
-        alert('Failed to test channel');
+        showToast('Failed to test channel', 'error');
         loadChannels(); // Reload to clear loading state
     }
 }
@@ -999,13 +1004,14 @@ async function testChannels(mode) {
     const channelsToTest = mode === 'all' ? channels.map(c => c._id) : Array.from(selectedChannels);
 
     if (channelsToTest.length === 0) {
-        alert('No channels to test');
+        showToast('No channels to test', 'warning');
         return;
     }
 
     if (!confirm(`Test ${channelsToTest.length} channels? This may take several minutes.`)) return;
 
     document.getElementById('testProgress').textContent = 'Testing...';
+    showToast(`Testing ${channelsToTest.length} channels...`, 'info');
 
     try {
         const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
@@ -1020,12 +1026,12 @@ async function testChannels(mode) {
         const data = await response.json();
         document.getElementById('testProgress').textContent = '';
 
-        alert(`Tested: ${data.tested}\nWorking: ${data.working}\nNot Working: ${data.notWorking}`);
+        showToast(`Tested: ${data.tested} - Working: ${data.working}, Not Working: ${data.notWorking}`, 'success');
         loadChannels();
         loadTestResults();
     } catch (error) {
         console.error('Error testing channels:', error);
-        alert('Failed to test channels');
+        showToast('Failed to test channels', 'error');
         document.getElementById('testProgress').textContent = '';
     }
 }
@@ -1044,7 +1050,7 @@ async function loadTestResults() {
         renderTestResultsTable(testChannels);
     } catch (error) {
         console.error('Error loading test results:', error);
-        alert('Failed to load channels for testing');
+        showToast('Failed to load channels for testing', 'error');
     }
 }
 
