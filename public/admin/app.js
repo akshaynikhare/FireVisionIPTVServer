@@ -1,6 +1,6 @@
 // API Configuration
 const API_BASE = window.location.origin;
-let sessionId = localStorage.getItem('sessionId');
+// Session is now managed by cookies (Passport.js)
 let currentView = 'channels';
 let channels = [];
 let iptvOrgChannels = [];
@@ -59,10 +59,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Check Authentication
 async function checkAuth() {
-    if (sessionId) {
-        try {
-            const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
-                headers: { 'X-Session-Id': sessionId }
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                showDashboard(data.user);
+                return;
+            }
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+    }
+
+    showLogin();
+}
             });
 
             if (response.ok) {
@@ -230,20 +244,21 @@ async function handleLogin(e) {
         const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            sessionId = data.sessionId;
-            localStorage.setItem('sessionId', sessionId);
+            // Session is now stored in cookie
             showDashboard(data.user);
         } else {
             errorDiv.textContent = data.error || 'Login failed';
             errorDiv.classList.remove('hidden');
         }
     } catch (error) {
+        console.error('Login error:', error);
         errorDiv.textContent = 'Connection error';
         errorDiv.classList.remove('hidden');
     }
@@ -254,14 +269,13 @@ async function handleLogout() {
     try {
         await fetch(`${API_BASE}/api/v1/auth/logout`, {
             method: 'POST',
-            headers: { 'X-Session-Id': sessionId }
+            credentials: 'include'
         });
     } catch (error) {
         console.error('Logout error:', error);
     }
 
-    localStorage.removeItem('sessionId');
-    sessionId = null;
+    // Cookie will be cleared by server
     showLogin();
 }
 
@@ -314,7 +328,7 @@ async function loadChannels() {
     try {
         document.getElementById('loadingChannels').classList.remove('hidden');
 
-        const response = await fetch(`${API_BASE}/api/v1/channels`);
+        const response = await fetch(`${API_BASE}/api/v1/channels`, { credentials: 'include' });
         const data = await response.json();
 
         channels = data.data;
@@ -584,8 +598,7 @@ async function handleChannelSubmit(e) {
             method,
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify(channelData)
         });
 
@@ -618,8 +631,7 @@ async function deleteChannel(id) {
     try {
         const response = await fetch(`${API_BASE}/api/v1/admin/channels/${id}`, {
             method: 'DELETE',
-            headers: { 'X-Session-Id': sessionId }
-        });
+             credentials: 'include' });
 
         const data = await response.json();
 
@@ -669,8 +681,7 @@ async function handleBulkDelete() {
     const promises = Array.from(selectedChannels).map(id =>
         fetch(`${API_BASE}/api/v1/admin/channels/${id}`, {
             method: 'DELETE',
-            headers: { 'X-Session-Id': sessionId }
-        })
+             credentials: 'include' })
     );
 
     await Promise.all(promises);
@@ -698,8 +709,7 @@ async function handleBulkTest() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Session-Id': sessionId
-        },
+            },
         body: JSON.stringify({ channelIds: channelsToTest })
     });
 
@@ -713,8 +723,7 @@ async function handleBulkTest() {
 async function loadIptvOrgPlaylists() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/playlists`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         const data = await response.json();
         renderPlaylistsGrid(data.data);
@@ -746,8 +755,7 @@ async function fetchIptvOrgPlaylist(url) {
         document.getElementById('iptvOrgLoading').classList.remove('hidden');
 
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=${encodeURIComponent(url)}`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         const data = await response.json();
         iptvOrgChannels = data.data;
@@ -964,8 +972,7 @@ async function handleImportSelected() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify({
                 channels: selectedChannelsData,
                 replaceExisting
@@ -1009,8 +1016,7 @@ async function testSingleChannel(id) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify({ channelId: id })
         });
 
@@ -1054,8 +1060,7 @@ async function testChannels(mode) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify({ channelIds: channelsToTest })
         });
 
@@ -1075,8 +1080,7 @@ async function testChannels(mode) {
 async function loadTestResults() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/channels`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         if (!response.ok) throw new Error('Failed to load channels');
 
@@ -1216,8 +1220,7 @@ function renderTestResultsTable(testChannels) {
 async function loadStats() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/admin/stats`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         const data = await response.json();
 
@@ -1397,7 +1400,7 @@ function playChannel(channel) {
             xhrSetup: function(xhr, url) {
                 // Add authentication header for stream proxy requests
                 if (url.includes('/api/v1/stream-proxy') && sessionId) {
-                    xhr.setRequestHeader('X-Session-Id', sessionId);
+                    // Session managed by cookies
                 }
             }
         });
@@ -1669,8 +1672,7 @@ async function loadAllIptvOrgChannels() {
 
         // Use the /fetch endpoint without URL to get ALL enriched data
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=all`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to load channels');
@@ -1699,8 +1701,7 @@ async function clearCacheAndRefresh() {
 
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/clear-cache`, {
             method: 'POST',
-            headers: { 'X-Session-Id': sessionId }
-        });
+             credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to clear cache');
@@ -1863,7 +1864,7 @@ async function loadApkVersions() {
 
     try {
         // Use the new JSON-based public endpoint (no auth needed)
-        const response = await fetch(`${API_BASE}/api/v1/app/versions`);
+        const response = await fetch(`${API_BASE}/api/v1/app/versions`, { credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to fetch APK versions');
@@ -2007,6 +2008,7 @@ async function handleApkUpload(event) {
 
     try {
         const xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
 
         // Track upload progress
         xhr.upload.addEventListener('progress', (e) => {
@@ -2044,7 +2046,7 @@ async function handleApkUpload(event) {
 
         // Send request
         xhr.open('POST', `${API_BASE}/api/v1/admin/app/upload`);
-        xhr.setRequestHeader('X-Session-Id', sessionId);
+        // Session managed by cookies
         xhr.send(formData);
 
     } catch (error) {
@@ -2062,8 +2064,7 @@ async function toggleApkStatus(versionId, newStatus) {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify({ isActive: newStatus })
         });
 
@@ -2088,8 +2089,7 @@ async function deleteApkVersion(versionId) {
     try {
         const response = await fetch(`${API_BASE}/api/v1/admin/app/versions/${versionId}`, {
             method: 'DELETE',
-            headers: { 'X-Session-Id': sessionId }
-        });
+             credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to delete version');
@@ -2187,8 +2187,7 @@ async function loadUsers() {
         document.getElementById('loadingUsers').classList.remove('hidden');
 
         const response = await fetch(`${API_BASE}/api/v1/users`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to load users');
@@ -2389,8 +2388,7 @@ async function handleUserSubmit(e) {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Session-Id': sessionId
-                },
+                    },
                 body: JSON.stringify(userData)
             });
         } else {
@@ -2399,8 +2397,7 @@ async function handleUserSubmit(e) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Session-Id': sessionId
-                },
+                    },
                 body: JSON.stringify(userData)
             });
         }
@@ -2435,8 +2432,7 @@ async function deleteUser(userId) {
     try {
         const response = await fetch(`${API_BASE}/api/v1/users/${userId}`, {
             method: 'DELETE',
-            headers: { 'X-Session-Id': sessionId }
-        });
+             credentials: 'include' });
 
         const data = await response.json();
 
@@ -2476,8 +2472,7 @@ async function handleRegenerateCode() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/users/${currentUserId}/regenerate-code`, {
             method: 'PUT',
-            headers: { 'X-Session-Id': sessionId }
-        });
+             credentials: 'include' });
 
         const data = await response.json();
 
@@ -2505,8 +2500,7 @@ async function openAssignChannelsModal(userId) {
     // Load all channels
     try {
         const response = await fetch(`${API_BASE}/api/v1/channels`, {
-            headers: { 'X-Session-Id': sessionId }
-        });
+            , credentials: 'include' });
         const data = await response.json();
         const allChannels = data.data || [];
 
@@ -2608,8 +2602,7 @@ async function handleSaveChannels() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Session-Id': sessionId
-            },
+                },
             body: JSON.stringify({ channelIds: selectedChannelIds })
         });
 
