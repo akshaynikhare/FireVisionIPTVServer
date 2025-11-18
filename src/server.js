@@ -106,12 +106,13 @@ app.use((req, res) => {
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
 const PORT = process.env.PORT || 3000;
 
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => {
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
     console.log('✅ Connected to MongoDB');
+
+    // Initialize Super Admin user
+    const { initializeSuperAdmin } = require('./utils/initSuperAdmin');
+    await initializeSuperAdmin();
 
     // Start server
     app.listen(PORT, '0.0.0.0', () => {

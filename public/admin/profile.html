@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - FireVision IPTV</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .profile-view {
+            max-width: 1200px;
+        }
+
+        .profile-header {
+            margin-bottom: 2rem;
+        }
+
+        .profile-picture-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .profile-picture-wrapper {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin-bottom: 1rem;
+        }
+
+        .profile-picture {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #3b82f6;
+            background: #f3f4f6;
+        }
+
+        .profile-picture-placeholder {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: bold;
+            border: 4px solid #3b82f6;
+        }
+
+        .profile-picture-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .profile-section {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .profile-section h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: #1f2937;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 0.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-group input:disabled {
+            background: #f3f4f6;
+            cursor: not-allowed;
+        }
+
+        .playlist-code-display {
+            background: #f0f9ff;
+            border: 2px solid #3b82f6;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .playlist-code {
+            font-size: 2rem;
+            font-weight: bold;
+            letter-spacing: 0.3rem;
+            color: #1e40af;
+            margin: 0.5rem 0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .info-card {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-card strong {
+            color: #1e40af;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <div class="login-box">
+                <h1>🔐 Redirecting...</h1>
+                <p class="subtitle">Please wait...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen with Profile View -->
+    <div id="dashboardScreen" class="screen">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h2>📺 FireVision</h2>
+                <p>Admin Dashboard</p>
+            </div>
+            <nav>
+                <a href="index.html" data-view="channels">📋 Channels</a>
+                <a href="index.html" data-view="users" id="usersNavLink">👥 Users</a>
+                <a href="index.html" data-view="iptv-org">🌐 IPTV-org Fetch</a>
+                <a href="index.html" data-view="apk">📱 APK Manager</a>
+                <a href="index.html" data-view="stats">📊 Statistics</a>
+            </nav>
+            <div class="user-info">
+                <a href="profile.html" class="user-profile-section clickable active">
+                    <div class="user-avatar-wrapper">
+                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
+                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
+                            <span id="sidebarProfileInitials">U</span>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <p class="user-name" id="loggedInUser">User</p>
+                        <p class="user-role" id="loggedInUserRole">Admin</p>
+                    </div>
+                </a>
+                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div id="profileView" class="view active profile-view">
+                <div class="header profile-header">
+                    <h1>My Profile</h1>
+                    <p class="subtitle">Manage your account settings and preferences</p>
+                </div>
+
+                <!-- Profile Picture Section -->
+                <div class="profile-section">
+                    <h2>Profile Picture</h2>
+                    <div class="profile-picture-section">
+                        <div class="profile-picture-wrapper">
+                            <img id="profilePicture" class="profile-picture hidden" alt="Profile Picture">
+                            <div id="profilePicturePlaceholder" class="profile-picture-placeholder">
+                                <span id="profileInitials">U</span>
+                            </div>
+                        </div>
+                        <div class="profile-picture-actions">
+                            <input type="file" id="profilePictureInput" accept="image/jpeg,image/jpg,image/png,image/gif">
+                            <button class="btn btn-primary" onclick="document.getElementById('profilePictureInput').click()">
+                                Upload Photo
+                            </button>
+                            <button id="deleteProfilePictureBtn" class="btn btn-danger hidden">
+                                Delete Photo
+                            </button>
+                        </div>
+                        <p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                            Max file size: 5MB. Allowed formats: JPG, PNG, GIF
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Basic Information Section -->
+                <div class="profile-section">
+                    <h2>Basic Information</h2>
+                    <form id="profileForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="username">Username</label>
+                                <input type="text" id="username" required minlength="3">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="role">Role</label>
+                                <input type="text" id="role" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label for="memberSince">Member Since</label>
+                                <input type="text" id="memberSince" disabled>
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Playlist Code Section -->
+                <div class="profile-section">
+                    <h2>Your Playlist Code</h2>
+                    <div class="info-card">
+                        <p><strong>Your unique playlist code:</strong> Use this code to access your personalized channel list in the FireVision IPTV app.</p>
+                    </div>
+                    <div class="playlist-code-display">
+                        <p style="margin: 0; color: #6b7280;">Playlist Code</p>
+                        <div class="playlist-code" id="playlistCode">------</div>
+                        <button class="btn btn-secondary" onclick="copyPlaylistCode()">📋 Copy Code</button>
+                    </div>
+                </div>
+
+                <!-- Password Change Section -->
+                <div class="profile-section">
+                    <h2>Change Password</h2>
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" required minlength="6">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <input type="password" id="newPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" required minlength="6">
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">Change Password</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Channel Assignment Section (for regular users) -->
+                <div id="userChannelsSection" class="profile-section hidden">
+                    <h2>My Assigned Channels</h2>
+                    <div class="info-card">
+                        <p><strong>Total Channels:</strong> <span id="assignedChannelsCount">0</span></p>
+                    </div>
+                    <p style="color: #6b7280;">Contact your administrator to manage your channel assignments.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let sessionId = localStorage.getItem('sessionId');
+        let currentUser = null;
+
+        // Toast notification
+        function showToast(message, duration = 3000) {
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Check authentication
+        async function checkAuth() {
+            if (!sessionId) {
+                window.location.href = '/admin/';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+                    headers: { 'X-Session-Id': sessionId }
+                });
+
+                if (!response.ok) {
+                    window.location.href = '/admin/';
+                    return;
+                }
+
+                const data = await response.json();
+                currentUser = data.user;
+                showDashboard();
+                loadUserProfile();
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/admin/';
+            }
+        }
+
+        // Show dashboard
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.remove('active');
+            document.getElementById('dashboardScreen').classList.add('active');
+        }
+
+        // Update sidebar with user info
+        function updateSidebar() {
+            document.getElementById('loggedInUser').textContent = currentUser.username;
+            document.getElementById('loggedInUserRole').textContent = currentUser.role || 'User';
+
+            // Set sidebar profile picture or initials
+            if (currentUser.profilePicture) {
+                document.getElementById('sidebarProfilePicture').src = API_BASE + currentUser.profilePicture;
+                document.getElementById('sidebarProfilePicture').classList.remove('hidden');
+                document.getElementById('sidebarProfilePlaceholder').classList.add('hidden');
+            } else {
+                const initials = currentUser.username ? currentUser.username.substring(0, 2).toUpperCase() : 'U';
+                document.getElementById('sidebarProfileInitials').textContent = initials;
+            }
+
+            // Hide Users tab for non-admin users
+            if (currentUser.role !== 'Admin') {
+                const usersNavLink = document.getElementById('usersNavLink');
+                if (usersNavLink) {
+                    usersNavLink.style.display = 'none';
+                }
+            }
+        }
+
+        // Load user profile
+        function loadUserProfile() {
+            updateSidebar();
+
+            document.getElementById('username').value = currentUser.username || '';
+            document.getElementById('email').value = currentUser.email || '';
+            document.getElementById('role').value = currentUser.role || '';
+            document.getElementById('playlistCode').textContent = currentUser.playlistCode || '------';
+
+            if (currentUser.createdAt) {
+                const date = new Date(currentUser.createdAt);
+                document.getElementById('memberSince').value = date.toLocaleDateString();
+            }
+
+            // Set profile picture or initials
+            if (currentUser.profilePicture) {
+                document.getElementById('profilePicture').src = API_BASE + currentUser.profilePicture;
+                document.getElementById('profilePicture').classList.remove('hidden');
+                document.getElementById('profilePicturePlaceholder').classList.add('hidden');
+                document.getElementById('deleteProfilePictureBtn').classList.remove('hidden');
+            } else {
+                const initials = currentUser.username ? currentUser.username.substring(0, 2).toUpperCase() : 'U';
+                document.getElementById('profileInitials').textContent = initials;
+            }
+
+            // Show channel count for regular users
+            if (currentUser.role !== 'Admin' && currentUser.channels) {
+                document.getElementById('userChannelsSection').classList.remove('hidden');
+                document.getElementById('assignedChannelsCount').textContent = currentUser.channels.length;
+            }
+        }
+
+        // Handle profile form submission
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({ username, email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Profile updated successfully!');
+                    currentUser = data.user;
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'Failed to update profile');
+                }
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                showToast('Failed to update profile');
+            }
+        });
+
+        // Handle password form submission
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showToast('New passwords do not match!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Password changed successfully!');
+                    document.getElementById('passwordForm').reset();
+                } else {
+                    showToast(data.error || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                showToast('Failed to change password');
+            }
+        });
+
+        // Handle profile picture upload
+        document.getElementById('profilePictureInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('File size must be less than 5MB');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/profile-picture`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': sessionId
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Profile picture uploaded successfully!');
+                    currentUser.profilePicture = data.profilePicture;
+
+                    // Update both profile page and sidebar
+                    document.getElementById('profilePicture').src = API_BASE + data.profilePicture;
+                    document.getElementById('profilePicture').classList.remove('hidden');
+                    document.getElementById('profilePicturePlaceholder').classList.add('hidden');
+                    document.getElementById('deleteProfilePictureBtn').classList.remove('hidden');
+
+                    updateSidebar();
+                } else {
+                    showToast(data.error || 'Failed to upload profile picture');
+                }
+            } catch (error) {
+                console.error('Error uploading profile picture:', error);
+                showToast('Failed to upload profile picture');
+            }
+
+            // Reset input
+            e.target.value = '';
+        });
+
+        // Handle profile picture deletion
+        document.getElementById('deleteProfilePictureBtn').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete your profile picture?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/profile-picture`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Session-Id': sessionId
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Profile picture deleted successfully!');
+                    currentUser.profilePicture = null;
+
+                    document.getElementById('profilePicture').classList.add('hidden');
+                    document.getElementById('profilePicturePlaceholder').classList.remove('hidden');
+                    document.getElementById('deleteProfilePictureBtn').classList.add('hidden');
+
+                    const initials = currentUser.username ? currentUser.username.substring(0, 2).toUpperCase() : 'U';
+                    document.getElementById('profileInitials').textContent = initials;
+
+                    updateSidebar();
+                } else {
+                    showToast(data.error || 'Failed to delete profile picture');
+                }
+            } catch (error) {
+                console.error('Error deleting profile picture:', error);
+                showToast('Failed to delete profile picture');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch(`${API_BASE}/api/v1/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'X-Session-Id': sessionId }
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+
+            localStorage.removeItem('sessionId');
+            window.location.href = '/admin/';
+        });
+
+        // Copy playlist code
+        function copyPlaylistCode() {
+            const code = document.getElementById('playlistCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Playlist code copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showToast('Failed to copy playlist code');
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

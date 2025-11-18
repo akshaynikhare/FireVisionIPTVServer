@@ -43,6 +43,11 @@ const userSchema = new mongoose.Schema({
     default: true,
     index: true
   },
+  // Profile picture URL or path
+  profilePicture: {
+    type: String,
+    default: null
+  },
   // User-specific channels (only for 'User' role, Admin has access to all)
   channels: [{
     type: mongoose.Schema.Types.ObjectId,

@@ -16,7 +16,10 @@ yarn-error.log*
 
 # Uploads and Backups
 # These directories are managed by scripts/manage.sh
-/uploads
+/uploads/*
+!/uploads/.gitkeep
+/public/uploads/profiles/*
+!/public/uploads/profiles/.gitkeep
 /backups
 
 # Build output

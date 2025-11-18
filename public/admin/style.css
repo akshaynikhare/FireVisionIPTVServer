@@ -193,6 +193,128 @@ nav a.active {
 .user-info {
     padding: 1.5rem;
     border-top: 1px solid var(--border);
+    margin-top: auto;
+}
+
+.user-profile-section {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: var(--background);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.user-profile-section.clickable {
+    cursor: pointer;
+}
+
+.user-profile-section.clickable:hover {
+    background: var(--primary);
+    transform: translateX(4px);
+}
+
+.user-profile-section.clickable:hover .user-name,
+.user-profile-section.clickable:hover .user-role {
+    color: white;
+}
+
+.user-profile-section.clickable:hover .user-avatar-placeholder {
+    border-color: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.user-profile-section.clickable:hover .user-avatar {
+    border-color: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.user-profile-section.active {
+    background: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.user-profile-section.active .user-name,
+.user-profile-section.active .user-role {
+    color: white;
+}
+
+.user-profile-section.active .user-avatar-placeholder {
+    border-color: white;
+}
+
+.user-profile-section.active .user-avatar {
+    border-color: white;
+}
+
+.user-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.user-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+    transition: all 0.2s ease;
+}
+
+.user-avatar-placeholder {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: white;
+    font-weight: bold;
+    border: 2px solid var(--primary);
+    transition: all 0.2s ease;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.user-name {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.2s ease;
+}
+
+.user-role {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.8;
+    transition: color 0.2s ease;
+}
+
+.btn-logout {
+    width: 100%;
+    background: #ef4444;
+    color: white;
+    border: none;
+}
+
+.btn-logout:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
 }
 
 .main-content {

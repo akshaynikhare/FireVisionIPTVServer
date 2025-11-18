@@ -29,15 +29,15 @@
                 <p class="subtitle">FireVision IPTV Dashboard</p>
                 <form id="loginForm">
                     <div class="form-group">
-                        <input type="text" id="username" placeholder="Username" required value="admin">
+                        <input type="text" id="username" placeholder="Username" required autocomplete="username">
                     </div>
                     <div class="form-group">
-                        <input type="password" id="password" placeholder="Password" required value="admin123"> 
+                        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn btn-primary btn-fill">Login</button>
                     <div id="loginError" class="error hidden"></div>
                 </form>
-                <p class="help-text">Default: admin / admin123</p>
+                <p class="help-text">Enter your admin credentials</p>
             </div>
         </div>
     </div>
@@ -52,14 +52,25 @@
             </div>
             <nav>
                 <a href="#" data-view="channels" class="active">📋 Channels</a>
-                <a href="#" data-view="users">👥 Users</a>
+                <a href="#" data-view="users" id="usersNavLink">👥 Users</a>
                 <a href="#" data-view="iptv-org">🌐 IPTV-org Fetch</a>
                 <a href="#" data-view="apk">📱 APK Manager</a>
                 <a href="#" data-view="stats">📊 Statistics</a>
             </nav>
             <div class="user-info">
-                <p><strong id="loggedInUser"></strong></p>
-                <button id="logoutBtn" class="btn btn-small">Logout</button>
+                <a href="profile.html" class="user-profile-section clickable">
+                    <div class="user-avatar-wrapper">
+                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
+                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
+                            <span id="sidebarProfileInitials">U</span>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <p class="user-name" id="loggedInUser">User</p>
+                        <p class="user-role" id="loggedInUserRole">Admin</p>
+                    </div>
+                </a>
+                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
             </div>
         </div>
 

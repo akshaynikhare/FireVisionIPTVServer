@@ -5,10 +5,11 @@ const path = require('path');
 const fs = require('fs').promises;
 const Channel = require('../models/Channel');
 const AppVersion = require('../models/AppVersion');
-const { requireAuth } = require('./auth');
+const { requireAuth, requireAdmin } = require('./auth');
 
-// Apply session authentication to all admin routes
+// Apply session authentication and admin role check to all admin routes
 router.use(requireAuth);
+router.use(requireAdmin);
 
 // ============ CHANNEL MANAGEMENT ============
 

@@ -54,9 +54,37 @@ router.get('/grouped', async (req, res) => {
   }
 });
 
-// Get M3U playlist
+// Get M3U playlist (requires playlist code)
 router.get('/playlist.m3u', async (req, res) => {
   try {
+    // Check for playlist code in query parameter or header
+    const providedCode = req.query.code || req.headers['x-playlist-code'];
+    const requiredCode = process.env.PLAYLIST_CODE;
+
+    // Validate playlist code
+    if (!requiredCode) {
+      console.error('PLAYLIST_CODE not configured in environment variables');
+      return res.status(500).json({
+        success: false,
+        error: 'Playlist access not configured'
+      });
+    }
+
+    if (!providedCode) {
+      return res.status(401).json({
+        success: false,
+        error: 'Playlist code required. Provide code via ?code=YOUR_CODE or X-Playlist-Code header'
+      });
+    }
+
+    if (providedCode !== requiredCode) {
+      return res.status(403).json({
+        success: false,
+        error: 'Invalid playlist code'
+      });
+    }
+
+    // Generate and send playlist
     const m3uContent = await Channel.generateM3UPlaylist();
 
     res.setHeader('Content-Type', 'application/x-mpegurl');

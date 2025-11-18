@@ -87,6 +87,27 @@ function showDashboard(user) {
     document.getElementById('loginScreen').classList.remove('active');
     document.getElementById('dashboardScreen').classList.add('active');
     document.getElementById('loggedInUser').textContent = user.username;
+    document.getElementById('loggedInUserRole').textContent = user.role || 'User';
+
+    // Set sidebar profile picture or initials
+    if (user.profilePicture) {
+        document.getElementById('sidebarProfilePicture').src = API_BASE + user.profilePicture;
+        document.getElementById('sidebarProfilePicture').classList.remove('hidden');
+        document.getElementById('sidebarProfilePlaceholder').classList.add('hidden');
+    } else {
+        const initials = user.username ? user.username.substring(0, 2).toUpperCase() : 'U';
+        document.getElementById('sidebarProfileInitials').textContent = initials;
+        document.getElementById('sidebarProfilePicture').classList.add('hidden');
+        document.getElementById('sidebarProfilePlaceholder').classList.remove('hidden');
+    }
+
+    // Hide Users tab for non-admin users
+    if (user.role !== 'Admin') {
+        const usersNavLink = document.getElementById('usersNavLink');
+        if (usersNavLink) {
+            usersNavLink.style.display = 'none';
+        }
+    }
 
     loadChannels();
     loadStats();
@@ -152,9 +173,9 @@ function initializeEventListeners() {
     // Channel details modal
     document.getElementById('detailPreviewBtn').addEventListener('click', handleDetailPreview);
 
-    // Test
-    document.getElementById('testAllChannelsBtn').addEventListener('click', () => testChannels('all'));
-    document.getElementById('testSelectedChannelsBtn').addEventListener('click', () => testChannels('selected'));
+    // Test (buttons not in UI, commented out to prevent errors)
+    // document.getElementById('testAllChannelsBtn').addEventListener('click', () => testChannels('all'));
+    // document.getElementById('testSelectedChannelsBtn').addEventListener('click', () => testChannels('selected'));
 
     // User management
     document.getElementById('addUserBtn').addEventListener('click', () => openUserModal());

@@ -36,6 +36,13 @@ services:
       ALLOWED_ORIGINS: "*"
       APK_STORAGE_PATH: /app/apks
       UPLOAD_DIR: /app/uploads
+      # Super Admin Initial Credentials
+      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-superadmin}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMeNow123!}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
+      FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
+      # Session Configuration
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
     volumes:
       - ./apks:/app/apks
       - ./uploads:/app/uploads
@@ -51,28 +58,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # Nginx Reverse Proxy (optional, for SSL termination)
-  nginx:
-    image: nginx:alpine
-    container_name: firevision-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./apks:/var/www/apks:ro
-    depends_on:
-      - api
-    networks:
-      - firevision-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   mongodb_data:
