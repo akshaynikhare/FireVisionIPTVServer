@@ -709,7 +709,7 @@ async function handleBulkTest() {
 async function loadIptvOrgPlaylists() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/playlists`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         const data = await response.json();
         renderPlaylistsGrid(data.data);
@@ -741,7 +741,7 @@ async function fetchIptvOrgPlaylist(url) {
         document.getElementById('iptvOrgLoading').classList.remove('hidden');
 
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=${encodeURIComponent(url)}`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         const data = await response.json();
         iptvOrgChannels = data.data;
@@ -1066,7 +1066,7 @@ async function testChannels(mode) {
 async function loadTestResults() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/channels`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         if (!response.ok) throw new Error('Failed to load channels');
 
@@ -1206,7 +1206,7 @@ function renderTestResultsTable(testChannels) {
 async function loadStats() {
     try {
         const response = await fetch(`${API_BASE}/api/v1/admin/stats`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         const data = await response.json();
 
@@ -1658,7 +1658,7 @@ async function loadAllIptvOrgChannels() {
 
         // Use the /fetch endpoint without URL to get ALL enriched data
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=all`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to load channels');
@@ -2173,7 +2173,7 @@ async function loadUsers() {
         document.getElementById('loadingUsers').classList.remove('hidden');
 
         const response = await fetch(`${API_BASE}/api/v1/users`, {
-            , credentials: 'include' });
+            credentials: 'include' });
 
         if (!response.ok) {
             throw new Error('Failed to load users');
@@ -2486,7 +2486,7 @@ async function openAssignChannelsModal(userId) {
     // Load all channels
     try {
         const response = await fetch(`${API_BASE}/api/v1/channels`, {
-            , credentials: 'include' });
+            credentials: 'include' });
         const data = await response.json();
         const allChannels = data.data || [];
 
