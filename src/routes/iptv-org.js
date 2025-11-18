@@ -13,6 +13,7 @@ const IPTV_ORG_API_BASE = 'https://iptv-org.github.io/api';
 // Cache for API data (to avoid repeated fetches)
 let channelsCache = { data: null, timestamp: null };
 let streamsCache = { data: null, timestamp: null };
+let languagesCache = { data: null, timestamp: null };
 const CACHE_TTL = 3600000; // 1 hour
 
 // Fetch channels metadata from IPTV-org API
@@ -226,6 +227,22 @@ async function fetchStreamsData() {
     return response.data;
 }
 
+// Helper function to fetch languages data (with caching)
+async function fetchLanguagesData() {
+    if (languagesCache.data && (Date.now() - languagesCache.timestamp) < CACHE_TTL) {
+        return languagesCache.data;
+    }
+
+    const response = await axios.get(`${IPTV_ORG_API_BASE}/languages.json`, {
+        timeout: 30000
+    });
+
+    languagesCache.data = response.data;
+    languagesCache.timestamp = Date.now();
+
+    return response.data;
+}
+
 // Helper function to filter streams
 async function filterStreams(streams, country, category) {
     if (!country && !category) return streams;
@@ -251,6 +268,27 @@ async function filterStreams(streams, country, category) {
         return true;
     });
 }
+
+// Fetch languages from IPTV-org API
+router.get('/api/languages', async (req, res) => {
+    try {
+        const response = await axios.get(`${IPTV_ORG_API_BASE}/languages.json`, {
+            timeout: 30000
+        });
+
+        res.json({
+            success: true,
+            count: response.data.length,
+            data: response.data
+        });
+    } catch (error) {
+        console.error('Error fetching IPTV-org languages:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to fetch languages from IPTV-org API'
+        });
+    }
+});
 
 // Fetch available playlists from IPTV-org
 router.get('/playlists', async (req, res) => {
@@ -300,7 +338,7 @@ router.get('/playlists', async (req, res) => {
     }
 });
 
-// Fetch and parse a specific playlist
+// Fetch and parse a specific playlist with enriched metadata
 router.get('/fetch', async (req, res) => {
     try {
         const { url } = req.query;
@@ -312,16 +350,90 @@ router.get('/fetch', async (req, res) => {
             });
         }
 
-        // Fetch the M3U content
-        const m3uContent = await fetchUrl(url);
+        // Determine what type of fetch this is based on URL
+        let country = null;
+        let category = null;
+        let language = null;
 
-        // Parse M3U content
-        const channels = parseM3U(m3uContent);
+        if (url.includes('index.country')) {
+            // Extract country from URL if possible
+            // For now, fetch all and let frontend filter
+        } else if (url.includes('index.category')) {
+            // Category-based playlist
+        } else if (url.includes('index.language')) {
+            // Language-based playlist
+        }
+
+        // Fetch enriched data from our API
+        const [channelsData, streamsData, languagesData] = await Promise.all([
+            fetchChannelsData(),
+            fetchStreamsData(),
+            fetchLanguagesData()
+        ]);
+
+        // Create maps for quick lookup
+        const channelsMap = new Map();
+        channelsData.forEach(channel => {
+            channelsMap.set(channel.id, channel);
+        });
+
+        const languagesMap = new Map();
+        languagesData.forEach(lang => {
+            languagesMap.set(lang.code, lang);
+        });
+
+        // Enrich streams with all metadata
+        const enrichedChannels = streamsData.map(stream => {
+            const channelMeta = channelsMap.get(stream.channel) || {};
+
+            // Get language names from codes
+            const languageNames = channelMeta.languages?.map(langCode => {
+                const lang = languagesMap.get(langCode);
+                return lang ? lang.name : langCode;
+            }) || [];
+
+            return {
+                // For compatibility with existing frontend
+                channelId: stream.channel || `stream_${Math.random()}`,
+                channelName: channelMeta.name || stream.title || 'Unknown',
+                channelUrl: stream.url,
+                tvgId: stream.channel,
+                tvgName: channelMeta.name || stream.title,
+                tvgLogo: channelMeta.logo || null,
+
+                // Group/Category - Frontend expects 'channelGroup'
+                channelGroup: channelMeta.categories?.[0] || 'Uncategorized',
+                groupTitle: channelMeta.categories?.[0] || 'Uncategorized',
+
+                // Country - Frontend expects 'tvgCountry'
+                tvgCountry: channelMeta.country || null,
+                country: channelMeta.country || null,
+                countryCode: channelMeta.country || null,
+
+                // Language - Frontend expects 'tvgLanguage'
+                tvgLanguage: languageNames.join(', ') || null,
+                language: languageNames.join(', ') || null,
+                languages: channelMeta.languages || [],
+
+                // Additional metadata
+                channelImg: channelMeta.logo || null,
+                streamQuality: stream.quality,
+                streamUserAgent: stream.user_agent,
+                streamReferrer: stream.referrer,
+                channelCategories: channelMeta.categories || [],
+                channelWebsite: channelMeta.website,
+                channelNetwork: channelMeta.network,
+                channelIsNsfw: channelMeta.is_nsfw || false,
+
+                // All categories for filtering
+                categories: channelMeta.categories || []
+            };
+        });
 
         res.json({
             success: true,
-            count: channels.length,
-            data: channels
+            count: enrichedChannels.length,
+            data: enrichedChannels
         });
     } catch (error) {
         console.error('Error fetching IPTV-org playlist:', error);
