@@ -843,7 +843,7 @@ function renderIptvOrgTable(channels) {
             // Add event listeners for action buttons
             $('#iptvOrgTable').on('click', '.btn-preview-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = channels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     previewIptvOrgChannel(channel);
                 }
@@ -851,7 +851,7 @@ function renderIptvOrgTable(channels) {
 
             $('#iptvOrgTable').on('click', '.btn-info-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = channels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     showChannelDetails(channel);
                 }
@@ -1278,6 +1278,7 @@ function playChannel(channel) {
     const modal = document.getElementById('playerModal');
     const errorBox = document.getElementById('playerError');
     const errorDetails = errorBox.querySelector('.error-details');
+    const loadingBox = document.getElementById('playerLoading');
     const video = document.getElementById('videoPlayer');
     const status = document.getElementById('playerStatus');
     const name = document.getElementById('playerChannelName');
@@ -1285,7 +1286,9 @@ function playChannel(channel) {
 
     // Reset state
     errorBox.classList.add('hidden');
-    status.textContent = 'Loading...';
+    loadingBox.classList.remove('hidden');
+    status.textContent = '⏳ Loading stream...';
+    status.className = 'status-loading';
     name.textContent = channel.channelName || 'Unnamed Channel';
     urlDisplay.textContent = channel.channelUrl;
     urlDisplay.title = channel.channelUrl;
@@ -1299,14 +1302,10 @@ function playChannel(channel) {
     video.removeAttribute('src');
     video.load();
 
-    // Prepare stream URL (proxy if needed)
+    // Prepare stream URL
     let streamUrl = channel.channelUrl;
-    // const isExternal = streamUrl.startsWith('http://') || streamUrl.startsWith('https://');
-    // const isLocalhost = streamUrl.includes('localhost') || streamUrl.includes('127.0.0.1');
-    // if (isExternal && !isLocalhost && !streamUrl.includes('/api/v1/stream-proxy')) {
-    //     streamUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(channel.channelUrl)}`;
-    //     console.log('Auto-proxying external stream:', streamUrl);
-    // }
+    console.log('🎬 Loading channel:', channel.channelName);
+    console.log('📡 Stream URL:', streamUrl);
 
     // Use HLS.js if supported
     if (Hls.isSupported()) {
@@ -1314,42 +1313,166 @@ function playChannel(channel) {
             enableWorker: true,
             lowLatencyMode: true,
             backBufferLength: 90,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            manifestLoadingTimeOut: 10000,
+            manifestLoadingMaxRetry: 3,
+            levelLoadingTimeOut: 10000,
+            levelLoadingMaxRetry: 3,
+            fragLoadingTimeOut: 20000,
+            fragLoadingMaxRetry: 3,
         });
-        console.log('Loading stream via HLS.js:', streamUrl);
+
+        console.log('✅ Loading stream via HLS.js');
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
 
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(err => console.warn('Autoplay blocked:', err));
-            status.textContent = 'Playing';
+        // Track loading progress
+        let manifestLoaded = false;
+
+        hlsInstance.on(Hls.Events.MANIFEST_LOADING, () => {
+            console.log('📥 Loading manifest...');
+            status.textContent = '⏳ Loading manifest...';
+        });
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+            console.log('✅ Manifest parsed successfully');
+            manifestLoaded = true;
+            status.textContent = '▶️ Starting playback...';
+            loadingBox.classList.add('hidden');
+
+            // Display stream info if available
+            if (data.levels && data.levels.length > 0) {
+                const level = data.levels[0];
+                console.log(`📺 Stream quality: ${level.width}x${level.height} @ ${level.bitrate}bps`);
+            }
+
+            video.play()
+                .then(() => {
+                    console.log('✅ Playback started');
+                    status.textContent = '✅ Playing';
+                    status.className = 'status-playing';
+                })
+                .catch(err => {
+                    console.warn('⚠️ Autoplay blocked:', err);
+                    status.textContent = '⏸️ Click to play';
+                    status.className = 'status-paused';
+                });
+        });
+
+        hlsInstance.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+            console.log('📊 Level loaded:', data.details);
+        });
+
+        hlsInstance.on(Hls.Events.FRAG_LOADING, () => {
+            if (!manifestLoaded) {
+                status.textContent = '⏳ Loading video fragments...';
+            }
         });
 
         hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-            console.error('HLS.js error:', data);
-            status.textContent = 'Error';
+            console.error('❌ HLS.js error:', data);
+
+            // Determine error severity
+            if (data.fatal) {
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
+
+                // Provide detailed error messages
+                let errorMessage = '';
+                switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        errorMessage = `Network Error: ${data.details}. The stream may be offline or unreachable.`;
+
+                        // Attempt to recover from network errors
+                        console.log('🔄 Attempting to recover from network error...');
+                        hlsInstance.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        errorMessage = `Media Error: ${data.details}. The stream format may be incompatible.`;
+
+                        // Attempt to recover from media errors
+                        console.log('🔄 Attempting to recover from media error...');
+                        hlsInstance.recoverMediaError();
+                        break;
+                    default:
+                        errorMessage = `Fatal Error: ${data.details || 'Unknown error occurred'}`;
+                        break;
+                }
+
+                errorDetails.textContent = errorMessage;
+            } else {
+                // Non-fatal error, just log it
+                console.warn('⚠️ Non-fatal HLS error:', data.details);
+            }
+        });
+
+        // Add video event listeners for better status tracking
+        video.addEventListener('playing', () => {
+            loadingBox.classList.add('hidden');
+            status.textContent = '✅ Playing';
+            status.className = 'status-playing';
+        });
+
+        video.addEventListener('pause', () => {
+            status.textContent = '⏸️ Paused';
+            status.className = 'status-paused';
+        });
+
+        video.addEventListener('waiting', () => {
+            status.textContent = '⏳ Buffering...';
+            status.className = 'status-loading';
+        });
+
+        video.addEventListener('error', (e) => {
+            console.error('❌ Video element error:', e);
+            loadingBox.classList.add('hidden');
+            status.textContent = '❌ Error';
+            status.className = 'status-error';
             errorBox.classList.remove('hidden');
-            errorDetails.textContent = data.details || 'Stream load failed';
+            errorDetails.textContent = 'Video playback error: ' + (e.message || 'Unknown error');
         });
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Safari HLS support
+        console.log('✅ Using native HLS support (Safari)');
         video.src = streamUrl;
+
         video.addEventListener('loadedmetadata', () => {
-            video.play().catch(() => {});
-            status.textContent = 'Playing';
+            console.log('✅ Metadata loaded');
+            loadingBox.classList.add('hidden');
+            video.play()
+                .then(() => {
+                    status.textContent = '✅ Playing';
+                    status.className = 'status-playing';
+                })
+                .catch(() => {
+                    status.textContent = '⏸️ Click to play';
+                    status.className = 'status-paused';
+                });
         });
+
         video.addEventListener('error', (e) => {
-            status.textContent = 'Error loading stream';
+            console.error('❌ Native HLS error:', e);
+            loadingBox.classList.add('hidden');
+            status.textContent = '❌ Error loading stream';
+            status.className = 'status-error';
             errorBox.classList.remove('hidden');
-            errorDetails.textContent = e.message || 'Failed to load HLS stream';
+            errorDetails.textContent = e.message || 'Failed to load HLS stream. The stream may be offline or incompatible.';
         });
     } else {
-        status.textContent = 'HLS not supported';
+        console.error('❌ HLS not supported in this browser');
+        loadingBox.classList.add('hidden');
+        status.textContent = '❌ HLS not supported';
+        status.className = 'status-error';
         errorBox.classList.remove('hidden');
-        errorDetails.textContent = 'Try using Chrome or Safari.';
+        errorDetails.textContent = 'Your browser does not support HLS streaming. Please try using Chrome, Firefox, or Safari.';
     }
 
     modal.classList.add('active');
+    console.log('🎭 Player modal opened');
 }
 
 // Close player modal and cleanup
