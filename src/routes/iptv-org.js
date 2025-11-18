@@ -117,23 +117,35 @@ router.get('/api/streams', async (req, res) => {
 // Get enriched channels (merged channels + streams data)
 router.get('/api/enriched', async (req, res) => {
     try {
-        const { country, category, limit = 100 } = req.query;
+        const { country, category, language, limit = 100 } = req.query;
 
-        // Fetch both channels and streams
-        const [channelsData, streamsData] = await Promise.all([
+        // Fetch channels, streams, and languages data
+        const [channelsData, streamsData, languagesData] = await Promise.all([
             fetchChannelsData(),
-            fetchStreamsData()
+            fetchStreamsData(),
+            fetchLanguagesData()
         ]);
 
-        // Create a map of channels by ID for quick lookup
+        // Create maps for quick lookup
         const channelsMap = new Map();
         channelsData.forEach(channel => {
             channelsMap.set(channel.id, channel);
         });
 
+        const languagesMap = new Map();
+        languagesData.forEach(lang => {
+            languagesMap.set(lang.code, lang);
+        });
+
         // Merge streams with channel metadata
         let enrichedChannels = streamsData.map(stream => {
             const channelMeta = channelsMap.get(stream.channel) || {};
+
+            // Get language names from codes
+            const languageNames = channelMeta.languages?.map(langCode => {
+                const lang = languagesMap.get(langCode);
+                return lang ? lang.name : langCode;
+            }) || [];
 
             return {
                 // Stream info
@@ -148,6 +160,8 @@ router.get('/api/enriched', async (req, res) => {
                 channelName: channelMeta.name || stream.title || 'Unknown',
                 channelCountry: channelMeta.country,
                 channelCategories: channelMeta.categories || [],
+                channelLanguages: channelMeta.languages || [],
+                channelLanguageNames: languageNames,
                 channelWebsite: channelMeta.website,
                 channelNetwork: channelMeta.network,
                 channelIsNsfw: channelMeta.is_nsfw || false,
@@ -176,6 +190,22 @@ router.get('/api/enriched', async (req, res) => {
                     cat.toLowerCase().includes(category.toLowerCase())
                 )
             );
+        }
+
+        // Filter by language (supports both language codes and names)
+        if (language) {
+            enrichedChannels = enrichedChannels.filter(ch => {
+                const langLower = language.toLowerCase();
+                // Check language codes
+                const hasLangCode = ch.channelLanguages?.some(code =>
+                    code.toLowerCase() === langLower
+                );
+                // Check language names
+                const hasLangName = ch.channelLanguageNames?.some(name =>
+                    name.toLowerCase().includes(langLower)
+                );
+                return hasLangCode || hasLangName;
+            });
         }
 
         // Limit results

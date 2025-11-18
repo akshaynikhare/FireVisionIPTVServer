@@ -663,6 +663,13 @@ async function handleBulkTest() {
         return;
     }
 
+    // Limit to 100 channels
+    let channelsToTest = Array.from(selectedChannels);
+    if (channelsToTest.length > 100) {
+        showToast(`Testing limited to 100 channels. You selected ${channelsToTest.length}, testing first 100.`, 'warning');
+        channelsToTest = channelsToTest.slice(0, 100);
+    }
+
     showToast('Testing channels...', 'info');
 
     const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
@@ -671,7 +678,7 @@ async function handleBulkTest() {
             'Content-Type': 'application/json',
             'X-Session-Id': sessionId
         },
-        body: JSON.stringify({ channelIds: Array.from(selectedChannels) })
+        body: JSON.stringify({ channelIds: channelsToTest })
     });
 
     const data = await response.json();
@@ -1001,14 +1008,21 @@ async function testSingleChannel(id) {
 }
 
 async function testChannels(mode) {
-    const channelsToTest = mode === 'all' ? channels.map(c => c._id) : Array.from(selectedChannels);
+    let channelsToTest = mode === 'all' ? channels.map(c => c._id) : Array.from(selectedChannels);
 
     if (channelsToTest.length === 0) {
         showToast('No channels to test', 'warning');
         return;
     }
 
-    if (!confirm(`Test ${channelsToTest.length} channels? This may take several minutes.`)) return;
+    // Limit to 100 channels
+    let limitMessage = '';
+    if (channelsToTest.length > 100) {
+        limitMessage = `\n\nNote: Testing limited to 100 channels. You have ${channelsToTest.length} channels, only the first 100 will be tested.`;
+        channelsToTest = channelsToTest.slice(0, 100);
+    }
+
+    if (!confirm(`Test ${channelsToTest.length} channels? This may take several minutes.${limitMessage}`)) return;
 
     document.getElementById('testProgress').textContent = 'Testing...';
     showToast(`Testing ${channelsToTest.length} channels...`, 'info');
@@ -1625,19 +1639,41 @@ document.addEventListener('click', (e) => {
 // Quick Filter Functions
 async function loadQuickFilter(filter) {
     const filterMap = {
-        'india-hindi': { country: 'IN', language: 'hin' },
-        'india-marathi': { country: 'IN', language: 'mar' },
-        'india-english': { country: 'IN', language: 'eng' },
-        'english-kids': { language: 'eng', category: 'kids' }
+        'india-hindi': { country: 'IN', language: 'hin', limit: 1000 },
+        'india-marathi': { country: 'IN', language: 'mar', limit: 1000 },
+        'india-english': { country: 'IN', language: 'eng', limit: 1000 },
+        'english-kids': { language: 'eng', category: 'kids', limit: 1000 },
+        'active-channels': { active: true }
     };
 
     const params = filterMap[filter];
     if (!params) return;
 
     try {
-        // Build query string
+        showToast('Loading filtered channels...', 'info');
+
+        // For active channels, filter from existing channels
+        if (filter === 'active-channels') {
+            const response = await fetch(`${API_BASE}/api/v1/channels`, {
+                headers: { 'X-Session-Id': sessionId }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch channels');
+            }
+
+            const data = await response.json();
+            const activeChannels = data.filter(ch => ch.isActive);
+
+            // Show in main channels table
+            loadChannels();
+            showToast(`Loaded ${activeChannels.length} active channels`, 'success');
+            return;
+        }
+
+        // Build query string for IPTV-org filters
         const queryParams = new URLSearchParams(params).toString();
-        const response = await fetch(`${API_BASE}/api/v1/iptv-org/filter?${queryParams}`, {
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/api/enriched?${queryParams}`, {
             headers: { 'X-Session-Id': sessionId }
         });
 
@@ -1651,12 +1687,11 @@ async function loadQuickFilter(filter) {
         document.getElementById('iptvOrgCount').textContent = iptvOrgChannels.length;
         renderIptvOrgTable(iptvOrgChannels);
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
+
+        showToast(`Loaded ${iptvOrgChannels.length} channels`, 'success');
     } catch (error) {
         console.error('Error loading quick filter:', error);
-        alert(`Failed to load ${filter} channels. Using fallback...`);
-
-        // Fallback: fetch all and filter client-side
-        await loadIptvOrgPlaylists();
+        showToast(`Failed to load ${filter} channels`, 'error');
     }
 }
 
