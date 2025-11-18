@@ -1323,10 +1323,20 @@ function playChannel(channel) {
     urlDisplay.textContent = channel.channelUrl;
     urlDisplay.title = channel.channelUrl;
 
-    // Prepare stream URL
+    // Prepare stream URL - Use proxy for external streams to bypass CORS
     let streamUrl = channel.channelUrl;
+    const isExternal = streamUrl.startsWith('http://') || streamUrl.startsWith('https://');
+    const isLocalhost = streamUrl.includes('localhost') || streamUrl.includes('127.0.0.1');
+
+    // Auto-proxy external streams (not localhost) to bypass CORS restrictions
+    if (isExternal && !isLocalhost && !streamUrl.includes('/api/v1/stream-proxy')) {
+        streamUrl = `${API_BASE}/api/v1/stream-proxy?url=${encodeURIComponent(channel.channelUrl)}`;
+        console.log('🔄 Using stream proxy for CORS bypass');
+    }
+
     console.log('🎬 Loading channel:', channel.channelName);
-    console.log('📡 Stream URL:', streamUrl);
+    console.log('📡 Stream URL:', channel.channelUrl);
+    console.log('🌐 Proxied URL:', streamUrl);
 
     // Use HLS.js if supported
     if (Hls.isSupported()) {
@@ -1342,6 +1352,12 @@ function playChannel(channel) {
             levelLoadingMaxRetry: 3,
             fragLoadingTimeOut: 20000,
             fragLoadingMaxRetry: 3,
+            xhrSetup: function(xhr, url) {
+                // Add authentication header for stream proxy requests
+                if (url.includes('/api/v1/stream-proxy') && sessionId) {
+                    xhr.setRequestHeader('X-Session-Id', sessionId);
+                }
+            }
         });
 
         console.log('✅ Loading stream via HLS.js');
