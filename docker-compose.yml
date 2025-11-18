@@ -38,6 +38,7 @@ services:
       UPLOAD_DIR: /app/uploads
       # Session Configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
       # Super Admin Credentials
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}

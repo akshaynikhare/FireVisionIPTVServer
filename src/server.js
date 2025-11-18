@@ -50,8 +50,9 @@ app.use(session({
     touchAfter: 24 * 3600 // lazy session update - only update session once per 24 hours
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // requires https in production
+    secure: process.env.SESSION_SECURE_COOKIE === 'true', // Set to true only when using HTTPS
     httpOnly: true,
+    sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
   }
 }));
