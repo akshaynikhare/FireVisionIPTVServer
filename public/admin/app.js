@@ -4,12 +4,16 @@ let sessionId = localStorage.getItem('sessionId');
 let currentView = 'channels';
 let channels = [];
 let iptvOrgChannels = [];
+let users = [];
 let selectedChannels = new Set();
 let selectedIptvOrgChannels = new Set();
 let channelsDataTable = null;
 let iptvOrgDataTable = null;
+let usersDataTable = null;
+let assignChannelsDataTable = null;
 let currentChannelDetail = null;
 let hlsInstance = null;
+let currentUserId = null;
 
 // Image proxy helper function
 function getProxiedImageUrl(imageUrl) {
@@ -151,6 +155,15 @@ function initializeEventListeners() {
     // Test
     document.getElementById('testAllChannelsBtn').addEventListener('click', () => testChannels('all'));
     document.getElementById('testSelectedChannelsBtn').addEventListener('click', () => testChannels('selected'));
+
+    // User management
+    document.getElementById('addUserBtn').addEventListener('click', () => openUserModal());
+    document.getElementById('saveUserBtn').addEventListener('click', handleUserSubmit);
+    document.getElementById('copyCodeBtn').addEventListener('click', copyPlaylistCode);
+    document.getElementById('regenerateCodeBtn').addEventListener('click', handleRegenerateCode);
+    document.getElementById('saveChannelsBtn').addEventListener('click', handleSaveChannels);
+    document.getElementById('selectAllChannelsBtn').addEventListener('click', selectAllChannels);
+    document.getElementById('deselectAllChannelsBtn').addEventListener('click', deselectAllChannels);
 }
 
 // Sequential Image Loading Function
@@ -280,6 +293,9 @@ function switchView(view) {
     switch(view) {
         case 'channels':
             loadChannels();
+            break;
+        case 'users':
+            loadUsers();
             break;
         case 'iptv-org':
             loadIptvOrgPlaylists();
@@ -2160,3 +2176,478 @@ switchView = function(view) {
         loadApkVersions();
     }
 };
+
+// ============================================
+// USER MANAGEMENT FUNCTIONS
+// ============================================
+
+// Load Users
+async function loadUsers() {
+    try {
+        document.getElementById('loadingUsers').classList.remove('hidden');
+
+        const response = await fetch(`${API_BASE}/api/v1/users`, {
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load users');
+        }
+
+        const data = await response.json();
+        users = data.data || [];
+
+        renderUsersTable(users);
+        updateUserStats(users);
+
+        document.getElementById('loadingUsers').classList.add('hidden');
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showToast('Failed to load users', 'error');
+        document.getElementById('loadingUsers').classList.add('hidden');
+    }
+}
+
+// Render Users Table
+function renderUsersTable(usersToRender) {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+        console.log('Waiting for jQuery/DataTables to load...');
+        setTimeout(() => renderUsersTable(usersToRender), 100);
+        return;
+    }
+
+    if (usersDataTable) {
+        usersDataTable.destroy();
+        usersDataTable = null;
+    }
+
+    usersDataTable = $('#usersTable').DataTable({
+        data: usersToRender,
+        pageLength: 25,
+        order: [[6, 'desc']], // Sort by Last Login descending
+        columns: [
+            {
+                data: 'username',
+                render: function(data, type, row) {
+                    return `<strong>${data}</strong>`;
+                }
+            },
+            {
+                data: 'email'
+            },
+            {
+                data: 'role',
+                render: function(data, type, row) {
+                    const badge = data === 'Admin' ? 'status-admin' : 'status-user';
+                    return `<span class="status-badge ${badge}">${data}</span>`;
+                }
+            },
+            {
+                data: 'playlistCode',
+                render: function(data, type, row) {
+                    return `<span style="font-weight: bold; letter-spacing: 2px; font-family: monospace;">${data}</span>`;
+                }
+            },
+            {
+                data: 'channels',
+                render: function(data, type, row) {
+                    if (row.role === 'Admin') {
+                        return '<span class="status-badge status-all">All Channels</span>';
+                    }
+                    return data.length || 0;
+                }
+            },
+            {
+                data: 'isActive',
+                render: function(data, type, row) {
+                    return `<span class="status-badge ${data ? 'status-active' : 'status-inactive'}">${data ? 'Active' : 'Inactive'}</span>`;
+                }
+            },
+            {
+                data: 'lastLogin',
+                render: function(data, type, row) {
+                    if (!data) return 'Never';
+                    return formatDate(data);
+                }
+            },
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    return `
+                        <div class="actions">
+                            <button class="btn-icon btn-edit-user" data-id="${row._id}" title="Edit">✏️</button>
+                            <button class="btn-icon btn-assign-channels" data-id="${row._id}" title="Assign Channels">📋</button>
+                            <button class="btn-icon btn-copy-code-user" data-id="${row._id}" title="Copy Code">📋</button>
+                            <button class="btn-icon btn-delete-user" data-id="${row._id}" title="Delete">🗑️</button>
+                        </div>
+                    `;
+                }
+            }
+        ],
+        initComplete: function() {
+            $('#usersTable').on('click', '.btn-edit-user', function() {
+                const id = $(this).data('id');
+                editUser(id);
+            });
+
+            $('#usersTable').on('click', '.btn-assign-channels', function() {
+                const id = $(this).data('id');
+                openAssignChannelsModal(id);
+            });
+
+            $('#usersTable').on('click', '.btn-copy-code-user', function() {
+                const id = $(this).data('id');
+                const user = users.find(u => u._id === id);
+                if (user) {
+                    navigator.clipboard.writeText(user.playlistCode);
+                    showToast(`Playlist code ${user.playlistCode} copied!`, 'success');
+                }
+            });
+
+            $('#usersTable').on('click', '.btn-delete-user', function() {
+                const id = $(this).data('id');
+                deleteUser(id);
+            });
+        }
+    });
+}
+
+// Update User Stats
+function updateUserStats(users) {
+    document.getElementById('totalUsers').textContent = users.length;
+    document.getElementById('activeUsers').textContent = users.filter(u => u.isActive).length;
+    document.getElementById('adminUsers').textContent = users.filter(u => u.role === 'Admin').length;
+}
+
+// Open User Modal (Add/Edit)
+function openUserModal(userId = null) {
+    currentUserId = userId;
+    const modal = document.getElementById('userModal');
+    const title = document.getElementById('userModalTitle');
+    const form = document.getElementById('userForm');
+    const passwordHint = document.getElementById('passwordHint');
+    const playlistCodeDisplay = document.getElementById('playlistCodeDisplay');
+
+    form.reset();
+
+    if (userId) {
+        // Edit mode
+        title.textContent = 'Edit User';
+        passwordHint.classList.remove('hidden');
+        playlistCodeDisplay.style.display = 'block';
+
+        const user = users.find(u => u._id === userId);
+        if (user) {
+            document.getElementById('userId').value = user._id;
+            document.getElementById('userUsername').value = user.username;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userRole').value = user.role;
+            document.getElementById('userIsActive').checked = user.isActive;
+            document.getElementById('userPlaylistCode').value = user.playlistCode;
+            document.getElementById('userPassword').removeAttribute('required');
+        }
+    } else {
+        // Add mode
+        title.textContent = 'Add User';
+        passwordHint.classList.add('hidden');
+        playlistCodeDisplay.style.display = 'none';
+        document.getElementById('userPassword').setAttribute('required', 'required');
+    }
+
+    modal.classList.add('active');
+}
+
+// Handle User Form Submit
+async function handleUserSubmit(e) {
+    e.preventDefault();
+
+    const userId = currentUserId;
+    const username = document.getElementById('userUsername').value;
+    const email = document.getElementById('userEmail').value;
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+    const isActive = document.getElementById('userIsActive').checked;
+
+    const userData = {
+        username,
+        email,
+        role,
+        isActive
+    };
+
+    // Only send password if it's set (for edit mode)
+    if (password) {
+        userData.password = password;
+    }
+
+    try {
+        let response;
+        if (userId) {
+            // Update user
+            response = await fetch(`${API_BASE}/api/v1/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': sessionId
+                },
+                body: JSON.stringify(userData)
+            });
+        } else {
+            // Create user
+            response = await fetch(`${API_BASE}/api/v1/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': sessionId
+                },
+                body: JSON.stringify(userData)
+            });
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(userId ? 'User updated successfully' : 'User created successfully', 'success');
+            closeUserModal();
+            loadUsers();
+        } else {
+            showToast(data.error || 'Failed to save user', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving user:', error);
+        showToast('Failed to save user', 'error');
+    }
+}
+
+// Edit User
+function editUser(userId) {
+    openUserModal(userId);
+}
+
+// Delete User
+async function deleteUser(userId) {
+    const user = users.find(u => u._id === userId);
+    if (!user) return;
+
+    if (!confirm(`Delete user "${user.username}"?`)) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('User deleted successfully', 'success');
+            loadUsers();
+        } else {
+            showToast(data.error || 'Failed to delete user', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showToast('Failed to delete user', 'error');
+    }
+}
+
+// Close User Modal
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('active');
+    currentUserId = null;
+}
+
+// Copy Playlist Code
+function copyPlaylistCode() {
+    const code = document.getElementById('userPlaylistCode').value;
+    if (code) {
+        navigator.clipboard.writeText(code);
+        showToast(`Playlist code ${code} copied!`, 'success');
+    }
+}
+
+// Regenerate Playlist Code
+async function handleRegenerateCode() {
+    if (!currentUserId) return;
+
+    if (!confirm('Regenerate playlist code? This will invalidate the current code.')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${currentUserId}/regenerate-code`, {
+            method: 'PUT',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('userPlaylistCode').value = data.data.playlistCode;
+            showToast('Playlist code regenerated successfully', 'success');
+            loadUsers(); // Refresh table
+        } else {
+            showToast(data.error || 'Failed to regenerate code', 'error');
+        }
+    } catch (error) {
+        console.error('Error regenerating code:', error);
+        showToast('Failed to regenerate code', 'error');
+    }
+}
+
+// Open Assign Channels Modal
+async function openAssignChannelsModal(userId) {
+    const user = users.find(u => u._id === userId);
+    if (!user) return;
+
+    document.getElementById('assignUserId').value = userId;
+    document.getElementById('assignUserName').textContent = user.username;
+
+    // Load all channels
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/channels`, {
+            headers: { 'X-Session-Id': sessionId }
+        });
+        const data = await response.json();
+        const allChannels = data.data || [];
+
+        renderAssignChannelsTable(allChannels, user.channels);
+
+        document.getElementById('assignChannelsModal').classList.add('active');
+    } catch (error) {
+        console.error('Error loading channels:', error);
+        showToast('Failed to load channels', 'error');
+    }
+}
+
+// Render Assign Channels Table
+function renderAssignChannelsTable(allChannels, userChannelIds) {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+        console.log('Waiting for jQuery/DataTables to load...');
+        setTimeout(() => renderAssignChannelsTable(allChannels, userChannelIds), 100);
+        return;
+    }
+
+    if (assignChannelsDataTable) {
+        assignChannelsDataTable.destroy();
+        assignChannelsDataTable = null;
+    }
+
+    const userChannelSet = new Set(userChannelIds.map(id => id.toString()));
+
+    assignChannelsDataTable = $('#assignChannelsTable').DataTable({
+        data: allChannels,
+        pageLength: 10,
+        order: [[1, 'asc']],
+        columns: [
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    const checked = userChannelSet.has(row._id.toString()) ? 'checked' : '';
+                    return `<input type="checkbox" class="channel-assign-checkbox" data-id="${row._id}" ${checked}>`;
+                }
+            },
+            {
+                data: 'channelName'
+            },
+            {
+                data: 'channelGroup',
+                render: function(data, type, row) {
+                    return data || 'N/A';
+                }
+            }
+        ]
+    });
+
+    updateSelectedCount();
+
+    // Update selected count when checkboxes change
+    $('#assignChannelsTable').on('change', '.channel-assign-checkbox', function() {
+        updateSelectedCount();
+    });
+
+    // Select all checkbox
+    $('#selectAllCheck').on('change', function() {
+        const isChecked = $(this).is(':checked');
+        $('.channel-assign-checkbox').prop('checked', isChecked);
+        updateSelectedCount();
+    });
+}
+
+// Update Selected Count
+function updateSelectedCount() {
+    const count = $('.channel-assign-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = `${count} channels selected`;
+}
+
+// Select All Channels
+function selectAllChannels() {
+    $('.channel-assign-checkbox').prop('checked', true);
+    $('#selectAllCheck').prop('checked', true);
+    updateSelectedCount();
+}
+
+// Deselect All Channels
+function deselectAllChannels() {
+    $('.channel-assign-checkbox').prop('checked', false);
+    $('#selectAllCheck').prop('checked', false);
+    updateSelectedCount();
+}
+
+// Handle Save Channels
+async function handleSaveChannels() {
+    const userId = document.getElementById('assignUserId').value;
+    const selectedChannelIds = [];
+
+    $('.channel-assign-checkbox:checked').each(function() {
+        selectedChannelIds.push($(this).data('id'));
+    });
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/users/${userId}/channels`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId
+            },
+            body: JSON.stringify({ channelIds: selectedChannelIds })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`Assigned ${selectedChannelIds.length} channels successfully`, 'success');
+            document.getElementById('assignChannelsModal').classList.remove('active');
+            loadUsers(); // Refresh users table
+        } else {
+            showToast(data.error || 'Failed to assign channels', 'error');
+        }
+    } catch (error) {
+        console.error('Error assigning channels:', error);
+        showToast('Failed to assign channels', 'error');
+    }
+}
+
+// Close modals when clicking close button or outside
+document.addEventListener('click', function(e) {
+    if (e.target.matches('[data-close]')) {
+        const modalId = e.target.getAttribute('data-close');
+        document.getElementById(modalId).classList.remove('active');
+
+        if (modalId === 'userModal') {
+            currentUserId = null;
+        }
+    }
+
+    // Close modals if clicking outside
+    const userModal = document.getElementById('userModal');
+    if (e.target === userModal) {
+        userModal.classList.remove('active');
+        currentUserId = null;
+    }
+
+    const assignModal = document.getElementById('assignChannelsModal');
+    if (e.target === assignModal) {
+        assignModal.classList.remove('active');
+    }
+});

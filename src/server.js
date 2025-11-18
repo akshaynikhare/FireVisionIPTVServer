@@ -65,6 +65,8 @@ app.use('/api/v1/iptv-org', require('./routes/iptv-org'));
 app.use('/api/v1/test', require('./routes/channel-test'));
 app.use('/api/v1/image-proxy', require('./routes/image-proxy'));
 app.use('/api/v1/stream-proxy', require('./routes/stream-proxy'));
+app.use('/api/v1/users', require('./routes/users'));
+app.use('/api/v1/tv', require('./routes/tv'));
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1400,3 +1400,47 @@ table.dataTable tbody th, table.dataTable tbody td{
         align-items: stretch;
     }
 }
+
+/* User Management Styles */
+.status-admin {
+    background: rgba(147, 51, 234, 0.1);
+    color: #9333ea;
+    border: 1px solid rgba(147, 51, 234, 0.3);
+}
+
+.status-user {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.status-all {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+/* Modal adjustments for user forms */
+#playlistCodeDisplay input[readonly] {
+    background: #f9fafb;
+    cursor: default;
+    text-align: center;
+}
+
+#assignChannelsTable_wrapper {
+    padding: 0;
+}
+
+#channelSearchInput {
+    margin-bottom: 15px;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+

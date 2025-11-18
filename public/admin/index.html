@@ -52,6 +52,7 @@
             </div>
             <nav>
                 <a href="#" data-view="channels" class="active">📋 Channels</a>
+                <a href="#" data-view="users">👥 Users</a>
                 <a href="#" data-view="iptv-org">🌐 IPTV-org Fetch</a>
                 <a href="#" data-view="apk">📱 APK Manager</a>
                 <a href="#" data-view="stats">📊 Statistics</a>
@@ -119,6 +120,50 @@
                         </tbody>
                     </table>
                     <div id="loadingChannels" class="loading">Loading channels...</div>
+                </div>
+            </div>
+
+            <!-- Users View -->
+            <div id="usersView" class="view">
+                <div class="header">
+                    <h1>User Management</h1>
+                    <div class="header-actions">
+                        <button id="addUserBtn" class="btn btn-primary">+ Add User</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalUsers">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="activeUsers">0</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="adminUsers">0</div>
+                        <div class="stat-label">Admins</div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="usersTable" class="display nowrap" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Playlist Code</th>
+                                <th>Channels</th>
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="loadingUsers" class="loading hidden">Loading users...</div>
                 </div>
             </div>
 
@@ -466,6 +511,105 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-close="channelDetailsModal">Close</button>
                 <button id="detailPreviewBtn" class="btn btn-primary">▶️ Preview Stream</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Modal (Add/Edit) -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="userModalTitle">Add User</h2>
+                <span class="close" data-close="userModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId">
+
+                    <div class="form-group">
+                        <label for="userUsername">Username</label>
+                        <input type="text" id="userUsername" required minlength="3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userEmail">Email</label>
+                        <input type="email" id="userEmail" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userPassword">Password</label>
+                        <input type="password" id="userPassword" minlength="6">
+                        <small id="passwordHint" class="hidden">Leave empty to keep current password</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userRole">Role</label>
+                        <select id="userRole" required>
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="userIsActive" checked>
+                            Active
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="playlistCodeDisplay" style="display:none;">
+                        <label>Playlist Code</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="userPlaylistCode" readonly style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">
+                            <button type="button" id="copyCodeBtn" class="btn btn-secondary">📋 Copy</button>
+                            <button type="button" id="regenerateCodeBtn" class="btn btn-secondary">🔄 Regenerate</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="userModal">Cancel</button>
+                <button id="saveUserBtn" class="btn btn-primary">Save User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Channels Modal -->
+    <div id="assignChannelsModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Assign Channels to <span id="assignUserName"></span></h2>
+                <span class="close" data-close="assignChannelsModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignUserId">
+
+                <div class="form-group">
+                    <input type="text" id="channelSearchInput" placeholder="Search channels..." class="search-input" style="width: 100%;">
+                </div>
+
+                <div class="form-group">
+                    <button id="selectAllChannelsBtn" class="btn btn-secondary">Select All</button>
+                    <button id="deselectAllChannelsBtn" class="btn btn-secondary">Deselect All</button>
+                    <span id="selectedCount" style="margin-left: 15px; font-weight: bold;"></span>
+                </div>
+
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+                    <table id="assignChannelsTable" class="display nowrap" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheck"></th>
+                                <th>Name</th>
+                                <th>Group</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="assignChannelsModal">Cancel</button>
+                <button id="saveChannelsBtn" class="btn btn-primary">Save Channels</button>
             </div>
         </div>
     </div>
