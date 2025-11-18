@@ -16,6 +16,60 @@ let streamsCache = { data: null, timestamp: null };
 let languagesCache = { data: null, timestamp: null };
 const CACHE_TTL = 3600000; // 1 hour
 
+// Clear cache endpoint
+router.post('/clear-cache', async (req, res) => {
+    try {
+        channelsCache = { data: null, timestamp: null };
+        streamsCache = { data: null, timestamp: null };
+        languagesCache = { data: null, timestamp: null };
+
+        res.json({
+            success: true,
+            message: 'Cache cleared successfully'
+        });
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear cache'
+        });
+    }
+});
+
+// Get cache status
+router.get('/cache-status', async (req, res) => {
+    try {
+        const now = Date.now();
+        res.json({
+            success: true,
+            data: {
+                channels: {
+                    cached: !!channelsCache.data,
+                    age: channelsCache.timestamp ? now - channelsCache.timestamp : null,
+                    count: channelsCache.data ? channelsCache.data.length : 0
+                },
+                streams: {
+                    cached: !!streamsCache.data,
+                    age: streamsCache.timestamp ? now - streamsCache.timestamp : null,
+                    count: streamsCache.data ? streamsCache.data.length : 0
+                },
+                languages: {
+                    cached: !!languagesCache.data,
+                    age: languagesCache.timestamp ? now - languagesCache.timestamp : null,
+                    count: languagesCache.data ? languagesCache.data.length : 0
+                },
+                ttl: CACHE_TTL
+            }
+        });
+    } catch (error) {
+        console.error('Error getting cache status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get cache status'
+        });
+    }
+});
+
 // Fetch channels metadata from IPTV-org API
 router.get('/api/channels', async (req, res) => {
     try {

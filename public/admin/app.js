@@ -135,9 +135,15 @@ function initializeEventListeners() {
     document.querySelectorAll('.btn-filter').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const filter = e.target.dataset.filter;
-            loadQuickFilter(filter);
+            applyQuickFilter(filter);
         });
     });
+
+    // Load all IPTV-org channels
+    document.getElementById('loadAllIptvOrgBtn').addEventListener('click', loadAllIptvOrgChannels);
+
+    // Clear cache button
+    document.getElementById('clearCacheBtn').addEventListener('click', clearCacheAndRefresh);
 
     // Channel details modal
     document.getElementById('detailPreviewBtn').addEventListener('click', handleDetailPreview);
@@ -1636,49 +1642,22 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Quick Filter Functions
-async function loadQuickFilter(filter) {
-    const filterMap = {
-        'india-hindi': { country: 'IN', language: 'hin', limit: 1000 },
-        'india-marathi': { country: 'IN', language: 'mar', limit: 1000 },
-        'india-english': { country: 'IN', language: 'eng', limit: 1000 },
-        'english-kids': { language: 'eng', category: 'kids', limit: 1000 },
-        'active-channels': { active: true }
-    };
-
-    const params = filterMap[filter];
-    if (!params) return;
-
+// Load all IPTV-org channels (cached on server)
+async function loadAllIptvOrgChannels() {
     try {
-        showToast('Loading filtered channels...', 'info');
+        document.getElementById('iptvOrgChannels').classList.add('hidden');
+        document.getElementById('iptvOrgPlaceholder').classList.add('hidden');
+        document.getElementById('iptvOrgLoading').classList.remove('hidden');
 
-        // For active channels, filter from existing channels
-        if (filter === 'active-channels') {
-            const response = await fetch(`${API_BASE}/api/v1/channels`, {
-                headers: { 'X-Session-Id': sessionId }
-            });
+        showToast('Loading all IPTV-org channels...', 'info');
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch channels');
-            }
-
-            const data = await response.json();
-            const activeChannels = data.filter(ch => ch.isActive);
-
-            // Show in main channels table
-            loadChannels();
-            showToast(`Loaded ${activeChannels.length} active channels`, 'success');
-            return;
-        }
-
-        // Build query string for IPTV-org filters
-        const queryParams = new URLSearchParams(params).toString();
-        const response = await fetch(`${API_BASE}/api/v1/iptv-org/api/enriched?${queryParams}`, {
+        // Use the /fetch endpoint without URL to get ALL enriched data
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=all`, {
             headers: { 'X-Session-Id': sessionId }
         });
 
         if (!response.ok) {
-            throw new Error('Filter fetch failed');
+            throw new Error('Failed to load channels');
         }
 
         const data = await response.json();
@@ -1686,13 +1665,111 @@ async function loadQuickFilter(filter) {
 
         document.getElementById('iptvOrgCount').textContent = iptvOrgChannels.length;
         renderIptvOrgTable(iptvOrgChannels);
+        document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
 
-        showToast(`Loaded ${iptvOrgChannels.length} channels`, 'success');
+        showToast(`Loaded ${iptvOrgChannels.length} channels from cache`, 'success');
     } catch (error) {
-        console.error('Error loading quick filter:', error);
-        showToast(`Failed to load ${filter} channels`, 'error');
+        console.error('Error loading all IPTV-org channels:', error);
+        document.getElementById('iptvOrgLoading').classList.add('hidden');
+        showToast('Failed to load channels', 'error');
     }
+}
+
+// Clear cache and refresh
+async function clearCacheAndRefresh() {
+    try {
+        showToast('Clearing cache...', 'info');
+
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/clear-cache`, {
+            method: 'POST',
+            headers: { 'X-Session-Id': sessionId }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to clear cache');
+        }
+
+        const data = await response.json();
+        showToast(data.message || 'Cache cleared successfully', 'success');
+
+        // Reload the data
+        setTimeout(() => loadAllIptvOrgChannels(), 500);
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        showToast('Failed to clear cache', 'error');
+    }
+}
+
+// Quick Filter Functions - Use DataTables search instead of fetching new data
+function applyQuickFilter(filter) {
+    // For active channels, filter the main channels table
+    if (filter === 'active-channels') {
+        if (!channelsDataTable) {
+            // Load channels first, then apply filter
+            loadChannels().then(() => {
+                setTimeout(() => applyQuickFilter('active-channels'), 500);
+            });
+            return;
+        }
+
+        // Apply search for active channels (Column 4 is isActive, renders as 'Active' or 'Inactive')
+        channelsDataTable.search('').columns().search('');
+        channelsDataTable.column(4).search('Active', false, false).draw();
+
+        const visibleRows = channelsDataTable.rows({ search: 'applied' }).count();
+        showToast(`Showing ${visibleRows} active channels`, 'info');
+
+        // Switch to channels view
+        switchView('channels');
+        return;
+    }
+
+    // For IPTV-org filters, ensure data is loaded first
+    if (!iptvOrgDataTable) {
+        showToast('Please load IPTV-org channels first by clicking "Load All Channels"', 'warning');
+        return;
+    }
+
+    // Clear all previous searches
+    iptvOrgDataTable.search('').columns().search('');
+
+    const filterMap = {
+        'india-hindi': { country: 'IN', language: 'hindi' },
+        'india-marathi': { country: 'IN', language: 'marathi' },
+        'india-english': { country: 'IN', language: 'english' },
+        'english-kids': { language: 'english', category: 'kids' },
+        'show-all': {}
+    };
+
+    const params = filterMap[filter];
+    if (!params) return;
+
+    // For "Show All", just clear filters
+    if (filter === 'show-all') {
+        iptvOrgDataTable.draw();
+        showToast('Showing all channels', 'info');
+        return;
+    }
+
+    // Apply filters using DataTables column search
+    // Column indices: 2=Name, 3=Group, 4=Language, 5=Country
+    if (params.country) {
+        iptvOrgDataTable.column(5).search(params.country, false, false);
+    }
+
+    if (params.language) {
+        iptvOrgDataTable.column(4).search(params.language, false, false);
+    }
+
+    if (params.category) {
+        iptvOrgDataTable.column(3).search(params.category, false, false);
+    }
+
+    iptvOrgDataTable.draw();
+
+    const visibleRows = iptvOrgDataTable.rows({ search: 'applied' }).count();
+    showToast(`Showing ${visibleRows} filtered channels`, 'info');
 }
 
 // Show Channel Details Modal
