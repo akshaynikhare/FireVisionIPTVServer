@@ -77,20 +77,6 @@ async function checkAuth() {
 
     showLogin();
 }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                showDashboard(data.user);
-                return;
-            }
-        } catch (error) {
-            console.error('Auth check failed:', error);
-        }
-    }
-
-    showLogin();
-}
 
 function showLogin() {
     document.getElementById('loginScreen').classList.add('active');
