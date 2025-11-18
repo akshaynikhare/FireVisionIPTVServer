@@ -13,7 +13,10 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      // Password is only required for local authentication
+      return this.authProvider === 'local';
+    },
     minlength: 6
   },
   email: {
@@ -23,6 +26,20 @@ const userSchema = new mongoose.Schema({
     trim: true,
     lowercase: true,
     index: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'github', 'facebook'],
+    default: 'local',
+    required: true
+  },
+  oauthId: {
+    type: String,
+    sparse: true,
+    index: true
+  },
+  profilePicture: {
+    type: String
   },
   role: {
     type: String,

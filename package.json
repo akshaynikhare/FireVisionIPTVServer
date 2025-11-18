@@ -26,7 +26,14 @@
     "compression": "^1.7.4",
     "morgan": "^1.10.0",
     "axios": "^1.6.2",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "express-session": "^1.17.3",
+    "connect-mongo": "^5.1.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-github2": "^0.1.12",
+    "passport-facebook": "^3.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

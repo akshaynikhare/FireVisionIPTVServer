@@ -2,38 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Channel = require('../models/Channel');
-const { requireAuth } = require('./auth');
-
-// Middleware to check if user is Admin
-const requireAdmin = async (req, res, next) => {
-    try {
-        // Get user from session
-        const userId = req.session?.userId;
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                error: 'Authentication required'
-            });
-        }
-
-        const user = await User.findById(userId);
-        if (!user || user.role !== 'Admin') {
-            return res.status(403).json({
-                success: false,
-                error: 'Admin access required'
-            });
-        }
-
-        req.user = user;
-        next();
-    } catch (error) {
-        console.error('Admin check error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Authorization check failed'
-        });
-    }
-};
+const { requireAuth, requireAdmin } = require('./auth');
 
 // Apply authentication to all routes
 router.use(requireAuth);
@@ -95,6 +64,7 @@ router.post('/', requireAdmin, async (req, res) => {
             email,
             role: role || 'User',
             playlistCode,
+            authProvider: 'local',
             isActive: isActive !== undefined ? isActive : true
         });
 
@@ -118,11 +88,10 @@ router.post('/', requireAdmin, async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const currentUserId = req.session?.userId;
+        const currentUserId = req.user._id.toString();
 
         // Check if user is accessing their own profile or is admin
-        const currentUser = await User.findById(currentUserId);
-        if (currentUser.role !== 'Admin' && currentUserId !== id) {
+        if (req.user.role !== 'Admin' && currentUserId !== id) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied'
@@ -157,12 +126,11 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const currentUserId = req.session?.userId;
+        const currentUserId = req.user._id.toString();
         const { username, email, password, role, isActive } = req.body;
 
         // Check if user is accessing their own profile or is admin
-        const currentUser = await User.findById(currentUserId);
-        const isAdmin = currentUser.role === 'Admin';
+        const isAdmin = req.user.role === 'Admin';
         const isOwnProfile = currentUserId === id;
 
         if (!isAdmin && !isOwnProfile) {
@@ -391,11 +359,10 @@ router.post('/:id/channels/remove', requireAdmin, async (req, res) => {
 router.put('/:id/regenerate-code', async (req, res) => {
     try {
         const { id } = req.params;
-        const currentUserId = req.session?.userId;
+        const currentUserId = req.user._id.toString();
 
         // Check if user is accessing their own profile or is admin
-        const currentUser = await User.findById(currentUserId);
-        if (currentUser.role !== 'Admin' && currentUserId !== id) {
+        if (req.user.role !== 'Admin' && currentUserId !== id) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied'

@@ -5,6 +5,9 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const passport = require('./config/passport');
 require('dotenv').config();
 
 const app = express();
@@ -35,6 +38,27 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined'));
+
+// Session configuration
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'firevision-secret-key-change-this',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: MONGODB_URI,
+    touchAfter: 24 * 3600 // lazy session update - only update session once per 24 hours
+  }),
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // requires https in production
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
+  }
+}));
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Rate limiting (disabled for development)
 // const limiter = rateLimit({
@@ -103,15 +127,22 @@ app.use((req, res) => {
 });
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
 const PORT = process.env.PORT || 3000;
+const initializeAdmin = require('./scripts/init-admin');
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to MongoDB');
+
+    // Initialize super admin user
+    try {
+      await initializeAdmin();
+    } catch (error) {
+      console.error('⚠️  Admin initialization failed:', error.message);
+    }
 
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
