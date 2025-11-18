@@ -1220,6 +1220,7 @@ function renderCategoryChart(groups) {
 // Global Video.js player instance
 let videoJsPlayer = null;
 let currentChannel = null;
+let videoEventHandlers = null;
 
 // Copy channel link to clipboard
 function copyChannelLink(channel) {
@@ -1273,6 +1274,32 @@ function fallbackCopyToClipboard(text, channelName) {
     document.body.removeChild(textArea);
 }
 
+// Cleanup video player and remove event listeners
+function cleanupVideoPlayer() {
+    const video = document.getElementById('videoPlayer');
+
+    // Destroy HLS instance
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+
+    // Remove all event listeners if they exist
+    if (videoEventHandlers) {
+        video.removeEventListener('playing', videoEventHandlers.playing);
+        video.removeEventListener('pause', videoEventHandlers.pause);
+        video.removeEventListener('waiting', videoEventHandlers.waiting);
+        video.removeEventListener('error', videoEventHandlers.error);
+        video.removeEventListener('loadedmetadata', videoEventHandlers.loadedmetadata);
+        videoEventHandlers = null;
+    }
+
+    // Reset video element
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+}
+
 // Play channel in video player
 function playChannel(channel) {
     const modal = document.getElementById('playerModal');
@@ -1284,6 +1311,9 @@ function playChannel(channel) {
     const name = document.getElementById('playerChannelName');
     const urlDisplay = document.getElementById('playerUrl');
 
+    // Cleanup any previous player state
+    cleanupVideoPlayer();
+
     // Reset state
     errorBox.classList.add('hidden');
     loadingBox.classList.remove('hidden');
@@ -1292,15 +1322,6 @@ function playChannel(channel) {
     name.textContent = channel.channelName || 'Unnamed Channel';
     urlDisplay.textContent = channel.channelUrl;
     urlDisplay.title = channel.channelUrl;
-
-    // Stop any previous playback
-    if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
-    }
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
 
     // Prepare stream URL
     let streamUrl = channel.channelUrl;
@@ -1409,59 +1430,112 @@ function playChannel(channel) {
             }
         });
 
-        // Add video event listeners for better status tracking
-        video.addEventListener('playing', () => {
-            loadingBox.classList.add('hidden');
-            status.textContent = '✅ Playing';
-            status.className = 'status-playing';
-        });
+        // Create and store event handlers for HLS.js playback
+        videoEventHandlers = {
+            playing: () => {
+                loadingBox.classList.add('hidden');
+                status.textContent = '✅ Playing';
+                status.className = 'status-playing';
+            },
+            pause: () => {
+                status.textContent = '⏸️ Paused';
+                status.className = 'status-paused';
+            },
+            waiting: () => {
+                status.textContent = '⏳ Buffering...';
+                status.className = 'status-loading';
+            },
+            error: (e) => {
+                console.error('❌ Video element error:', e);
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
 
-        video.addEventListener('pause', () => {
-            status.textContent = '⏸️ Paused';
-            status.className = 'status-paused';
-        });
+                // Get more detailed error info
+                if (video.error) {
+                    const errorCode = video.error.code;
+                    const errorMessages = {
+                        1: 'MEDIA_ERR_ABORTED: Playback was aborted',
+                        2: 'MEDIA_ERR_NETWORK: Network error occurred',
+                        3: 'MEDIA_ERR_DECODE: Decoding error occurred',
+                        4: 'MEDIA_ERR_SRC_NOT_SUPPORTED: Stream format not supported'
+                    };
+                    errorDetails.textContent = errorMessages[errorCode] || 'Unknown playback error';
+                } else {
+                    errorDetails.textContent = 'Video playback error: ' + (e.message || 'Unknown error');
+                }
+            },
+            loadedmetadata: null // Placeholder
+        };
 
-        video.addEventListener('waiting', () => {
-            status.textContent = '⏳ Buffering...';
-            status.className = 'status-loading';
-        });
-
-        video.addEventListener('error', (e) => {
-            console.error('❌ Video element error:', e);
-            loadingBox.classList.add('hidden');
-            status.textContent = '❌ Error';
-            status.className = 'status-error';
-            errorBox.classList.remove('hidden');
-            errorDetails.textContent = 'Video playback error: ' + (e.message || 'Unknown error');
-        });
+        // Add event listeners
+        video.addEventListener('playing', videoEventHandlers.playing);
+        video.addEventListener('pause', videoEventHandlers.pause);
+        video.addEventListener('waiting', videoEventHandlers.waiting);
+        video.addEventListener('error', videoEventHandlers.error);
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Safari HLS support
         console.log('✅ Using native HLS support (Safari)');
         video.src = streamUrl;
 
-        video.addEventListener('loadedmetadata', () => {
-            console.log('✅ Metadata loaded');
-            loadingBox.classList.add('hidden');
-            video.play()
-                .then(() => {
-                    status.textContent = '✅ Playing';
-                    status.className = 'status-playing';
-                })
-                .catch(() => {
-                    status.textContent = '⏸️ Click to play';
-                    status.className = 'status-paused';
-                });
-        });
+        // Create and store event handlers for native HLS
+        videoEventHandlers = {
+            playing: () => {
+                loadingBox.classList.add('hidden');
+                status.textContent = '✅ Playing';
+                status.className = 'status-playing';
+            },
+            pause: () => {
+                status.textContent = '⏸️ Paused';
+                status.className = 'status-paused';
+            },
+            waiting: () => {
+                status.textContent = '⏳ Buffering...';
+                status.className = 'status-loading';
+            },
+            error: (e) => {
+                console.error('❌ Native HLS error:', e);
+                loadingBox.classList.add('hidden');
+                status.textContent = '❌ Error loading stream';
+                status.className = 'status-error';
+                errorBox.classList.remove('hidden');
 
-        video.addEventListener('error', (e) => {
-            console.error('❌ Native HLS error:', e);
-            loadingBox.classList.add('hidden');
-            status.textContent = '❌ Error loading stream';
-            status.className = 'status-error';
-            errorBox.classList.remove('hidden');
-            errorDetails.textContent = e.message || 'Failed to load HLS stream. The stream may be offline or incompatible.';
-        });
+                if (video.error) {
+                    const errorCode = video.error.code;
+                    const errorMessages = {
+                        1: 'MEDIA_ERR_ABORTED: Playback was aborted',
+                        2: 'MEDIA_ERR_NETWORK: Network error - stream may be offline',
+                        3: 'MEDIA_ERR_DECODE: Codec/format not supported in Safari',
+                        4: 'MEDIA_ERR_SRC_NOT_SUPPORTED: HLS stream format not supported'
+                    };
+                    errorDetails.textContent = errorMessages[errorCode] || 'Failed to load HLS stream';
+                } else {
+                    errorDetails.textContent = e.message || 'Failed to load HLS stream. The stream may be offline or incompatible.';
+                }
+            },
+            loadedmetadata: () => {
+                console.log('✅ Metadata loaded');
+                loadingBox.classList.add('hidden');
+                video.play()
+                    .then(() => {
+                        status.textContent = '✅ Playing';
+                        status.className = 'status-playing';
+                    })
+                    .catch(() => {
+                        status.textContent = '⏸️ Click to play';
+                        status.className = 'status-paused';
+                    });
+            }
+        };
+
+        // Add event listeners
+        video.addEventListener('playing', videoEventHandlers.playing);
+        video.addEventListener('pause', videoEventHandlers.pause);
+        video.addEventListener('waiting', videoEventHandlers.waiting);
+        video.addEventListener('error', videoEventHandlers.error);
+        video.addEventListener('loadedmetadata', videoEventHandlers.loadedmetadata);
     } else {
         console.error('❌ HLS not supported in this browser');
         loadingBox.classList.add('hidden');
@@ -1479,13 +1553,8 @@ function playChannel(channel) {
 document.querySelectorAll('[data-close="playerModal"]').forEach(btn => {
     btn.addEventListener('click', () => {
         const modal = document.getElementById('playerModal');
-        const video = document.getElementById('videoPlayer');
         modal.classList.remove('active');
-        video.pause();
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
+        cleanupVideoPlayer();
     });
 });
 

@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' 'unsafe-inline' 'unsafe-eval';
-        connect-src 'self' https://*.cloudfront.net http://localhost:8009 ws://localhost:8009 blob:;
+        connect-src 'self' https: http: blob: data: ws: wss:;
         font-src 'self';
         frame-src 'self';
-        img-src 'self' data: https://*.cloudfront.net;
-        media-src 'self' blob: https://*.cloudfront.net http://localhost:8009 https://d35j504z0x2vu2.cloudfront.net;
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net;
         style-src 'self' 'unsafe-inline' https://cdn.datatables.net;
         worker-src 'self' blob:">
