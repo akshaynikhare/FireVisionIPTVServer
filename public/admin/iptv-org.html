@@ -78,26 +78,17 @@
                 <div class="playlist-selector">
                     <h3>Quick Actions</h3>
                     <div class="quick-filters" style="margin-bottom: 15px;">
-                        <button class="btn btn-primary" id="loadAllIptvOrgBtn">📥 Load All Channels</button>
+                        <button class="btn btn-primary" id="loadAllIptvOrgBtn">📥 Load Channels</button>
                         <button class="btn btn-secondary" id="clearCacheBtn">🗑️ Clear Cache & Refresh</button>
-                        <button class="btn btn-filter" data-filter="show-all">🌐 Show All</button>
-                    </div>
-                </div>
-
-                <div class="playlist-selector">
-                    <h3>Quick Filters</h3>
-                    <div class="quick-filters">
-                        <button class="btn btn-filter" data-filter="india-hindi">🇮🇳 India Hindi</button>
-                        <button class="btn btn-filter" data-filter="india-marathi">🇮🇳 India Marathi</button>
-                        <button class="btn btn-filter" data-filter="india-english">🇮🇳 India English</button>
-                        <button class="btn btn-filter" data-filter="english-kids">👶 English Kids</button>
-                        <button class="btn btn-filter" data-filter="active-channels">✅ Active Channels</button>
                     </div>
                 </div>
 
                 <div class="playlist-selector" style="margin-top: 20px;">
-                    <h3>Or Browse All Playlists</h3>
-                    <div id="playlistsGrid" class="playlists-grid">
+                    <h3>Browse All Playlists</h3>
+                    <div id="playlistsGrid" class="playlists-grid" >
+                        <div id="playlistsPlaceholder" class="table-placeholder hidden">
+                            <p>No playlists found.</p>
+                        </div>
                         <!-- Playlists will be loaded here -->
                     </div>
                 </div>
@@ -111,9 +102,7 @@
 
                 <div id="iptvOrgChannels" class="hidden">
                     <div class="header">
-                        <h3>Available Channels (<span id="iptvOrgCount">0</span>)</h3>
                         <div class="header-actions">
-                            <input type="text" id="iptvOrgSearch" placeholder="Filter channels..." class="search-input">
                             <button id="selectAllIptvOrg" class="btn btn-secondary">Select All</button>
                             <button id="deselectAllIptvOrg" class="btn btn-secondary">Deselect All</button>
                             <button id="importSelectedBtn" class="btn btn-primary">Import Selected</button>
@@ -121,13 +110,6 @@
                     </div>
                     <div id="iptvOrgPlaceholder" class="table-placeholder">
                         <p>Select a playlist above to load channels</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="replaceExisting">
-                            Replace all existing channels (Warning: This will delete all current channels)
-                        </label>
                     </div>
 
                     <div class="table-container">

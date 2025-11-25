@@ -37,11 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==================== EVENT LISTENERS ====================
 
 function initializeEventListeners() {
-    // IPTV-org search
-    const iptvOrgSearch = document.getElementById('iptvOrgSearch');
-    if (iptvOrgSearch) {
-        iptvOrgSearch.addEventListener('input', handleIptvOrgSearch);
-    }
 
     // Select/Deselect buttons
     const selectAllBtn = document.getElementById('selectAllIptvOrg');
@@ -65,14 +60,6 @@ function initializeEventListeners() {
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', handleSelectAllIptvOrg);
     }
-
-    // Quick filters
-    document.querySelectorAll('.btn-filter').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const filter = e.target.dataset.filter;
-            applyQuickFilter(filter);
-        });
-    });
 
     // Load all IPTV-org channels
     const loadAllBtn = document.getElementById('loadAllIptvOrgBtn');
@@ -174,7 +161,6 @@ async function fetchIptvOrgPlaylist(url) {
         const data = await response.json();
         iptvOrgChannels = data.data;
 
-        document.getElementById('iptvOrgCount').textContent = iptvOrgChannels.length;
         renderIptvOrgTable(iptvOrgChannels);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
@@ -206,7 +192,6 @@ async function loadAllIptvOrgChannels() {
         const data = await response.json();
         iptvOrgChannels = data.data || [];
 
-        document.getElementById('iptvOrgCount').textContent = iptvOrgChannels.length;
         renderIptvOrgTable(iptvOrgChannels);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
@@ -403,11 +388,6 @@ function renderIptvOrgTable(channels) {
 
 // ==================== SEARCH & SELECTION ====================
 
-function handleIptvOrgSearch(e) {
-    if (iptvOrgDataTable) {
-        iptvOrgDataTable.search(e.target.value).draw();
-    }
-}
 
 function selectAllIptvOrg() {
     document.querySelectorAll('.iptv-org-select').forEach((cb, index) => {
@@ -431,56 +411,6 @@ function handleSelectAllIptvOrg(e) {
     }
 }
 
-// ==================== QUICK FILTERS ====================
-
-function applyQuickFilter(filter) {
-    // For IPTV-org filters, ensure data is loaded first
-    if (!iptvOrgDataTable) {
-        showToast('Please load IPTV-org channels first by clicking "Load All Channels"', 'warning');
-        return;
-    }
-
-    // Clear all previous searches
-    iptvOrgDataTable.search('').columns().search('');
-
-    const filterMap = {
-        'india-hindi': { country: 'IN', language: 'hindi' },
-        'india-marathi': { country: 'IN', language: 'marathi' },
-        'india-english': { country: 'IN', language: 'english' },
-        'english-kids': { language: 'english', category: 'kids' },
-        'show-all': {}
-    };
-
-    const params = filterMap[filter];
-    if (!params) return;
-
-    // For "Show All", just clear filters
-    if (filter === 'show-all') {
-        iptvOrgDataTable.draw();
-        showToast('Showing all channels', 'info');
-        return;
-    }
-
-    // Apply filters using DataTables column search
-    // Column indices: 2=Name, 3=Group, 4=Language, 5=Country
-    if (params.country) {
-        iptvOrgDataTable.column(5).search(params.country, false, false);
-    }
-
-    if (params.language) {
-        iptvOrgDataTable.column(4).search(params.language, false, false);
-    }
-
-    if (params.category) {
-        iptvOrgDataTable.column(3).search(params.category, false, false);
-    }
-
-    iptvOrgDataTable.draw();
-
-    const visibleRows = iptvOrgDataTable.rows({ search: 'applied' }).count();
-    showToast(`Showing ${visibleRows} filtered channels`, 'info');
-}
-
 // ==================== IMPORT CHANNELS ====================
 
 async function handleImportSelected() {
@@ -490,11 +420,7 @@ async function handleImportSelected() {
     }
 
     const selectedChannelsData = Array.from(selectedIptvOrgChannels).map(index => iptvOrgChannels[index]);
-    const replaceExisting = document.getElementById('replaceExisting').checked;
-
-    if (replaceExisting && !confirm('This will DELETE ALL existing channels. Are you sure?')) {
-        return;
-    }
+    const replaceExisting = false;
 
     try {
         const sessionId = getSessionId();

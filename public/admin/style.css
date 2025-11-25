@@ -83,7 +83,6 @@ body {
 .subtitle {
     text-align: center;
     color: var(--text-secondary);
-    margin-bottom: 2rem;
 }
 
 .form-group {
@@ -364,7 +363,7 @@ nav a.active {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 15ps;
 }
 
 .header h1 {
@@ -373,7 +372,7 @@ nav a.active {
 
 .header-actions {
     display: flex;
-    gap: 1rem;
+    gap: 15px;
 }
 
 .search-input {
@@ -672,22 +671,22 @@ table.dataTable tbody th, table.dataTable tbody td{
 .playlists-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    gap: 10px;
+    margin-top: 15px;
+    margin-bottom: 15px;
 }
 
 .playlist-card {
     background: white;
-    padding: 1.5rem;
-    border-radius: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     cursor: pointer;
     transition: all 0.2s;
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
 }
 
 .playlist-card:hover {
-    transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
@@ -695,13 +694,13 @@ table.dataTable tbody th, table.dataTable tbody td{
     border-color: var(--primary);
 }
 
-.playlist-card h3 {
+.playlist-card h4 {
     margin-bottom: 0.5rem;
 }
 
 .playlist-card p {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.8rem;
 }
 
 /* Modal */

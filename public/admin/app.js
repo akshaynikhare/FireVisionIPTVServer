@@ -150,7 +150,6 @@ function initializeEventListeners() {
     document.getElementById('bulkTestBtn').addEventListener('click', handleBulkTest);
 
     // IPTV-org
-    document.getElementById('iptvOrgSearch').addEventListener('input', handleIptvOrgSearch);
     document.getElementById('selectAllIptvOrg').addEventListener('click', selectAllIptvOrg);
     document.getElementById('deselectAllIptvOrg').addEventListener('click', deselectAllIptvOrg);
     document.getElementById('importSelectedBtn').addEventListener('click', handleImportSelected);
@@ -752,7 +751,7 @@ function renderPlaylistsGrid(playlists) {
         const card = document.createElement('div');
         card.className = 'playlist-card';
         card.innerHTML = `
-            <h3>${playlist.name}</h3>
+            <h4>${playlist.name}</h4>
             <p>${playlist.description}</p>
         `;
         card.onclick = () => fetchIptvOrgPlaylist(playlist.url);
@@ -939,11 +938,6 @@ function renderIptvOrgTable(channels) {
     });
 }
 
-function handleIptvOrgSearch(e) {
-    if (iptvOrgDataTable) {
-        iptvOrgDataTable.search(e.target.value).draw();
-    }
-}
 
 function selectAllIptvOrg() {
     document.querySelectorAll('.iptv-org-select').forEach((cb, index) => {
