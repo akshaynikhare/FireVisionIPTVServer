@@ -559,7 +559,6 @@ router.post('/import', async (req, res) => {
                     channelGroup: channelData.channelGroup || 'Uncategorized',
                     tvgName: channelData.tvgName || '',
                     tvgLogo: channelData.tvgLogo || '',
-                    isActive: true,
                     order: imported
                 });
 

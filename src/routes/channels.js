@@ -5,7 +5,7 @@ const Channel = require('../models/Channel');
 // Get all channels (for Android app sync)
 router.get('/', async (req, res) => {
   try {
-    const channels = await Channel.find({ isActive: true })
+    const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
       .select('-__v -createdAt -updatedAt')
       .lean();
@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
 // Get channels grouped by category
 router.get('/grouped', async (req, res) => {
   try {
-    const channels = await Channel.find({ isActive: true })
+    const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
       .lean();
 
@@ -112,7 +112,6 @@ router.get('/search', async (req, res) => {
     }
 
     const channels = await Channel.find({
-      isActive: true,
       $or: [
         { channelName: { $regex: q, $options: 'i' } },
         { channelGroup: { $regex: q, $options: 'i' } },

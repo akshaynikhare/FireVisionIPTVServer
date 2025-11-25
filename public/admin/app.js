@@ -1944,12 +1944,9 @@ function renderApkVersionsTable() {
 
 // Update APK statistics
 function updateApkStats() {
-    const totalEl = document.getElementById('totalApkVersions');
     const activeEl = document.getElementById('activeApkVersions');
     const latestNameEl = document.getElementById('latestVersionName');
     const latestCodeEl = document.getElementById('latestVersionCode');
-
-    if (totalEl) totalEl.textContent = apkVersions.length;
 
     const activeVersions = apkVersions.filter(v => v.isActive);
     if (activeEl) activeEl.textContent = activeVersions.length;

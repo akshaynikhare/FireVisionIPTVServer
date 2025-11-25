@@ -117,7 +117,7 @@ router.post('/test-all', async (req, res) => {
     try {
         const { limit = 50, skip = 0 } = req.body;
 
-        const channels = await Channel.find({ isActive: true })
+        const channels = await Channel.find({})
             .limit(parseInt(limit))
             .skip(parseInt(skip));
 

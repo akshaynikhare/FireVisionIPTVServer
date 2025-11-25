@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' https: http: blob: data: ws: wss:;
+        font-src 'self';
+        frame-src 'self';
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://cdn.datatables.net;
+        worker-src 'self' blob:">
+
+    <title>Statistics - FireVision IPTV</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="common.js" as="script">
+    <link rel="preload" href="stats.js" as="script">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen">
+        <div class="login-container">
+            <div class="login-box">
+                <h1>🔐 Redirecting...</h1>
+                <p class="subtitle">Please wait...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboardScreen" class="screen">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h2>📺 FireVision</h2>
+                <p>Admin Dashboard</p>
+            </div>
+            <nav>
+                <a href="channels.html" data-page="channels">📋 Channels</a>
+                <a href="users.html" data-page="users" id="usersNavLink">👥 Users</a>
+                <a href="iptv-org.html" data-page="iptv-org">🌐 IPTV-org Fetch</a>
+                <a href="apk.html" data-page="apk">📱 APK Manager</a>
+                <a href="stats.html" data-page="stats" class="active">📊 Statistics</a>
+            </nav>
+            <div class="user-info">
+                <a href="profile.html" class="user-profile-section clickable">
+                    <div class="user-avatar-wrapper">
+                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
+                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
+                            <span id="sidebarProfileInitials">U</span>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <p class="user-name" id="loggedInUser">User</p>
+                        <p class="user-role" id="loggedInUserRole">Admin</p>
+                    </div>
+                </a>
+                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Statistics View -->
+            <div id="statsView" class="view active">
+                <div class="header">
+                    <h1>Statistics</h1>
+                </div>
+
+                <div class="stats-grid large">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statTotalChannels">0</div>
+                        <div class="stat-label">Total Channels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statActiveChannels">0</div>
+                        <div class="stat-label">Active Channels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statInactiveChannels">0</div>
+                        <div class="stat-label">Inactive Channels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statTotalVersions">0</div>
+                        <div class="stat-label">App Versions</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Channels by Category</h3>
+                    <div id="categoryChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <!-- HLS.js (for HLS playback) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- Common Utilities -->
+    <script src="common.js"></script>
+
+    <!-- Page-specific Logic -->
+    <script src="stats.js"></script>
+</body>
+</html>

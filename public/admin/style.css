@@ -8,6 +8,7 @@
     --primary: #2563eb;
     --primary-dark: #1e40af;
     --danger: #dc2626;
+    --danger-dark: #991b1b;
     --success: #16a34a;
     --warning: #ea580c;
     --bg: #f8fafc;
@@ -30,6 +31,29 @@ body {
 
 .screen.active {
     display: block;
+}
+
+/* Top Loading Bar */
+.top-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+    z-index: 99999;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.top-loading-bar.loading {
+    animation: loading-progress 2s ease-in-out infinite;
+}
+
+@keyframes loading-progress {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
 }
 
 /* Login Screen */
@@ -103,6 +127,15 @@ body {
     color: white;
 }
 
+.btn-outline-primary {
+    border: 2px solid var(--primary);
+    color: var(--primary);
+}
+.btn-outline-primary:hover {
+    border: 2px solid var(--primary-dark);
+    color: var(--primary-dark);
+}
+
 .btn-primary:hover {
     background: var(--primary-dark);
 }
@@ -117,6 +150,15 @@ body {
     color: white;
 }
 
+.btn-outline-danger {
+    border: 2px solid var(--danger);
+    color: var(--danger);
+}
+
+.btn-outline-danger:hover {
+    border: 2px solid var(--danger-dark);
+    color: var(--danger-dark);
+}
 .btn-small {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
@@ -214,23 +256,10 @@ nav a.active {
 }
 
 .user-profile-section.clickable:hover {
+    background: var(--bg);
+}
+.user-profile-section.active:hover {
     background: var(--primary);
-    transform: translateX(4px);
-}
-
-.user-profile-section.clickable:hover .user-name,
-.user-profile-section.clickable:hover .user-role {
-    color: white;
-}
-
-.user-profile-section.clickable:hover .user-avatar-placeholder {
-    border-color: white;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
-}
-
-.user-profile-section.clickable:hover .user-avatar {
-    border-color: white;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
 .user-profile-section.active {

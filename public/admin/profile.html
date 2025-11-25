@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Profile - FireVision IPTV</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="common.js" as="script">
     <link rel="stylesheet" href="style.css">
     <style>
         .profile-view {
@@ -161,7 +164,7 @@
 </head>
 <body>
     <!-- Login Screen -->
-    <div id="loginScreen" class="screen active">
+    <div id="loginScreen" class="screen">
         <div class="login-container">
             <div class="login-box">
                 <h1>🔐 Redirecting...</h1>
@@ -179,11 +182,11 @@
                 <p>Admin Dashboard</p>
             </div>
             <nav>
-                <a href="index.html" data-view="channels">📋 Channels</a>
-                <a href="index.html" data-view="users" id="usersNavLink">👥 Users</a>
-                <a href="index.html" data-view="iptv-org">🌐 IPTV-org Fetch</a>
-                <a href="index.html" data-view="apk">📱 APK Manager</a>
-                <a href="index.html" data-view="stats">📊 Statistics</a>
+                <a href="channels.html" data-page="channels">📋 Channels</a>
+                <a href="users.html" data-page="users" id="usersNavLink">👥 Users</a>
+                <a href="iptv-org.html" data-page="iptv-org">🌐 IPTV-org Fetch</a>
+                <a href="apk.html" data-page="apk">📱 APK Manager</a>
+                <a href="stats.html" data-page="stats">📊 Statistics</a>
             </nav>
             <div class="user-info">
                 <a href="profile.html" class="user-profile-section clickable active">
@@ -368,8 +371,13 @@
 
         // Show dashboard
         function showDashboard() {
-            document.getElementById('loginScreen').classList.remove('active');
-            document.getElementById('dashboardScreen').classList.add('active');
+            // Preload dashboard for smooth transition
+            requestAnimationFrame(() => {
+                document.getElementById('loginScreen').classList.remove('active');
+                requestAnimationFrame(() => {
+                    document.getElementById('dashboardScreen').classList.add('active');
+                });
+            });
         }
 
         // Update sidebar with user info

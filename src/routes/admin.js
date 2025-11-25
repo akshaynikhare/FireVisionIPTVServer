@@ -86,6 +86,25 @@ router.delete('/channels/:id', async (req, res) => {
   }
 });
 
+// Delete all channels
+router.delete('/channels', async (req, res) => {
+  try {
+    const deleteResult = await Channel.deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deleteResult.deletedCount} channels`,
+      deletedCount: deleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('Error deleting all channels:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete all channels'
+    });
+  }
+});
+
 // Bulk import channels from M3U
 router.post('/channels/import-m3u', async (req, res) => {
   try {
@@ -153,14 +172,13 @@ router.post('/channels/import-m3u', async (req, res) => {
   }
 });
 
-// Get all channels including inactive (for admin)
+// Get all channels (for admin)
 router.get('/channels', async (req, res) => {
   try {
-    const { group, isActive } = req.query;
+    const { group } = req.query;
     const filter = {};
 
     if (group) filter.channelGroup = group;
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
 
     const channels = await Channel.find(filter)
       .sort({ channelGroup: 1, order: 1 });
@@ -352,7 +370,6 @@ router.delete('/app/versions/:id', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const totalChannels = await Channel.countDocuments();
-    const activeChannels = await Channel.countDocuments({ isActive: true });
     const channelsByGroup = await Channel.aggregate([
       {
         $group: {
@@ -373,8 +390,6 @@ router.get('/stats', async (req, res) => {
       data: {
         channels: {
           total: totalChannels,
-          active: activeChannels,
-          inactive: totalChannels - activeChannels,
           byGroup: channelsByGroup
         },
         app: {

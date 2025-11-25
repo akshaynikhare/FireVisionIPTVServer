@@ -41,11 +41,6 @@ const channelSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  isActive: {
-    type: Boolean,
-    default: true,
-    index: true
-  },
   order: {
     type: Number,
     default: 0
@@ -83,7 +78,7 @@ channelSchema.methods.toM3U = function() {
 
 // Static method to generate full M3U playlist
 channelSchema.statics.generateM3UPlaylist = async function() {
-  const channels = await this.find({ isActive: true }).sort({ channelGroup: 1, order: 1 });
+  const channels = await this.find({}).sort({ channelGroup: 1, order: 1 });
 
   let m3uContent = '#EXTM3U\n\n';
 

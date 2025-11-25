@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' https: http: blob: data: ws: wss:;
+        font-src 'self';
+        frame-src 'self';
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://cdn.datatables.net;
+        worker-src 'self' blob:">
+
+    <title>IPTV-org Fetch - FireVision IPTV</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="common.js" as="script">
+    <link rel="preload" href="iptv-org.js" as="script">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen">
+        <div class="login-container">
+            <div class="login-box">
+                <h1>🔐 Redirecting...</h1>
+                <p class="subtitle">Please wait...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboardScreen" class="screen">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h2>📺 FireVision</h2>
+                <p>Admin Dashboard</p>
+            </div>
+            <nav>
+                <a href="channels.html" data-page="channels">📋 Channels</a>
+                <a href="users.html" data-page="users" id="usersNavLink">👥 Users</a>
+                <a href="iptv-org.html" data-page="iptv-org" class="active">🌐 IPTV-org Fetch</a>
+                <a href="apk.html" data-page="apk">📱 APK Manager</a>
+                <a href="stats.html" data-page="stats">📊 Statistics</a>
+            </nav>
+            <div class="user-info">
+                <a href="profile.html" class="user-profile-section clickable">
+                    <div class="user-avatar-wrapper">
+                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
+                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
+                            <span id="sidebarProfileInitials">U</span>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <p class="user-name" id="loggedInUser">User</p>
+                        <p class="user-role" id="loggedInUserRole">Admin</p>
+                    </div>
+                </a>
+                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- IPTV-org View -->
+            <div id="iptvOrgView" class="view active">
+                <div class="header">
+                    <h1>Import from IPTV-org</h1>
+                    <p class="subtitle">Auto-fetch channels from https://iptv-org.github.io/iptv</p>
+                </div>
+
+                <div class="playlist-selector">
+                    <h3>Quick Actions</h3>
+                    <div class="quick-filters" style="margin-bottom: 15px;">
+                        <button class="btn btn-primary" id="loadAllIptvOrgBtn">📥 Load All Channels</button>
+                        <button class="btn btn-secondary" id="clearCacheBtn">🗑️ Clear Cache & Refresh</button>
+                        <button class="btn btn-filter" data-filter="show-all">🌐 Show All</button>
+                    </div>
+                </div>
+
+                <div class="playlist-selector">
+                    <h3>Quick Filters</h3>
+                    <div class="quick-filters">
+                        <button class="btn btn-filter" data-filter="india-hindi">🇮🇳 India Hindi</button>
+                        <button class="btn btn-filter" data-filter="india-marathi">🇮🇳 India Marathi</button>
+                        <button class="btn btn-filter" data-filter="india-english">🇮🇳 India English</button>
+                        <button class="btn btn-filter" data-filter="english-kids">👶 English Kids</button>
+                        <button class="btn btn-filter" data-filter="active-channels">✅ Active Channels</button>
+                    </div>
+                </div>
+
+                <div class="playlist-selector" style="margin-top: 20px;">
+                    <h3>Or Browse All Playlists</h3>
+                    <div id="playlistsGrid" class="playlists-grid">
+                        <!-- Playlists will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="iptvOrgLoading" class="loading-container hidden">
+                    <div class="spinner-overlay"></div>
+                    <div class="spinner"></div>
+                    <div class="loading-text">Fetching channels, please wait...</div>
+                </div>
+
+                <div id="iptvOrgChannels" class="hidden">
+                    <div class="header">
+                        <h3>Available Channels (<span id="iptvOrgCount">0</span>)</h3>
+                        <div class="header-actions">
+                            <input type="text" id="iptvOrgSearch" placeholder="Filter channels..." class="search-input">
+                            <button id="selectAllIptvOrg" class="btn btn-secondary">Select All</button>
+                            <button id="deselectAllIptvOrg" class="btn btn-secondary">Deselect All</button>
+                            <button id="importSelectedBtn" class="btn btn-primary">Import Selected</button>
+                        </div>
+                    </div>
+                    <div id="iptvOrgPlaceholder" class="table-placeholder">
+                        <p>Select a playlist above to load channels</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="replaceExisting">
+                            Replace all existing channels (Warning: This will delete all current channels)
+                        </label>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="iptvOrgTable">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllIptvOrgCheckbox"></th>
+                                    <th>Logo</th>
+                                    <th>Name</th>
+                                    <th>Group</th>
+                                    <th>Language</th>
+                                    <th>Country</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="iptvOrgTableBody">
+                                <!-- Channels will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Modal -->
+    <div id="playerModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <div>
+                    <h2 id="playerTitle">Channel Player</h2>
+                    <p id="playerChannelName" class="subtitle"></p>
+                </div>
+                <span class="close" data-close="playerModal">&times;</span>
+            </div>
+            <div class="player-container">
+                <video id="videoPlayer" controls preload="auto" class="w-full bg-black rounded" style="width:100%;max-height:80vh;">
+                    Your browser does not support HTML5 video.
+                </video>
+                <div id="playerLoading" class="player-loading hidden">
+                    <div class="spinner"></div>
+                    <p>Loading stream...</p>
+                </div>
+                <div id="playerError" class="player-error hidden">
+                    <p>❌ Failed to load stream</p>
+                    <p class="error-details"></p>
+                </div>
+            </div>
+            <div class="player-info">
+                <div class="info-row">
+                    <strong>Stream URL:</strong>
+                    <span id="playerUrl" class="url-truncate"></span>
+                </div>
+                <div class="info-row">
+                    <strong>Status:</strong>
+                    <span id="playerStatus">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channel Details Modal -->
+    <div id="channelDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Channel Details</h2>
+                <span class="close" data-close="channelDetailsModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="channel-detail-grid-modal">
+                    <div class="detail-item">
+                        <strong>Logo:</strong>
+                        <img id="detailLogo" class="detail-logo" alt="Channel Logo">
+                    </div>
+                    <div class="detail-item">
+                        <strong>Name:</strong>
+                        <span id="detailName"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Group/Category:</strong>
+                        <span id="detailGroup"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Language:</strong>
+                        <span id="detailLanguage"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Country:</strong>
+                        <span id="detailCountry"></span>
+                    </div>
+                    <div class="detail-item full-width">
+                        <strong>Stream URL:</strong>
+                        <span id="detailUrl" class="url-text"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="channelDetailsModal">Close</button>
+                <button id="detailPreviewBtn" class="btn btn-primary">▶️ Preview Stream</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <!-- HLS.js (for HLS playback) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- Common Utilities -->
+    <script src="common.js"></script>
+
+    <!-- Page-specific Logic -->
+    <script src="iptv-org.js"></script>
+</body>
+</html>

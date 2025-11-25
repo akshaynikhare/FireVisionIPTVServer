@@ -82,13 +82,12 @@ router.get('/playlist/:code/json', async (req, res) => {
         let channels;
 
         if (user.role === 'Admin') {
-            // Admin gets all active channels
-            channels = await Channel.find({ isActive: true }).sort({ channelGroup: 1, order: 1 });
+            // Admin gets all channels
+            channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 });
         } else {
             // Regular users get only their assigned channels
             channels = await Channel.find({
-                _id: { $in: user.channels },
-                isActive: true
+                _id: { $in: user.channels }
             }).sort({ channelGroup: 1, order: 1 });
         }
 

@@ -14,11 +14,8 @@
         style-src 'self' 'unsafe-inline' https://cdn.datatables.net;
         worker-src 'self' blob:">
 
-    <title>FireVision IPTV - Admin Dashboard</title>
+    <title>Login - FireVision IPTV Admin</title>
     <link rel="stylesheet" href="style.css">
-    <!-- DataTables CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
 </head>
 <body>
     <!-- Login Screen -->
@@ -42,597 +39,58 @@
         </div>
     </div>
 
-    <!-- Dashboard Screen -->
-    <div id="dashboardScreen" class="screen">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="logo">
-                <h2>📺 FireVision</h2>
-                <p>Admin Dashboard</p>
-            </div>
-            <nav>
-                <a href="#" data-view="channels" class="active">📋 Channels</a>
-                <a href="#" data-view="users" id="usersNavLink">👥 Users</a>
-                <a href="#" data-view="iptv-org">🌐 IPTV-org Fetch</a>
-                <a href="#" data-view="apk">📱 APK Manager</a>
-                <a href="#" data-view="stats">📊 Statistics</a>
-            </nav>
-            <div class="user-info">
-                <a href="profile.html" class="user-profile-section clickable">
-                    <div class="user-avatar-wrapper">
-                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
-                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
-                            <span id="sidebarProfileInitials">U</span>
-                        </div>
-                    </div>
-                    <div class="user-details">
-                        <p class="user-name" id="loggedInUser">User</p>
-                        <p class="user-role" id="loggedInUserRole">Admin</p>
-                    </div>
-                </a>
-                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
-            </div>
-        </div>
+    <script>
+        // API Configuration
+        const API_BASE = window.location.origin;
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <div id="channelsView" class="view active">
-                <div class="header">
-                    <h1>Channel Management</h1>
-                    <div class="header-actions">
-                        <input type="text" id="searchInput" placeholder="Search channels..." class="search-input">
-                        <button id="addChannelBtn" class="btn btn-primary">+ Add Channel</button>
-                    </div>
-                </div>
+        // Check if already logged in, redirect to channels
+        const sessionId = localStorage.getItem('sessionId');
+        if (sessionId) {
+            // Verify session is valid
+            fetch(`${API_BASE}/api/v1/auth/me`, {
+                headers: { 'X-Session-Id': sessionId }
+            }).then(response => {
+                if (response.ok) {
+                    // Valid session, redirect to channels
+                    window.location.href = '/admin/channels.html';
+                }
+            }).catch(err => {
+                console.error('Auth check failed:', err);
+            });
+        }
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalChannels">0</div>
-                        <div class="stat-label">Total Channels</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="activeChannels">0</div>
-                        <div class="stat-label">Active</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="workingChannels">-</div>
-                        <div class="stat-label">Working</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalGroups">0</div>
-                        <div class="stat-label">Categories</div>
-                    </div>
-                </div>
+        // Login Handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-                <div class="bulk-actions">
-                    <button id="bulkTestBtn" class="btn btn-primary">🔍 Test Selected</button>
-                    <button id="bulkDeleteBtn" class="btn btn-danger">🗑️ Delete Selected</button>
-                    <div class="test-info">
-                        <span id="testProgress"></span>
-                    </div>
-                </div>
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
 
-                <div class="table-container">
-                    <table id="channelsTable">
-                        <thead>
-                            <tr>
-                                <th><input type="checkbox" id="selectAll"></th>
-                                <th>Logo</th>
-                                <th>Name</th>
-                                <th>Group</th>
-                                <th>Status</th>
-                                <th>Test Status</th>
-                                <th>URL</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="channelsTableBody">
-                            <!-- Channels will be loaded here -->
-                        </tbody>
-                    </table>
-                    <div id="loadingChannels" class="loading">Loading channels...</div>
-                </div>
-            </div>
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
 
-            <!-- Users View -->
-            <div id="usersView" class="view">
-                <div class="header">
-                    <h1>User Management</h1>
-                    <div class="header-actions">
-                        <button id="addUserBtn" class="btn btn-primary">+ Add User</button>
-                    </div>
-                </div>
+                const data = await response.json();
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalUsers">0</div>
-                        <div class="stat-label">Total Users</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="activeUsers">0</div>
-                        <div class="stat-label">Active Users</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="adminUsers">0</div>
-                        <div class="stat-label">Admins</div>
-                    </div>
-                </div>
+                if (data.success) {
+                    // Store session
+                    localStorage.setItem('sessionId', data.sessionId);
 
-                <div class="table-container">
-                    <table id="usersTable" class="display nowrap" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Playlist Code</th>
-                                <th>Channels</th>
-                                <th>Status</th>
-                                <th>Last Login</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                    <div id="loadingUsers" class="loading hidden">Loading users...</div>
-                </div>
-            </div>
-
-            <!-- IPTV-org View -->
-            <div id="iptvOrgView" class="view">
-                <div class="header">
-                    <h1>Import from IPTV-org</h1>
-                    <p class="subtitle">Auto-fetch channels from https://iptv-org.github.io/iptv</p>
-                </div>
-
-                <div class="playlist-selector">
-                    <h3>Quick Actions</h3>
-                    <div class="quick-filters" style="margin-bottom: 15px;">
-                        <button class="btn btn-primary" id="loadAllIptvOrgBtn">📥 Load All Channels</button>
-                        <button class="btn btn-secondary" id="clearCacheBtn">🗑️ Clear Cache & Refresh</button>
-                        <button class="btn btn-filter" data-filter="show-all">🌐 Show All</button>
-                    </div>
-                </div>
-
-                <div class="playlist-selector">
-                    <h3>Quick Filters</h3>
-                    <div class="quick-filters">
-                        <button class="btn btn-filter" data-filter="india-hindi">🇮🇳 India Hindi</button>
-                        <button class="btn btn-filter" data-filter="india-marathi">🇮🇳 India Marathi</button>
-                        <button class="btn btn-filter" data-filter="india-english">🇮🇳 India English</button>
-                        <button class="btn btn-filter" data-filter="english-kids">👶 English Kids</button>
-                        <button class="btn btn-filter" data-filter="active-channels">✅ Active Channels</button>
-                    </div>
-                </div>
-
-                <div class="playlist-selector" style="margin-top: 20px;">
-                    <h3>Or Browse All Playlists</h3>
-                    <div id="playlistsGrid" class="playlists-grid">
-                        <!-- Playlists will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Loading Spinner -->
-                <div id="iptvOrgLoading" class="loading-container hidden">
-                    <div class="spinner-overlay"></div>
-                    <div class="spinner"></div>
-                    <div class="loading-text">Fetching channels, please wait...</div>
-                </div>
-
-                <div id="iptvOrgChannels" class="hidden">
-                    <div class="header">
-                        <h3>Available Channels (<span id="iptvOrgCount">0</span>)</h3>
-                        <div class="header-actions">
-                            <input type="text" id="iptvOrgSearch" placeholder="Filter channels..." class="search-input">
-                            <button id="selectAllIptvOrg" class="btn btn-secondary">Select All</button>
-                            <button id="deselectAllIptvOrg" class="btn btn-secondary">Deselect All</button>
-                            <button id="importSelectedBtn" class="btn btn-primary">Import Selected</button>
-                        </div>
-                    </div>
-                    <div id="iptvOrgPlaceholder" class="table-placeholder">
-                        <p>Select a playlist above to load channels</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="replaceExisting">
-                            Replace all existing channels (Warning: This will delete all current channels)
-                        </label>
-                    </div>
-
-                    <div class="table-container">
-                        <table id="iptvOrgTable">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="selectAllIptvOrgCheckbox"></th>
-                                    <th>Logo</th>
-                                    <th>Name</th>
-                                    <th>Group</th>
-                                    <th>Language</th>
-                                    <th>Country</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="iptvOrgTableBody">
-                                <!-- Channels will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- APK Manager View -->
-            <div id="apkView" class="view">
-                <div class="header">
-                    <h1>APK Version Manager</h1>
-                    <p class="subtitle">Manage and distribute FireVision IPTV app versions</p>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalApkVersions">0</div>
-                        <div class="stat-label">Total Versions</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="activeApkVersions">0</div>
-                        <div class="stat-label">Active Versions</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="latestVersionName">-</div>
-                        <div class="stat-label">Latest Version</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="latestVersionCode">-</div>
-                        <div class="stat-label">Latest Version Code</div>
-                    </div>
-                </div>
-
-                <!-- Upload Section -->
-                <div class="upload-section">
-                    <h3>Add New APK Version</h3>
-                    <div class="info-box" style="background: #eff6ff; border: 2px solid #3b82f6; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem;">
-                        <p style="margin: 0 0 1rem 0; font-size: 1.1rem;"><strong>📝 JSON-Based Management</strong></p>
-                        <p style="margin: 0 0 1rem 0;">APK versions are managed via the <code>versions.json</code> file. Use one of these methods:</p>
-
-                        <div style="background: white; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem;">
-                            <p style="margin: 0 0 0.5rem 0;"><strong>Method 1: Helper Script (Recommended) ⚡</strong></p>
-                            <code style="display: block; background: #1e293b; color: #10b981; padding: 0.75rem; border-radius: 0.25rem; font-family: monospace; overflow-x: auto;">
-                                node add-version.js path/to/app.apk 1.1.0 2 "Release notes"
-                            </code>
-                        </div>
-
-                        <div style="background: white; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem;">
-                            <p style="margin: 0 0 0.5rem 0;"><strong>Method 2: Manual 📝</strong></p>
-                            <ol style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
-                                <li>Copy APK to <code>apks/</code> directory</li>
-                                <li>Edit <code>versions.json</code> file</li>
-                                <li>Restart server</li>
-                            </ol>
-                        </div>
-
-                        <p style="margin: 0;">📖 See <strong>QUICK_START_APK.md</strong> for detailed instructions</p>
-                    </div>
-                </div>
-
-                <!-- APK Versions Table -->
-                <div class="table-section">
-                    <div class="header">
-                        <h3>Existing Versions</h3>
-                        <button id="refreshApkBtn" class="btn btn-secondary">🔄 Refresh</button>
-                    </div>
-
-                    <div class="table-container">
-                        <table id="apkVersionsTable">
-                            <thead>
-                                <tr>
-                                    <th>Version</th>
-                                    <th>Version Code</th>
-                                    <th>File Name</th>
-                                    <th>Size</th>
-                                    <th>Status</th>
-                                    <th>Mandatory</th>
-                                    <th>Released</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="apkVersionsTableBody">
-                                <!-- Versions will be loaded here -->
-                            </tbody>
-                        </table>
-                        <div id="loadingApk" class="loading">Loading versions...</div>
-                    </div>
-                </div>
-
-                <!-- Quick Download Links -->
-                <div class="download-links-section">
-                    <h3>Quick Download Links</h3>
-                    <div class="link-card">
-                        <strong>Latest APK (Simple):</strong>
-                        <div class="link-display">
-                            <code id="simpleDownloadLink">/api/v1/app/apk</code>
-                            <button class="btn btn-small" onclick="copyToClipboard('simpleDownloadLink')">Copy</button>
-                        </div>
-                    </div>
-                    <div class="link-card">
-                        <strong>Latest APK (Full URL):</strong>
-                        <div class="link-display">
-                            <code id="fullDownloadLink">-</code>
-                            <button class="btn btn-small" onclick="copyToClipboard('fullDownloadLink')">Copy</button>
-                        </div>
-                    </div>
-                    <div class="link-card">
-                        <strong>Version Check API:</strong>
-                        <div class="link-display">
-                            <code id="versionCheckLink">/api/v1/app/version?currentVersion=1</code>
-                            <button class="btn btn-small" onclick="copyToClipboard('versionCheckLink')">Copy</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistics View -->
-            <div id="statsView" class="view">
-                <div class="header">
-                    <h1>Statistics</h1>
-                </div>
-
-                <div class="stats-grid large">
-                    <div class="stat-card">
-                        <div class="stat-value" id="statTotalChannels">0</div>
-                        <div class="stat-label">Total Channels</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="statActiveChannels">0</div>
-                        <div class="stat-label">Active Channels</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="statInactiveChannels">0</div>
-                        <div class="stat-label">Inactive Channels</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="statTotalVersions">0</div>
-                        <div class="stat-label">App Versions</div>
-                    </div>
-                </div>
-
-                <div class="chart-container">
-                    <h3>Channels by Category</h3>
-                    <div id="categoryChart"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Player Modal -->
-    <div id="playerModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <div>
-                    <h2 id="playerTitle">Channel Player</h2>
-                    <p id="playerChannelName" class="subtitle"></p>
-                </div>
-                <span class="close" data-close="playerModal">&times;</span>
-            </div>
-            <div class="player-container">
-                <video id="videoPlayer" controls preload="auto" class="w-full bg-black rounded" style="width:100%;max-height:80vh;">
-                    Your browser does not support HTML5 video.
-                </video>
-                <div id="playerLoading" class="player-loading hidden">
-                    <div class="spinner"></div>
-                    <p>Loading stream...</p>
-                </div>
-                <div id="playerError" class="player-error hidden">
-                    <p>❌ Failed to load stream</p>
-                    <p class="error-details"></p>
-                </div>
-            </div>
-            <div class="player-info">
-                <div class="info-row">
-                    <strong>Stream URL:</strong>
-                    <span id="playerUrl" class="url-truncate"></span>
-                </div>
-                <div class="info-row">
-                    <strong>Status:</strong>
-                    <span id="playerStatus">Loading...</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Channel Form Modal -->
-    <div id="channelModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add Channel</h2>
-                <span class="close" data-close="channelModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="channelForm">
-                    <input type="hidden" id="channelIdHidden">
-                    <div class="form-group">
-                        <label for="channelId">Channel ID</label>
-                        <input type="text" id="channelId" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="channelName">Name</label>
-                        <input type="text" id="channelName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="channelUrl">Stream URL</label>
-                        <input type="text" id="channelUrl" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="channelImg">Logo URL</label>
-                        <input type="text" id="channelImg">
-                    </div>
-                    <div class="form-group">
-                        <label for="channelGroup">Group/Category</label>
-                        <input type="text" id="channelGroup">
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="isActive" checked>
-                            Active
-                        </label>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Channel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Channel Details Modal -->
-    <div id="channelDetailsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Channel Details</h2>
-                <span class="close" data-close="channelDetailsModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="channel-detail-grid-modal">
-                    <div class="detail-item">
-                        <strong>Logo:</strong>
-                        <img id="detailLogo" class="detail-logo" alt="Channel Logo">
-                    </div>
-                    <div class="detail-item">
-                        <strong>Name:</strong>
-                        <span id="detailName"></span>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Group/Category:</strong>
-                        <span id="detailGroup"></span>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Language:</strong>
-                        <span id="detailLanguage"></span>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Country:</strong>
-                        <span id="detailCountry"></span>
-                    </div>
-                    <div class="detail-item full-width">
-                        <strong>Stream URL:</strong>
-                        <span id="detailUrl" class="url-text"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-close="channelDetailsModal">Close</button>
-                <button id="detailPreviewBtn" class="btn btn-primary">▶️ Preview Stream</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- User Modal (Add/Edit) -->
-    <div id="userModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="userModalTitle">Add User</h2>
-                <span class="close" data-close="userModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="userForm">
-                    <input type="hidden" id="userId">
-
-                    <div class="form-group">
-                        <label for="userUsername">Username</label>
-                        <input type="text" id="userUsername" required minlength="3">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="userEmail">Email</label>
-                        <input type="email" id="userEmail" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="userPassword">Password</label>
-                        <input type="password" id="userPassword" minlength="6">
-                        <small id="passwordHint" class="hidden">Leave empty to keep current password</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="userRole">Role</label>
-                        <select id="userRole" required>
-                            <option value="User">User</option>
-                            <option value="Admin">Admin</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="userIsActive" checked>
-                            Active
-                        </label>
-                    </div>
-
-                    <div class="form-group" id="playlistCodeDisplay" style="display:none;">
-                        <label>Playlist Code</label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="text" id="userPlaylistCode" readonly style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">
-                            <button type="button" id="copyCodeBtn" class="btn btn-secondary">📋 Copy</button>
-                            <button type="button" id="regenerateCodeBtn" class="btn btn-secondary">🔄 Regenerate</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-close="userModal">Cancel</button>
-                <button id="saveUserBtn" class="btn btn-primary">Save User</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Assign Channels Modal -->
-    <div id="assignChannelsModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header">
-                <h2>Assign Channels to <span id="assignUserName"></span></h2>
-                <span class="close" data-close="assignChannelsModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="assignUserId">
-
-                <div class="form-group">
-                    <input type="text" id="channelSearchInput" placeholder="Search channels..." class="search-input" style="width: 100%;">
-                </div>
-
-                <div class="form-group">
-                    <button id="selectAllChannelsBtn" class="btn btn-secondary">Select All</button>
-                    <button id="deselectAllChannelsBtn" class="btn btn-secondary">Deselect All</button>
-                    <span id="selectedCount" style="margin-left: 15px; font-weight: bold;"></span>
-                </div>
-
-                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
-                    <table id="assignChannelsTable" class="display nowrap" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th><input type="checkbox" id="selectAllCheck"></th>
-                                <th>Name</th>
-                                <th>Group</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-close="assignChannelsModal">Cancel</button>
-                <button id="saveChannelsBtn" class="btn btn-primary">Save Channels</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- jQuery (required for DataTables) -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-
-    <!-- HLS.js (for HLS playback) -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-    <!-- App Logic -->
-    <script src="app.js"></script>
+                    // Redirect to channels page
+                    window.location.href = '/admin/channels.html';
+                } else {
+                    errorDiv.textContent = data.error || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
 </body>
 </html>
