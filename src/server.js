@@ -78,6 +78,7 @@ app.use('/api/v1/image-proxy', require('./routes/image-proxy'));
 app.use('/api/v1/stream-proxy', require('./routes/stream-proxy'));
 app.use('/api/v1/users', require('./routes/users'));
 app.use('/api/v1/tv', require('./routes/tv'));
+app.use('/api/v1/config', require('./routes/config'));
 
 // Health check
 app.get('/health', (req, res) => {
