@@ -7,6 +7,34 @@ const { requireAuth } = require('./auth');
 // Apply authentication to all routes
 router.use(requireAuth);
 
+// Lock mechanism to prevent concurrent test operations per user
+const testLocks = new Map(); // sessionId -> { locked: boolean, timestamp: number }
+
+// Helper functions for lock management
+function acquireLock(sessionId) {
+    const now = Date.now();
+    const lock = testLocks.get(sessionId);
+
+    // Clean up old locks (older than 5 minutes)
+    if (lock && now - lock.timestamp > 300000) {
+        testLocks.delete(sessionId);
+        return true;
+    }
+
+    // Check if already locked
+    if (lock && lock.locked) {
+        return false;
+    }
+
+    // Acquire lock
+    testLocks.set(sessionId, { locked: true, timestamp: now });
+    return true;
+}
+
+function releaseLock(sessionId) {
+    testLocks.delete(sessionId);
+}
+
 // Test a single channel
 router.post('/test-channel', async (req, res) => {
     try {
@@ -57,6 +85,8 @@ router.post('/test-channel', async (req, res) => {
 
 // Test multiple channels
 router.post('/test-batch', async (req, res) => {
+    const sessionId = req.headers['x-session-id'];
+
     try {
         const { channelIds } = req.body;
 
@@ -67,44 +97,58 @@ router.post('/test-batch', async (req, res) => {
             });
         }
 
-        const results = [];
-
-        for (const channelId of channelIds) {
-            try {
-                const channel = await Channel.findById(channelId);
-
-                if (channel) {
-                    const testResult = await testChannelStream(channel.channelUrl);
-
-                    // Update channel metadata
-                    await Channel.findByIdAndUpdate(channelId, {
-                        'metadata.lastTested': new Date(),
-                        'metadata.isWorking': testResult.working,
-                        'metadata.responseTime': testResult.responseTime
-                    });
-
-                    results.push({
-                        channelId: channel._id,
-                        channelName: channel.channelName,
-                        ...testResult
-                    });
-                }
-            } catch (error) {
-                results.push({
-                    channelId,
-                    working: false,
-                    error: error.message
-                });
-            }
+        // Try to acquire lock
+        if (!acquireLock(sessionId)) {
+            return res.status(409).json({
+                success: false,
+                error: 'Another test operation is already in progress. Please wait for it to complete.'
+            });
         }
 
-        res.json({
-            success: true,
-            tested: results.length,
-            results
-        });
+        const results = [];
+
+        try {
+            for (const channelId of channelIds) {
+                try {
+                    const channel = await Channel.findById(channelId);
+
+                    if (channel) {
+                        const testResult = await testChannelStream(channel.channelUrl);
+
+                        // Update channel metadata
+                        await Channel.findByIdAndUpdate(channelId, {
+                            'metadata.lastTested': new Date(),
+                            'metadata.isWorking': testResult.working,
+                            'metadata.responseTime': testResult.responseTime
+                        });
+
+                        results.push({
+                            channelId: channel._id,
+                            channelName: channel.channelName,
+                            ...testResult
+                        });
+                    }
+                } catch (error) {
+                    results.push({
+                        channelId,
+                        working: false,
+                        error: error.message
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                tested: results.length,
+                results
+            });
+        } finally {
+            // Always release lock when done
+            releaseLock(sessionId);
+        }
     } catch (error) {
         console.error('Error testing channels:', error);
+        releaseLock(sessionId);
         res.status(500).json({
             success: false,
             error: error.message || 'Failed to test channels'
@@ -114,8 +158,18 @@ router.post('/test-batch', async (req, res) => {
 
 // Test all channels (paginated)
 router.post('/test-all', async (req, res) => {
+    const sessionId = req.headers['x-session-id'];
+
     try {
         const { limit = 50, skip = 0 } = req.body;
+
+        // Try to acquire lock
+        if (!acquireLock(sessionId)) {
+            return res.status(409).json({
+                success: false,
+                error: 'Another test operation is already in progress. Please wait for it to complete.'
+            });
+        }
 
         const channels = await Channel.find({})
             .limit(parseInt(limit))
@@ -123,43 +177,49 @@ router.post('/test-all', async (req, res) => {
 
         const results = [];
 
-        for (const channel of channels) {
-            try {
-                const testResult = await testChannelStream(channel.channelUrl);
-                results.push({
-                    channelId: channel._id,
-                    channelName: channel.channelName,
-                    channelGroup: channel.channelGroup,
-                    ...testResult
-                });
+        try {
+            for (const channel of channels) {
+                try {
+                    const testResult = await testChannelStream(channel.channelUrl);
+                    results.push({
+                        channelId: channel._id,
+                        channelName: channel.channelName,
+                        channelGroup: channel.channelGroup,
+                        ...testResult
+                    });
 
-                // Update channel status
-                await Channel.findByIdAndUpdate(channel._id, {
-                    'metadata.lastTested': new Date(),
-                    'metadata.isWorking': testResult.working,
-                    'metadata.responseTime': testResult.responseTime
-                });
-            } catch (error) {
-                results.push({
-                    channelId: channel._id,
-                    channelName: channel.channelName,
-                    working: false,
-                    error: error.message
-                });
+                    // Update channel status
+                    await Channel.findByIdAndUpdate(channel._id, {
+                        'metadata.lastTested': new Date(),
+                        'metadata.isWorking': testResult.working,
+                        'metadata.responseTime': testResult.responseTime
+                    });
+                } catch (error) {
+                    results.push({
+                        channelId: channel._id,
+                        channelName: channel.channelName,
+                        working: false,
+                        error: error.message
+                    });
+                }
             }
+
+            const workingCount = results.filter(r => r.working).length;
+
+            res.json({
+                success: true,
+                tested: results.length,
+                working: workingCount,
+                notWorking: results.length - workingCount,
+                results
+            });
+        } finally {
+            // Always release lock when done
+            releaseLock(sessionId);
         }
-
-        const workingCount = results.filter(r => r.working).length;
-
-        res.json({
-            success: true,
-            tested: results.length,
-            working: workingCount,
-            notWorking: results.length - workingCount,
-            results
-        });
     } catch (error) {
         console.error('Error testing all channels:', error);
+        releaseLock(sessionId);
         res.status(500).json({
             success: false,
             error: error.message || 'Failed to test channels'

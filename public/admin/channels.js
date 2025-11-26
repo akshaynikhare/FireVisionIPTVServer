@@ -1,5 +1,5 @@
 // Channels Management Module
-// Handles all channel-related operations including CRUD, testing, and playback
+// Handles all channel-related operations including CRUD, testing, and playback (Bootstrap modal integration)
 
 // ==================== STATE VARIABLES ====================
 let channels = [];
@@ -10,157 +10,43 @@ let hlsInstance = null;
 let videoEventHandlers = null;
 
 // ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', async () => {
-    // Show loading bar
-    showLoadingBar();
-
-    // Check authentication first (uses cache for fast subsequent loads)
-    const user = await checkAuth();
-    if (!user) return; // Will redirect to login if not authenticated
-
-    // Show dashboard immediately with channels as active page
-    showDashboard(user, 'channels');
-
-    // Initialize page functionality (non-blocking)
-    initializeChannelEventListeners();
-
-    // Load channels and hide loading bar when done
-    try {
+document.addEventListener('DOMContentLoaded', () => {
+    AdminCore.initPage('channels', async () => {
+        initializeChannelEventListeners();
+        updateBulkActionButtons();
         await loadChannels();
-    } finally {
-        hideLoadingBar();
-    }
+    });
 });
 
 // Initialize event listeners specific to channels
 function initializeChannelEventListeners() {
     // Add Channel button
-    const addChannelBtn = document.getElementById('addChannelBtn');
-    if (addChannelBtn) {
-        addChannelBtn.addEventListener('click', () => openChannelModal());
-    }
-
-    // Channel Form
-    const channelForm = document.getElementById('channelForm');
-    if (channelForm) {
-        channelForm.addEventListener('submit', handleChannelSubmit);
-    }
-
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', closeChannelModal);
-    }
-
-    // Close buttons for channelModal
-    document.querySelectorAll('[data-close="channelModal"]').forEach(btn => {
-        btn.addEventListener('click', closeChannelModal);
-    });
+    document.getElementById('addChannelBtn')?.addEventListener('click', () => openChannelModal());
+    // Channel Form submit
+    document.getElementById('channelForm')?.addEventListener('submit', handleChannelSubmit);
+    // Cancel button uses data-bs-dismiss but keep close fallback
+    document.getElementById('cancelBtn')?.addEventListener('click', closeChannelModal);
 
     // Bulk actions
-    const selectAll = document.getElementById('selectAll');
-    if (selectAll) {
-        selectAll.addEventListener('change', handleSelectAll);
-    }
-
-    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-    if (bulkDeleteBtn) {
-        bulkDeleteBtn.addEventListener('click', handleBulkDelete);
-    }
-
-    const bulkTestBtn = document.getElementById('bulkTestBtn');
-    if (bulkTestBtn) {
-        bulkTestBtn.addEventListener('click', handleBulkTest);
-    }
-
-    const bulkDeleteAllBtn = document.getElementById('bulkDeleteAllBtn');
-    if (bulkDeleteAllBtn) {
-        bulkDeleteAllBtn.addEventListener('click', () => {
-            const modal = document.getElementById('deleteAllConfirmationModal');
-            if (modal) {
-                modal.classList.add('active');
-            }
-        });
-    }
-
-    const cancelDeleteAllBtn = document.getElementById('cancelDeleteAllBtn');
-    if (cancelDeleteAllBtn) {
-        cancelDeleteAllBtn.addEventListener('click', () => {
-            const modal = document.getElementById('deleteAllConfirmationModal');
-            if (modal) {
-                modal.classList.remove('active');
-            }
-        });
-    }
-
-    const confirmDeleteAllBtn = document.getElementById('confirmDeleteAllBtn');
-    if (confirmDeleteAllBtn) {
-        confirmDeleteAllBtn.addEventListener('click', handleBulkDeleteAll);
-    }
-
-    // Quick filters
-    document.querySelectorAll('.btn-filter').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const filter = e.target.dataset.filter;
-            applyQuickFilter(filter);
-        });
+    document.getElementById('selectAll')?.addEventListener('change', handleSelectAll);
+    document.getElementById('bulkDeleteBtn')?.addEventListener('click', handleBulkDelete);
+    document.getElementById('bulkTestBtn')?.addEventListener('click', handleBulkTest);
+    document.getElementById('bulkTestPendingBtn')?.addEventListener('click', handleTestPending);
+    document.getElementById('bulkDeleteNotWorkingBtn')?.addEventListener('click', handleDeleteNotWorking);
+    document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => {
+        const el = document.getElementById('deleteAllConfirmationModal');
+        if (el) $(el).modal('show');
     });
+    document.getElementById('confirmDeleteAllBtn')?.addEventListener('click', handleBulkDeleteAll);
+    document.getElementById('confirmDeleteNotWorkingBtn')?.addEventListener('click', confirmDeleteNotWorking);
 
-    // Channel details modal
-    const detailPreviewBtn = document.getElementById('detailPreviewBtn');
-    if (detailPreviewBtn) {
-        detailPreviewBtn.addEventListener('click', handleDetailPreview);
-    }
+    // Quick filters placeholder
+    document.querySelectorAll('.btn-filter').forEach(btn => btn.addEventListener('click', e => applyQuickFilter(e.target.dataset.filter)));
 
-    // Close channel details modal
-    document.querySelectorAll('[data-close="channelDetailsModal"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modal = document.getElementById('channelDetailsModal');
-            if (modal) {
-                modal.classList.remove('active');
-                currentChannelDetail = null;
-            }
-        });
-    });
+    // Detail preview button
+    document.getElementById('detailPreviewBtn')?.addEventListener('click', handleDetailPreview);
 
-    // Close player modal buttons
-    document.querySelectorAll('[data-close="playerModal"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modal = document.getElementById('playerModal');
-            if (modal) {
-                modal.classList.remove('active');
-                cleanupVideoPlayer();
-            }
-        });
-    });
-
-    // Click outside modal to close
-    document.addEventListener('click', (e) => {
-        // Close playerModal if clicking outside
-        const playerModal = document.getElementById('playerModal');
-        if (e.target === playerModal) {
-            playerModal.classList.remove('active');
-            cleanupVideoPlayer();
-        }
-
-        // Close channelModal if clicking outside
-        const channelModal = document.getElementById('channelModal');
-        if (e.target === channelModal) {
-            closeChannelModal();
-        }
-
-        // Close channelDetailsModal if clicking outside
-        const channelDetailsModal = document.getElementById('channelDetailsModal');
-        if (e.target === channelDetailsModal) {
-            channelDetailsModal.classList.remove('active');
-            currentChannelDetail = null;
-        }
-
-        // Close deleteAllConfirmationModal if clicking outside
-        const deleteAllConfirmationModal = document.getElementById('deleteAllConfirmationModal');
-        if (e.target === deleteAllConfirmationModal) {
-            deleteAllConfirmationModal.classList.remove('active');
-        }
-    });
+    // Bootstrap handles backdrop/outside clicks & close buttons.
 }
 
 // ==================== CHANNEL LOADING & RENDERING ====================
@@ -168,26 +54,28 @@ function initializeChannelEventListeners() {
 // Load Channels
 async function loadChannels() {
     const sessionId = getSessionId();
+    const loadingElement = document.getElementById('loadingChannels');
 
     try {
-        const loadingElement = document.getElementById('loadingChannels');
         if (loadingElement) {
-            loadingElement.classList.remove('hidden');
+            loadingElement.classList.remove('d-none');
         }
 
         const response = await fetch(`${API_BASE}/api/v1/channels`);
         const data = await response.json();
 
-        channels = data.data;
+        channels = data.data || [];
         renderChannelsTable(channels);
         updateChannelStats(channels);
 
-        if (loadingElement) {
-            loadingElement.classList.add('hidden');
-        }
     } catch (error) {
         console.error('Error loading channels:', error);
-        alert('Failed to load channels');
+        showToast('Failed to load channels', 3000);
+    } finally {
+        // Always hide loading, even on error
+        if (loadingElement) {
+            loadingElement.classList.add('d-none');
+        }
     }
 }
 
@@ -200,6 +88,20 @@ function renderChannelsTable(channelsToRender) {
         return;
     }
 
+    const tableElement = $('#channelsTable');
+    const tableWrapper = document.getElementById('channelsTableWrapper');
+    const noChannelsMessage = document.getElementById('noChannelsMessage');
+
+    // Show/hide appropriate message
+    if (channelsToRender.length === 0) {
+        if (tableWrapper) tableWrapper.style.display = 'none';
+        if (noChannelsMessage) noChannelsMessage.style.display = 'block';
+        return;
+    } else {
+        if (tableWrapper) tableWrapper.style.display = 'block';
+        if (noChannelsMessage) noChannelsMessage.style.display = 'none';
+    }
+
     // Destroy existing DataTable if it exists
     if (channelsDataTable) {
         channelsDataTable.destroy();
@@ -207,9 +109,11 @@ function renderChannelsTable(channelsToRender) {
     }
 
     // Initialize DataTable
-    channelsDataTable = $('#channelsTable').DataTable({
+    channelsDataTable = tableElement.DataTable({
         data: channelsToRender,
         pageLength: 25,
+        deferRender: true,
+        responsive: true,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
         order: [[2, 'asc']], // Sort by Name column
         columns: [
@@ -245,6 +149,15 @@ function renderChannelsTable(channelsToRender) {
                 data: 'channelGroup',
                 render: function(data, type, row) {
                     return data || 'N/A';
+                }
+            },
+            {
+                // Language column
+                data: null,
+                render: function(data, type, row) {
+                    // Support both IPTV-org format (tvgLanguage) and custom format (channelLanguage or metadata.language)
+                    const language = row.tvgLanguage || row.channelLanguage || row.metadata?.language || 'N/A';
+                    return language;
                 }
             },
             {
@@ -291,30 +204,6 @@ function renderChannelsTable(channelsToRender) {
             }
         ],
         initComplete: function() {
-            // Add column search filters
-            this.api().columns([2, 3]).every(function() {
-                const column = this;
-                const header = $(column.header());
-
-                // Check if search input already exists
-                if (header.find('input').length > 0) {
-                    return;
-                }
-
-                const title = header.text().trim();
-
-                const input = $('<input type="text" placeholder="Search ' + title + '" />')
-                    .appendTo(header)
-                    .on('click', function(e) {
-                        e.stopPropagation();
-                    })
-                    .on('keyup change clear', function() {
-                        if (column.search() !== this.value) {
-                            column.search(this.value).draw();
-                        }
-                    });
-            });
-
             // Add event listeners for action buttons
             $('#channelsTable').on('click', '.btn-edit', function() {
                 const id = $(this).data('id');
@@ -355,6 +244,7 @@ function renderChannelsTable(channelsToRender) {
                 } else {
                     selectedChannels.delete(id);
                 }
+                updateBulkActionButtons();
             });
 
             // Add row click handler to show channel details
@@ -401,11 +291,9 @@ function updateChannelStats(channels) {
 
 // Channel Modal
 function openChannelModal(channel = null) {
-    const modal = document.getElementById('channelModal');
+    const el = document.getElementById('channelModal');
     const title = document.getElementById('modalTitle');
-
-    if (!modal || !title) return;
-
+    if (!el || !title) return;
     if (channel) {
         title.textContent = 'Edit Channel';
         document.getElementById('channelIdHidden').value = channel._id;
@@ -414,20 +302,18 @@ function openChannelModal(channel = null) {
         document.getElementById('channelUrl').value = channel.channelUrl;
         document.getElementById('channelImg').value = channel.channelImg || '';
         document.getElementById('channelGroup').value = channel.channelGroup || '';
+        document.getElementById('channelLanguage').value = channel.channelLanguage || channel.tvgLanguage || channel.metadata?.language || '';
     } else {
         title.textContent = 'Add Channel';
         document.getElementById('channelForm').reset();
         document.getElementById('channelIdHidden').value = '';
     }
-
-    modal.classList.add('active');
+    $(el).modal('show');
 }
 
 function closeChannelModal() {
-    const modal = document.getElementById('channelModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
+    const el = document.getElementById('channelModal');
+    if (el) $(el).modal('hide');
 }
 
 // Handle Channel Submit
@@ -441,7 +327,8 @@ async function handleChannelSubmit(e) {
         channelName: document.getElementById('channelName').value,
         channelUrl: document.getElementById('channelUrl').value,
         channelImg: document.getElementById('channelImg').value,
-        channelGroup: document.getElementById('channelGroup').value
+        channelGroup: document.getElementById('channelGroup').value,
+        channelLanguage: document.getElementById('channelLanguage').value
     };
 
     try {
@@ -518,6 +405,20 @@ function applyQuickFilter(filter) {
 
 // ==================== BULK OPERATIONS ====================
 
+// Update bulk action buttons state based on selection
+function updateBulkActionButtons() {
+    const hasSelection = selectedChannels.size > 0;
+    const bulkTestBtn = document.getElementById('bulkTestBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+
+    if (bulkTestBtn) {
+        bulkTestBtn.disabled = !hasSelection;
+    }
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.disabled = !hasSelection;
+    }
+}
+
 // Select All
 function handleSelectAll(e) {
     const checkboxes = document.querySelectorAll('.channel-select');
@@ -529,6 +430,7 @@ function handleSelectAll(e) {
             selectedChannels.delete(checkbox.dataset.id);
         }
     });
+    updateBulkActionButtons();
 }
 
 // Bulk Delete
@@ -551,15 +453,14 @@ async function handleBulkDelete() {
 
     await Promise.all(promises);
     selectedChannels.clear();
+    updateBulkActionButtons();
     loadChannels();
 }
 
 // Bulk Delete All
 async function handleBulkDeleteAll() {
-    const modal = document.getElementById('deleteAllConfirmationModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
+    const el = document.getElementById('deleteAllConfirmationModal');
+    if (el) $(el).modal('hide');
 
     const sessionId = getSessionId();
 
@@ -614,6 +515,126 @@ async function handleBulkTest() {
     const workingCount = data.results.filter(r => r.working).length;
     showToast(`Tested ${data.tested} channels - ${workingCount} working, ${data.tested - workingCount} failed`, 3000);
     loadChannels();
+}
+
+// Test Pending Channels
+async function handleTestPending() {
+    const sessionId = getSessionId();
+    const button = document.getElementById('bulkTestPendingBtn');
+
+    // Filter channels that have not been tested (isWorking is undefined)
+    const pendingChannels = channels.filter(c => c.metadata?.isWorking === undefined);
+
+    if (pendingChannels.length === 0) {
+        showToast('No pending channels to test', 3000);
+        return;
+    }
+
+    // Limit to 100 channels
+    let channelsToTest = pendingChannels.map(c => c._id);
+    if (channelsToTest.length > 100) {
+        showToast(`Testing limited to 100 channels. Found ${channelsToTest.length} pending, testing first 100.`, 3000);
+        channelsToTest = channelsToTest.slice(0, 100);
+    }
+
+    // Disable button and show loading state
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+    }
+
+    showToast(`Testing ${channelsToTest.length} pending channels...`, 3000);
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/test/test-batch`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId
+            },
+            body: JSON.stringify({ channelIds: channelsToTest })
+        });
+
+        const data = await response.json();
+
+        if (data.success === false && data.error) {
+            // Handle server-side lock or error
+            showToast(data.error, 3000);
+        } else {
+            const workingCount = data.results.filter(r => r.working).length;
+            showToast(`Tested ${data.tested} pending channels - ${workingCount} working, ${data.tested - workingCount} failed`, 3000);
+        }
+
+        loadChannels();
+    } catch (error) {
+        console.error('Error testing pending channels:', error);
+        showToast('Failed to test channels', 3000);
+    } finally {
+        // Re-enable button and restore original text
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-clock"></i> Test Pending';
+        }
+    }
+}
+
+// Delete Not Working Channels - Show Modal
+function handleDeleteNotWorking() {
+    // Filter channels that are marked as not working
+    const notWorkingChannels = channels.filter(c => c.metadata?.isWorking === false);
+
+    if (notWorkingChannels.length === 0) {
+        showToast('No non-working channels to delete', 3000);
+        return;
+    }
+
+    // Update count in modal
+    const countEl = document.getElementById('notWorkingCount');
+    if (countEl) {
+        countEl.textContent = notWorkingChannels.length;
+    }
+
+    // Show modal
+    const modal = document.getElementById('deleteNotWorkingConfirmationModal');
+    if (modal) $(modal).modal('show');
+}
+
+// Confirm Delete Not Working Channels
+async function confirmDeleteNotWorking() {
+    const sessionId = getSessionId();
+
+    // Close modal
+    const modal = document.getElementById('deleteNotWorkingConfirmationModal');
+    if (modal) $(modal).modal('hide');
+
+    // Filter channels that are marked as not working
+    const notWorkingChannels = channels.filter(c => c.metadata?.isWorking === false);
+
+    if (notWorkingChannels.length === 0) {
+        showToast('No non-working channels to delete', 3000);
+        return;
+    }
+
+    showToast(`Deleting ${notWorkingChannels.length} non-working channels...`, 3000);
+
+    const promises = notWorkingChannels.map(channel =>
+        fetch(`${API_BASE}/api/v1/admin/channels/${channel._id}`, {
+            method: 'DELETE',
+            headers: { 'X-Session-Id': sessionId }
+        })
+    );
+
+    try {
+        await Promise.all(promises);
+        showToast(`Successfully deleted ${notWorkingChannels.length} non-working channels`, 3000);
+        selectedChannels.clear();
+        updateBulkActionButtons();
+        loadChannels();
+    } catch (error) {
+        console.error('Error deleting non-working channels:', error);
+        showToast('Some channels failed to delete', 3000);
+        loadChannels();
+    }
 }
 
 // ==================== CHANNEL TESTING ====================
@@ -692,18 +713,14 @@ function showChannelDetails(channel) {
     if (detailCountry) detailCountry.textContent = country;
     if (detailUrl) detailUrl.textContent = channel.channelUrl || 'N/A';
 
-    if (modal) {
-        modal.classList.add('active');
-    }
+    if (modal) $(modal).modal('show');
 }
 
 // Handle Detail Preview Button
 function handleDetailPreview() {
     if (currentChannelDetail) {
         const modal = document.getElementById('channelDetailsModal');
-        if (modal) {
-            modal.classList.remove('active');
-        }
+        if (modal) $(modal).modal('hide');
         playChannel({
             channelName: currentChannelDetail.channelName,
             channelUrl: currentChannelDetail.channelUrl,
@@ -765,8 +782,8 @@ function playChannel(channel) {
     cleanupVideoPlayer();
 
     // Reset state
-    if (errorBox) errorBox.classList.add('hidden');
-    if (loadingBox) loadingBox.classList.remove('hidden');
+    if (errorBox) errorBox.classList.add('d-none');
+    if (loadingBox) loadingBox.classList.remove('d-none');
     status.textContent = '⏳ Loading stream...';
     status.className = 'status-loading';
     name.textContent = channel.channelName || 'Unnamed Channel';
@@ -826,7 +843,7 @@ function playChannel(channel) {
             console.log('✅ Manifest parsed successfully');
             manifestLoaded = true;
             status.textContent = '▶️ Starting playback...';
-            if (loadingBox) loadingBox.classList.add('hidden');
+            if (loadingBox) loadingBox.classList.add('d-none');
 
             // Display stream info if available
             if (data.levels && data.levels.length > 0) {
@@ -862,10 +879,10 @@ function playChannel(channel) {
 
             // Determine error severity
             if (data.fatal) {
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 status.textContent = '❌ Error';
                 status.className = 'status-error';
-                if (errorBox) errorBox.classList.remove('hidden');
+                if (errorBox) errorBox.classList.remove('d-none');
 
                 // Provide detailed error messages
                 let errorMessage = '';
@@ -899,7 +916,7 @@ function playChannel(channel) {
         // Create and store event handlers for HLS.js playback
         videoEventHandlers = {
             playing: () => {
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 status.textContent = '✅ Playing';
                 status.className = 'status-playing';
             },
@@ -913,10 +930,10 @@ function playChannel(channel) {
             },
             error: (e) => {
                 console.error('❌ Video element error:', e);
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 status.textContent = '❌ Error';
                 status.className = 'status-error';
-                if (errorBox) errorBox.classList.remove('hidden');
+                if (errorBox) errorBox.classList.remove('d-none');
 
                 // Get more detailed error info
                 if (video.error) {
@@ -948,7 +965,7 @@ function playChannel(channel) {
         // Create and store event handlers for native HLS
         videoEventHandlers = {
             playing: () => {
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 status.textContent = '✅ Playing';
                 status.className = 'status-playing';
             },
@@ -962,10 +979,10 @@ function playChannel(channel) {
             },
             error: (e) => {
                 console.error('❌ Native HLS error:', e);
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 status.textContent = '❌ Error loading stream';
                 status.className = 'status-error';
-                if (errorBox) errorBox.classList.remove('hidden');
+                if (errorBox) errorBox.classList.remove('d-none');
 
                 if (video.error) {
                     const errorCode = video.error.code;
@@ -982,7 +999,7 @@ function playChannel(channel) {
             },
             loadedmetadata: () => {
                 console.log('✅ Metadata loaded');
-                if (loadingBox) loadingBox.classList.add('hidden');
+                if (loadingBox) loadingBox.classList.add('d-none');
                 video.play()
                     .then(() => {
                         status.textContent = '✅ Playing';
@@ -1003,14 +1020,14 @@ function playChannel(channel) {
         video.addEventListener('loadedmetadata', videoEventHandlers.loadedmetadata);
     } else {
         console.error('❌ HLS not supported in this browser');
-        if (loadingBox) loadingBox.classList.add('hidden');
+        if (loadingBox) loadingBox.classList.add('d-none');
         status.textContent = '❌ HLS not supported';
         status.className = 'status-error';
-        if (errorBox) errorBox.classList.remove('hidden');
+        if (errorBox) errorBox.classList.remove('d-none');
         if (errorDetails) errorDetails.textContent = 'Your browser does not support HLS streaming. Please try using Chrome, Firefox, or Safari.';
     }
 
-    modal.classList.add('active');
+    $(modal).modal('show');
     console.log('🎭 Player modal opened');
 }
 

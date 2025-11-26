@@ -81,45 +81,67 @@ async function checkAuth(forceRefresh = false) {
 
 // Update sidebar with user info
 function updateSidebar(user, activePage) {
-    document.getElementById('loggedInUser').textContent = user.username;
-    document.getElementById('loggedInUserRole').textContent = user.role || 'User';
+    const loggedInUser = document.getElementById('loggedInUser');
+    if (loggedInUser) loggedInUser.textContent = user.username;
+    
+    const loggedInUserRole = document.getElementById('loggedInUserRole');
+    if (loggedInUserRole) loggedInUserRole.textContent = user.role || 'User';
 
     // Set sidebar profile picture or initials
-    if (user.profilePicture) {
-        document.getElementById('sidebarProfilePicture').src = API_BASE + user.profilePicture;
-        document.getElementById('sidebarProfilePicture').classList.remove('hidden');
-        document.getElementById('sidebarProfilePlaceholder').classList.add('hidden');
-    } else {
-        const initials = user.username ? user.username.substring(0, 2).toUpperCase() : 'U';
-        document.getElementById('sidebarProfileInitials').textContent = initials;
-        document.getElementById('sidebarProfilePicture').classList.add('hidden');
-        document.getElementById('sidebarProfilePlaceholder').classList.remove('hidden');
+    const profilePic = document.getElementById('sidebarProfilePicture');
+    const profilePlaceholder = document.getElementById('sidebarProfilePlaceholder');
+    const profileInitials = document.getElementById('sidebarProfileInitials');
+
+    if (profilePic && profilePlaceholder) {
+        if (user.profilePicture) {
+            profilePic.src = API_BASE + user.profilePicture;
+            // Support both Bootstrap d-none and custom hidden class
+            profilePic.classList.remove('d-none');
+            profilePic.classList.remove('hidden');
+            profilePlaceholder.classList.add('d-none');
+            profilePlaceholder.classList.add('hidden');
+        } else {
+            const initials = user.username ? user.username.substring(0, 2).toUpperCase() : 'U';
+            if (profileInitials) profileInitials.textContent = initials;
+            profilePic.classList.add('d-none');
+            profilePic.classList.add('hidden');
+            profilePlaceholder.classList.remove('d-none');
+            profilePlaceholder.classList.remove('hidden');
+        }
     }
 
     // Hide Users tab for non-admin users
     if (user.role !== 'Admin') {
         const usersNavLink = document.getElementById('usersNavLink');
         if (usersNavLink) {
-            usersNavLink.style.display = 'none';
+            // Try to hide the parent li for cleaner look in AdminLTE
+            const parentLi = usersNavLink.closest('.nav-item');
+            if (parentLi) {
+                parentLi.style.display = 'none';
+            } else {
+                usersNavLink.style.display = 'none';
+            }
         }
     }
 
     // Set active navigation item
-    document.querySelectorAll('nav a[data-page]').forEach(link => {
-        if (link.dataset.page === activePage) {
+    // Target both new AdminLTE sidebar links and any legacy links
+    const navLinks = document.querySelectorAll('.nav-sidebar .nav-link, nav a[data-page]');
+    navLinks.forEach(link => {
+        // Determine page name from data-page or href
+        let page = link.dataset.page;
+        if (!page && link.getAttribute('href')) {
+            const href = link.getAttribute('href');
+            // Extract filename without extension
+            page = href.split('/').pop().replace('.html', '');
+        }
+        
+        if (page === activePage) {
             link.classList.add('active');
         } else {
             link.classList.remove('active');
         }
     });
-
-    // Set profile button active state
-    const profileLink = document.querySelector('.user-profile-section');
-    if (activePage === 'profile' && profileLink) {
-        profileLink.classList.add('active');
-    } else if (profileLink) {
-        profileLink.classList.remove('active');
-    }
 }
 
 // Show/hide top loading bar
@@ -196,49 +218,9 @@ const DEFAULT_LOGO_LARGE = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2F
 
 // Sequential Image Loading Function
 function loadImagesSequentially(tableSelector) {
-    const containers = document.querySelectorAll(`${tableSelector} .img-loading-container`);
-    let currentIndex = 0;
-
-    function loadNextImage() {
-        if (currentIndex >= containers.length) {
-            return;
-        }
-
-        const container = containers[currentIndex];
-        const img = container.querySelector('img');
-        const imgSrc = container.getAttribute('data-img-src');
-
-        if (!imgSrc) {
-            currentIndex++;
-            loadNextImage();
-            return;
-        }
-
-        if (imgSrc.startsWith('data:')) {
-            img.src = imgSrc;
-            container.classList.add('loaded');
-            currentIndex++;
-            loadNextImage();
-            return;
-        }
-
-        img.onload = function() {
-            container.classList.add('loaded');
-            currentIndex++;
-            setTimeout(loadNextImage, 50);
-        };
-
-        img.onerror = function() {
-            img.src = DEFAULT_LOGO;
-            container.classList.add('loaded');
-            currentIndex++;
-            setTimeout(loadNextImage, 50);
-        };
-
-        img.src = imgSrc;
+    if (window.AdminCore && typeof window.AdminCore.loadImagesSequentially === 'function') {
+        return window.AdminCore.loadImagesSequentially(tableSelector);
     }
-
-    loadNextImage();
 }
 
 // Initialize logout button

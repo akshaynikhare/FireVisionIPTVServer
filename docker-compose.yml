@@ -11,6 +11,9 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+    # Expose MongoDB to host for local scripts (bind to localhost only for security)
+    ports:
+      - "127.0.0.1:27017:27017"
     networks:
       - firevision-network
     healthcheck:
@@ -47,6 +50,8 @@ services:
       - ./apks:/app/apks
       - ./uploads:/app/uploads
       - ./versions.json:/app/versions.json:ro
+      - ./public:/app/public
+      - ./src:/app/src
     depends_on:
       mongodb:
         condition: service_healthy

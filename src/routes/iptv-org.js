@@ -14,6 +14,8 @@ const IPTV_ORG_API_BASE = 'https://iptv-org.github.io/api';
 let channelsCache = { data: null, timestamp: null };
 let streamsCache = { data: null, timestamp: null };
 let languagesCache = { data: null, timestamp: null };
+let guidesCache = { data: null, timestamp: null };
+let feedsCache = { data: null, timestamp: null };
 const CACHE_TTL = 3600000; // 1 hour
 
 // Clear cache endpoint
@@ -22,6 +24,8 @@ router.post('/clear-cache', async (req, res) => {
         channelsCache = { data: null, timestamp: null };
         streamsCache = { data: null, timestamp: null };
         languagesCache = { data: null, timestamp: null };
+        guidesCache = { data: null, timestamp: null };
+        feedsCache = { data: null, timestamp: null };
 
         res.json({
             success: true,
@@ -57,6 +61,16 @@ router.get('/cache-status', async (req, res) => {
                     cached: !!languagesCache.data,
                     age: languagesCache.timestamp ? now - languagesCache.timestamp : null,
                     count: languagesCache.data ? languagesCache.data.length : 0
+                },
+                guides: {
+                    cached: !!guidesCache.data,
+                    age: guidesCache.timestamp ? now - guidesCache.timestamp : null,
+                    count: guidesCache.data ? guidesCache.data.length : 0
+                },
+                feeds: {
+                    cached: !!feedsCache.data,
+                    age: feedsCache.timestamp ? now - feedsCache.timestamp : null,
+                    count: feedsCache.data ? feedsCache.data.length : 0
                 },
                 ttl: CACHE_TTL
             }
@@ -327,6 +341,44 @@ async function fetchLanguagesData() {
     return response.data;
 }
 
+// Helper function to fetch guides data (with caching)
+async function fetchGuidesData() {
+    if (guidesCache.data && (Date.now() - guidesCache.timestamp) < CACHE_TTL) {
+        return guidesCache.data;
+    }
+
+    console.log('Fetching guides.json from IPTV-org API...');
+    const response = await axios.get(`${IPTV_ORG_API_BASE}/guides.json`, {
+        timeout: 60000, // Longer timeout as this is a large file
+        maxContentLength: 100 * 1024 * 1024, // 100MB limit
+        maxBodyLength: 100 * 1024 * 1024
+    });
+
+    guidesCache.data = response.data;
+    guidesCache.timestamp = Date.now();
+    console.log(`Fetched ${response.data.length} guide entries`);
+
+    return response.data;
+}
+
+// Helper function to fetch feeds data (with caching)
+async function fetchFeedsData() {
+    if (feedsCache.data && (Date.now() - feedsCache.timestamp) < CACHE_TTL) {
+        return feedsCache.data;
+    }
+
+    console.log('Fetching feeds.json from IPTV-org API...');
+    const response = await axios.get(`${IPTV_ORG_API_BASE}/feeds.json`, {
+        timeout: 30000
+    });
+
+    feedsCache.data = response.data;
+    feedsCache.timestamp = Date.now();
+    console.log(`Fetched ${response.data.length} feed entries`);
+
+    return response.data;
+}
+
 // Helper function to filter streams
 async function filterStreams(streams, country, category) {
     if (!country && !category) return streams;
@@ -377,40 +429,109 @@ router.get('/api/languages', async (req, res) => {
 // Fetch available playlists from IPTV-org
 router.get('/playlists', async (req, res) => {
     try {
-        // IPTV-org provides categorized playlists
+        // We use the IPTV-org API (channels.json, streams.json, languages.json)
+        // and filter on the backend. These playlists define the filter parameters.
+        // Reference: https://github.com/iptv-org/api
+
         const playlists = [
+            // 1. India playlist with Hindi, English, and Marathi content
             {
-                id: 'index.m3u',
-                name: 'All Channels',
-                description: 'Complete list of all channels',
-                url: 'https://iptv-org.github.io/iptv/index.m3u',
-                count: null
+                id: 'india-all',
+                name: 'India - All',
+                description: 'Indian channels (Hindi, English, Marathi)',
+                type: 'custom',
+                filter: { country: 'IN', languages: ['hin', 'eng', 'mar'] }
+            },
+
+            // 2. Kids content in Hindi and English
+            {
+                id: 'kids-hindi',
+                name: 'Kids (Hindi & English)',
+                description: 'Kids channels in Hindi',
+                type: 'custom',
+                filter: { category: 'kids', languages: ['hin'] }
             },
             {
-                id: 'index.country.m3u',
-                name: 'By Country',
-                description: 'Channels grouped by country',
-                url: 'https://iptv-org.github.io/iptv/index.country.m3u',
-                count: null
+                id: 'kids-english',
+                name: 'Kids (Hindi & English)',
+                description: 'Kids channels in English',
+                type: 'custom',
+                filter: { category: 'kids', languages: ['eng'] }
+            },
+
+            // 3. News in Hindi, English, and Marathi for India
+            {
+                id: 'news-india',
+                name: 'News - India',
+                description: 'Indian news (Hindi, English, Marathi)',
+                type: 'custom',
+                filter: { country: 'IN', category: 'news', languages: ['hin', 'eng', 'mar'] }
+            },
+
+            // 4. News in English (all countries)
+            {
+                id: 'news-english',
+                name: 'News - English',
+                description: 'English news channels',
+                type: 'custom',
+                filter: { category: 'news', language: 'eng' }
+            },
+
+            // Additional useful playlists
+            {
+                id: 'india-hindi',
+                name: 'India - Hindi',
+                description: 'Indian Hindi channels',
+                type: 'country-language',
+                filter: { country: 'IN', language: 'hin' }
             },
             {
-                id: 'index.category.m3u',
-                name: 'By Category',
-                description: 'Channels grouped by category',
-                url: 'https://iptv-org.github.io/iptv/index.category.m3u',
-                count: null
+                id: 'india-english',
+                name: 'India - English',
+                description: 'Indian English channels',
+                type: 'country-language',
+                filter: { country: 'IN', language: 'eng' }
             },
             {
-                id: 'index.language.m3u',
-                name: 'By Language',
-                description: 'Channels grouped by language',
-                url: 'https://iptv-org.github.io/iptv/index.language.m3u',
-                count: null
+                id: 'india-marathi',
+                name: 'India - Marathi',
+                description: 'Indian Marathi channels',
+                type: 'country-language',
+                filter: { country: 'IN', language: 'mar' }
+            },
+            {
+                id: 'movies-hindi',
+                name: 'Movies - Hindi',
+                description: 'Hindi movie channels',
+                type: 'category-language',
+                filter: { category: 'movies', language: 'hin' }
+            },
+            {
+                id: 'entertainment-hindi',
+                name: 'Entertainment - Hindi',
+                description: 'Hindi entertainment channels',
+                type: 'category-language',
+                filter: { category: 'entertainment', language: 'hin' }
+            },
+            {
+                id: 'sports-india',
+                name: 'Sports - India',
+                description: 'Indian sports channels',
+                type: 'country-category',
+                filter: { country: 'IN', category: 'sports' }
+            },
+            {
+                id: 'music-india',
+                name: 'Music - India',
+                description: 'Indian music channels',
+                type: 'country-category',
+                filter: { country: 'IN', category: 'music' }
             }
         ];
 
         res.json({
             success: true,
+            count: playlists.length,
             data: playlists
         });
     } catch (error) {
@@ -425,35 +546,49 @@ router.get('/playlists', async (req, res) => {
 // Fetch and parse a specific playlist with enriched metadata
 router.get('/fetch', async (req, res) => {
     try {
-        const { url } = req.query;
+        // Accept filters via query parameters
+        const { country, language, languages, category } = req.query;
 
-        if (!url) {
-            return res.status(400).json({
-                success: false,
-                error: 'URL parameter is required'
-            });
+        const countryFilter = country ? country.toUpperCase() : null;
+
+        // Support both single language and multiple languages
+        let languageFilters = [];
+        if (languages) {
+            // Parse languages array from query string (comma-separated or JSON)
+            try {
+                languageFilters = Array.isArray(languages) ? languages :
+                                 languages.includes(',') ? languages.split(',').map(l => l.trim().toLowerCase()) :
+                                 JSON.parse(languages).map(l => l.toLowerCase());
+            } catch (e) {
+                languageFilters = [languages.toLowerCase()];
+            }
+        } else if (language) {
+            languageFilters = [language.toLowerCase()];
         }
 
-        // Determine what type of fetch this is based on URL
-        let country = null;
-        let category = null;
-        let language = null;
+        const categoryFilter = category ? category.toLowerCase() : null;
 
-        if (url.includes('index.country')) {
-            // Extract country from URL if possible
-            // For now, fetch all and let frontend filter
-        } else if (url.includes('index.category')) {
-            // Category-based playlist
-        } else if (url.includes('index.language')) {
-            // Language-based playlist
+        if (countryFilter) {
+            console.log(`Filtering by country: ${countryFilter}`);
+        }
+        if (languageFilters.length > 0) {
+            console.log(`Filtering by languages: ${languageFilters.join(', ')}`);
+        }
+        if (categoryFilter) {
+            console.log(`Filtering by category: ${categoryFilter}`);
         }
 
         // Fetch enriched data from our API
-        const [channelsData, streamsData, languagesData] = await Promise.all([
+        const [channelsData, streamsData, languagesData, guidesData, feedsData] = await Promise.all([
             fetchChannelsData(),
             fetchStreamsData(),
-            fetchLanguagesData()
+            fetchLanguagesData(),
+            fetchGuidesData(),
+            fetchFeedsData()
         ]);
+
+        // Brief data summary logging
+        console.log(`Data loaded: ${channelsData.length} channels, ${streamsData.length} streams, ${languagesData.length} languages`);
 
         // Create maps for quick lookup
         const channelsMap = new Map();
@@ -466,58 +601,183 @@ router.get('/fetch', async (req, res) => {
             languagesMap.set(lang.code, lang);
         });
 
-        // Enrich streams with all metadata
-        const enrichedChannels = streamsData.map(stream => {
-            const channelMeta = channelsMap.get(stream.channel) || {};
-
-            // Get language names from codes
-            const languageNames = channelMeta.languages?.map(langCode => {
-                const lang = languagesMap.get(langCode);
-                return lang ? lang.name : langCode;
-            }) || [];
-
-            return {
-                // For compatibility with existing frontend
-                channelId: stream.channel || `stream_${Math.random()}`,
-                channelName: channelMeta.name || stream.title || 'Unknown',
-                channelUrl: stream.url,
-                tvgId: stream.channel,
-                tvgName: channelMeta.name || stream.title,
-                tvgLogo: channelMeta.logo || null,
-
-                // Group/Category - Frontend expects 'channelGroup'
-                channelGroup: channelMeta.categories?.[0] || 'Uncategorized',
-                groupTitle: channelMeta.categories?.[0] || 'Uncategorized',
-
-                // Country - Frontend expects 'tvgCountry'
-                tvgCountry: channelMeta.country || null,
-                country: channelMeta.country || null,
-                countryCode: channelMeta.country || null,
-
-                // Language - Frontend expects 'tvgLanguage'
-                tvgLanguage: languageNames.join(', ') || null,
-                language: languageNames.join(', ') || null,
-                languages: channelMeta.languages || [],
-
-                // Additional metadata
-                channelImg: channelMeta.logo || null,
-                streamQuality: stream.quality,
-                streamUserAgent: stream.user_agent,
-                streamReferrer: stream.referrer,
-                channelCategories: channelMeta.categories || [],
-                channelWebsite: channelMeta.website,
-                channelNetwork: channelMeta.network,
-                channelIsNsfw: channelMeta.is_nsfw || false,
-
-                // All categories for filtering
-                categories: channelMeta.categories || []
-            };
+        // Create a map of channel ID to languages from guides data
+        // The guides.json contains entries like: {"channel":"ChannelID.country","lang":"en"}
+        const channelToLanguagesMap = new Map();
+        guidesData.forEach(guide => {
+            if (guide.channel && guide.lang) {
+                if (!channelToLanguagesMap.has(guide.channel)) {
+                    channelToLanguagesMap.set(guide.channel, new Set());
+                }
+                channelToLanguagesMap.get(guide.channel).add(guide.lang);
+            }
         });
+
+        console.log(`Built language mapping for ${channelToLanguagesMap.size} channels from guides data`);
+
+        // Create a map of channel ID to languages from feeds data
+        // The feeds.json contains entries like: {"channel":"France3.fr","languages":["fra"]}
+        const feedsLanguagesMap = new Map();
+        feedsData.forEach(feed => {
+            if (feed.channel && feed.languages && Array.isArray(feed.languages)) {
+                if (!feedsLanguagesMap.has(feed.channel)) {
+                    feedsLanguagesMap.set(feed.channel, new Set());
+                }
+                feed.languages.forEach(lang => {
+                    feedsLanguagesMap.get(feed.channel).add(lang);
+                });
+            }
+        });
+
+        console.log(`Built language mapping for ${feedsLanguagesMap.size} channels from feeds data`);
+
+        // Map 2-letter language codes to 3-letter ISO 639-3 codes
+        const lang2to3Map = {
+            'en': 'eng', 'hi': 'hin', 'es': 'spa', 'fr': 'fra', 'de': 'deu',
+            'it': 'ita', 'pt': 'por', 'ru': 'rus', 'ja': 'jpn', 'ko': 'kor',
+            'zh': 'zho', 'ar': 'ara', 'tr': 'tur', 'nl': 'nld', 'pl': 'pol',
+            'sv': 'swe', 'no': 'nor', 'da': 'dan', 'fi': 'fin', 'cs': 'ces',
+            'el': 'ell', 'he': 'heb', 'id': 'ind', 'ms': 'msa', 'th': 'tha',
+            'vi': 'vie', 'uk': 'ukr', 'ro': 'ron', 'hu': 'hun', 'sk': 'slk',
+            'bg': 'bul', 'hr': 'hrv', 'sr': 'srp', 'sl': 'slv', 'et': 'est',
+            'lv': 'lav', 'lt': 'lit', 'ur': 'urd', 'bn': 'ben', 'ta': 'tam',
+            'te': 'tel', 'mr': 'mar', 'ml': 'mal', 'kn': 'kan', 'gu': 'guj',
+            'pa': 'pan', 'tl': 'tgl', 'fa': 'fas', 'ka': 'kat', 'hy': 'hye'
+        };
+
+        // Enrich streams with all metadata
+        let enrichedChannels = streamsData
+            .filter(stream => stream.channel) // Only include streams with valid channel ID
+            .map(stream => {
+                const channelMeta = channelsMap.get(stream.channel) || {};
+
+                // Get language codes using multiple sources with priority order
+                let languageCodes = [];
+
+                // 1. Try to get languages from feeds data (most accurate, already 3-letter codes)
+                if (feedsLanguagesMap.has(stream.channel)) {
+                    languageCodes = Array.from(feedsLanguagesMap.get(stream.channel));
+                }
+
+                // 2. Try to get languages from guides data (2-letter codes, need conversion)
+                if (languageCodes.length === 0 && channelToLanguagesMap.has(stream.channel)) {
+                    const guideLangs = Array.from(channelToLanguagesMap.get(stream.channel));
+                    // Convert 2-letter codes to 3-letter codes
+                    languageCodes = guideLangs.map(lang2 => lang2to3Map[lang2] || lang2);
+                }
+
+                // 3. Fallback to channel metadata if available
+                if (languageCodes.length === 0 && channelMeta.languages) {
+                    languageCodes = channelMeta.languages;
+                }
+
+                // Get language names from codes
+                const languageNames = languageCodes.map(langCode => {
+                    const lang = languagesMap.get(langCode);
+                    return lang ? lang.name : langCode;
+                });
+
+                return {
+                    // For compatibility with existing frontend
+                    channelId: stream.channel || `stream_${Math.random()}`,
+                    channelName: channelMeta.name || stream.title || 'Unknown',
+                    channelUrl: stream.url,
+                    tvgId: stream.channel,
+                    tvgName: channelMeta.name || stream.title,
+                    tvgLogo: channelMeta.logo || null,
+
+                    // Group/Category - Frontend expects 'channelGroup'
+                    channelGroup: channelMeta.categories?.[0] || 'Uncategorized',
+                    groupTitle: channelMeta.categories?.[0] || 'Uncategorized',
+
+                    // Country - Frontend expects 'tvgCountry'
+                    tvgCountry: channelMeta.country || null,
+                    country: channelMeta.country || null,
+                    countryCode: channelMeta.country || null,
+
+                    // Language - Frontend expects 'tvgLanguage'
+                    tvgLanguage: languageNames.join(', ') || null,
+                    language: languageNames.join(', ') || null,
+                    languages: languageNames,
+                    languageCodes: languageCodes,
+
+                    // Additional metadata
+                    channelImg: channelMeta.logo || null,
+                    streamQuality: stream.quality,
+                    streamUserAgent: stream.user_agent,
+                    streamReferrer: stream.referrer,
+                    channelCategories: channelMeta.categories || [],
+                    channelWebsite: channelMeta.website,
+                    channelNetwork: channelMeta.network,
+                    channelIsNsfw: channelMeta.is_nsfw || false,
+
+                    // All categories for filtering
+                    categories: channelMeta.categories || []
+                };
+            });
+
+        // Debug: Count how many channels got languages from each source
+        const channelsWithFeedsLangs = enrichedChannels.filter(ch =>
+            feedsLanguagesMap.has(ch.channelId)
+        ).length;
+        const channelsWithGuideLangs = enrichedChannels.filter(ch =>
+            !feedsLanguagesMap.has(ch.channelId) && channelToLanguagesMap.has(ch.channelId)
+        ).length;
+        const channelsWithMetadata = enrichedChannels.filter(ch =>
+            !feedsLanguagesMap.has(ch.channelId) && !channelToLanguagesMap.has(ch.channelId) && ch.languageCodes.length > 0
+        ).length;
+        const channelsWithNoLanguage = enrichedChannels.filter(ch => ch.languageCodes.length === 0).length;
+        console.log(`Language sources: ${channelsWithFeedsLangs} from feeds, ${channelsWithGuideLangs} from guides, ${channelsWithMetadata} from channel metadata, ${channelsWithNoLanguage} without language info`);
+
+        // Apply filters based on URL
+        const totalBeforeFilter = enrichedChannels.length;
+
+        if (countryFilter) {
+            enrichedChannels = enrichedChannels.filter(ch =>
+                ch.tvgCountry?.toUpperCase() === countryFilter
+            );
+            console.log(`Country filter (${countryFilter}): ${totalBeforeFilter} -> ${enrichedChannels.length} channels`);
+        }
+
+        if (languageFilters.length > 0) {
+            const beforeLangFilter = enrichedChannels.length;
+
+            enrichedChannels = enrichedChannels.filter(ch => {
+                // Channel matches if it has ANY of the requested languages
+                const hasLang = ch.languageCodes?.some(code =>
+                    languageFilters.includes(code.toLowerCase())
+                );
+                return hasLang;
+            });
+            console.log(`Language filter (${languageFilters.join(', ')}): ${beforeLangFilter} -> ${enrichedChannels.length} channels`);
+        }
+
+        if (categoryFilter) {
+            const beforeCatFilter = enrichedChannels.length;
+            enrichedChannels = enrichedChannels.filter(ch => {
+                // Match if category name matches or contains the filter
+                const hasCategory = ch.channelCategories?.some(cat => {
+                    const normalizedCat = cat.toLowerCase().replace(/\s+/g, '-');
+                    const catLower = cat.toLowerCase();
+                    return normalizedCat === categoryFilter ||
+                           catLower === categoryFilter ||
+                           catLower.includes(categoryFilter) ||
+                           categoryFilter.includes(catLower);
+                });
+                return hasCategory;
+            });
+            console.log(`Category filter (${categoryFilter}): ${beforeCatFilter} -> ${enrichedChannels.length} channels`);
+        }
 
         res.json({
             success: true,
             count: enrichedChannels.length,
-            data: enrichedChannels
+            data: enrichedChannels,
+            filters: {
+                country: countryFilter,
+                languages: languageFilters,
+                category: categoryFilter
+            }
         });
     } catch (error) {
         console.error('Error fetching IPTV-org playlist:', error);

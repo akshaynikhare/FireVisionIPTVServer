@@ -62,6 +62,19 @@ const userSchema = new mongoose.Schema({
     deviceModel: String,
     lastPairedDevice: String,
     pairedAt: Date
+  },
+  // OAuth provider identifiers (optional)
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
+  },
+  githubId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
   }
 }, {
   timestamps: true

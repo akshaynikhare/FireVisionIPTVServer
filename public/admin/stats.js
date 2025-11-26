@@ -2,23 +2,10 @@
 // Handles statistics display and charts
 
 // Initialize on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', async () => {
-    // Show loading bar
-    showLoadingBar();
-
-    // Check authentication first
-    const user = await checkAuth();
-    if (!user) return; // Will redirect to login if not authenticated
-
-    // Show dashboard with stats as active page
-    showDashboard(user, 'stats');
-
-    // Load data and hide loading bar when done
-    try {
+document.addEventListener('DOMContentLoaded', () => {
+    AdminCore.initPage('stats', async () => {
         await loadStats();
-    } finally {
-        hideLoadingBar();
-    }
+    });
 });
 
 // Load statistics data

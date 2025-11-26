@@ -1,0 +1,79 @@
+<!-- Main Sidebar -->
+<aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <div class="brand-link">
+        <img src="/vendor/@fortawesome/fontawesome-free/svgs/solid/tv.svg" alt="Logo" class="brand-image" style="opacity:.8;width:33px;height:33px;filter:invert(1)">
+        <span class="brand-text font-weight-light">FireVision IPTV</span>
+    </div>
+    <div class="sidebar">
+        <!-- User Panel -->
+        <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+
+
+            <a class="image" href="profile.html">
+                <img id="sidebarProfilePicture" class="img-circle elevation-2 d-none" alt="Profile">
+                <div id="sidebarProfilePlaceholder" class="img-circle elevation-2 bg-primary text-center text-white" style="width:34px;height:34px;line-height:34px;font-weight:600;">
+                    <span id="sidebarProfileInitials">U</span>
+                </div>
+            </a>
+            <div class="info">
+                <a href="profile.html" class="d-block" id="loggedInUser">User</a>
+            </div>
+        </div>
+
+        <!-- Sidebar Search Form -->
+        <div class="form-inline">
+            <div class="input-group" data-widget="sidebar-search">
+                <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
+                <div class="input-group-append">
+                    <button class="btn btn-sidebar">
+                        <i class="fas fa-search fa-fw"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Menu -->
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+                <li class="nav-item">
+                    <a href="channels.html" class="nav-link" data-page="channels">
+                        <i class="nav-icon fas fa-th-list"></i>
+                        <p>Channels</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="users.html" id="usersNavLink" class="nav-link" data-page="users">
+                        <i class="nav-icon fas fa-users"></i>
+                        <p>Users</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="iptv-org.html" class="nav-link" data-page="iptv-org">
+                        <i class="nav-icon fas fa-globe"></i>
+                        <p>IPTV-org Fetch</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="apk.html" class="nav-link" data-page="apk">
+                        <i class="nav-icon fas fa-mobile-alt"></i>
+                        <p>APK Manager</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="stats.html" class="nav-link" data-page="stats">
+                        <i class="nav-icon fas fa-chart-bar"></i>
+                        <p>Statistics</p>
+                    </a>
+                </li>
+                
+                <li class="nav-header">SYSTEM</li>
+                <li class="nav-item">
+                    <a href="#" id="logoutBtn" class="nav-link text-danger">
+                        <i class="nav-icon fas fa-sign-out-alt"></i>
+                        <p>Logout</p>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</aside>

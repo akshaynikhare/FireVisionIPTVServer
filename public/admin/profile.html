@@ -3,10 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' https: http: blob: data: ws: wss:;
+        font-src 'self' data:;
+        frame-src 'self';
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline';
+        worker-src 'self' blob:">
     <title>My Profile - FireVision IPTV</title>
-    <!-- Preload critical resources -->
-    <link rel="preload" href="style.css" as="style">
-    <link rel="preload" href="common.js" as="script">
+    <!-- AdminLTE 3 / Bootstrap 4 -->
+    <link rel="stylesheet" href="/vendor/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="style.css">
     <style>
         .profile-view {
@@ -162,251 +173,161 @@
         }
     </style>
 </head>
-<body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="screen">
-        <div class="login-container">
-            <div class="login-box">
-                <h1>🔐 Redirecting...</h1>
-                <p class="subtitle">Please wait...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dashboard Screen with Profile View -->
+<body class="hold-transition sidebar-mini layout-fixed">
+    <!-- Dashboard Screen -->
     <div id="dashboardScreen" class="screen">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="logo">
-                <h2>📺 FireVision</h2>
-                <p>Admin Dashboard</p>
-            </div>
-            <nav>
-                <a href="channels.html" data-page="channels">📋 Channels</a>
-                <a href="users.html" data-page="users" id="usersNavLink">👥 Users</a>
-                <a href="iptv-org.html" data-page="iptv-org">🌐 IPTV-org Fetch</a>
-                <a href="apk.html" data-page="apk">📱 APK Manager</a>
-                <a href="stats.html" data-page="stats">📊 Statistics</a>
-            </nav>
-            <div class="user-info">
-                <a href="profile.html" class="user-profile-section clickable active">
-                    <div class="user-avatar-wrapper">
-                        <img id="sidebarProfilePicture" class="user-avatar hidden" alt="Profile">
-                        <div id="sidebarProfilePlaceholder" class="user-avatar-placeholder">
-                            <span id="sidebarProfileInitials">U</span>
+        <div class="wrapper">
+            <!-- Navbar (injected by navbar.js) -->
+            <div id="navbar-placeholder"></div>
+            
+            <!-- Sidebar (injected by sidebar.js) -->
+            <div id="sidebar-placeholder"></div>
+
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <section class="content-header">
+                    <div class="container-fluid">
+                        <div class="row mb-2">
+                            <div class="col-sm-6"><h1>My Profile</h1></div>
+                            <div class="col-sm-6 text-right"><p class="subtitle mb-0">Manage your account settings and preferences</p></div>
                         </div>
                     </div>
-                    <div class="user-details">
-                        <p class="user-name" id="loggedInUser">User</p>
-                        <p class="user-role" id="loggedInUserRole">Admin</p>
+                </section>
+                <section class="content">
+                    <div class="container-fluid">
+                        <!-- Profile Picture Section -->
+                        <div class="profile-section">
+                            <h2>Profile Picture</h2>
+                            <div class="profile-picture-section">
+                                <div class="profile-picture-wrapper">
+                                    <img id="profilePicture" class="profile-picture hidden" alt="Profile Picture">
+                                    <div id="profilePicturePlaceholder" class="profile-picture-placeholder">
+                                        <span id="profileInitials">U</span>
+                                    </div>
+                                </div>
+                                <div class="profile-picture-actions">
+                                    <input type="file" id="profilePictureInput" accept="image/jpeg,image/jpg,image/png,image/gif">
+                                    <button class="btn btn-primary" onclick="document.getElementById('profilePictureInput').click()">
+                                        Upload Photo
+                                    </button>
+                                    <button id="deleteProfilePictureBtn" class="btn btn-danger hidden">
+                                        Delete Photo
+                                    </button>
+                                </div>
+                                <p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                                    Max file size: 5MB. Allowed formats: JPG, PNG, GIF
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Basic Information Section -->
+                        <div class="profile-section">
+                            <h2>Basic Information</h2>
+                            <form id="profileForm">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="username">Username</label>
+                                        <input type="text" id="username" required minlength="3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="email">Email</label>
+                                        <input type="email" id="email" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="role">Role</label>
+                                        <input type="text" id="role" disabled>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="memberSince">Member Since</label>
+                                        <input type="text" id="memberSince" disabled>
+                                    </div>
+                                </div>
+                                <div class="btn-group">
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Playlist Code Section -->
+                        <div class="profile-section">
+                            <h2>Your Playlist Code</h2>
+                            <div class="info-card">
+                                <p><strong>Your unique playlist code:</strong> Use this code to access your personalized channel list in the FireVision IPTV app.</p>
+                            </div>
+                            <div class="playlist-code-display">
+                                <p style="margin: 0; color: #6b7280;">Playlist Code</p>
+                                <div class="playlist-code" id="playlistCode">------</div>
+                                <button class="btn btn-secondary" onclick="copyPlaylistCode()">📋 Copy Code</button>
+                            </div>
+                        </div>
+
+                        <!-- Password Change Section -->
+                        <div class="profile-section">
+                            <h2>Change Password</h2>
+                            <form id="passwordForm">
+                                <div class="form-group">
+                                    <label for="currentPassword">Current Password</label>
+                                    <input type="password" id="currentPassword" required minlength="6">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="newPassword">New Password</label>
+                                        <input type="password" id="newPassword" required minlength="6">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="confirmPassword">Confirm New Password</label>
+                                        <input type="password" id="confirmPassword" required minlength="6">
+                                    </div>
+                                </div>
+                                <div class="btn-group">
+                                    <button type="submit" class="btn btn-primary">Change Password</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Channel Assignment Section (for regular users) -->
+                        <div id="userChannelsSection" class="profile-section hidden">
+                            <h2>My Assigned Channels</h2>
+                            <div class="info-card">
+                                <p><strong>Total Channels:</strong> <span id="assignedChannelsCount">0</span></p>
+                            </div>
+                            <p style="color: #6b7280;">Contact your administrator to manage your channel assignments.</p>
+                        </div>
                     </div>
-                </a>
-                <button id="logoutBtn" class="btn btn-small btn-logout">🚪 Logout</button>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div id="profileView" class="view active profile-view">
-                <div class="header profile-header">
-                    <h1>My Profile</h1>
-                    <p class="subtitle">Manage your account settings and preferences</p>
-                </div>
-
-                <!-- Profile Picture Section -->
-                <div class="profile-section">
-                    <h2>Profile Picture</h2>
-                    <div class="profile-picture-section">
-                        <div class="profile-picture-wrapper">
-                            <img id="profilePicture" class="profile-picture hidden" alt="Profile Picture">
-                            <div id="profilePicturePlaceholder" class="profile-picture-placeholder">
-                                <span id="profileInitials">U</span>
-                            </div>
-                        </div>
-                        <div class="profile-picture-actions">
-                            <input type="file" id="profilePictureInput" accept="image/jpeg,image/jpg,image/png,image/gif">
-                            <button class="btn btn-primary" onclick="document.getElementById('profilePictureInput').click()">
-                                Upload Photo
-                            </button>
-                            <button id="deleteProfilePictureBtn" class="btn btn-danger hidden">
-                                Delete Photo
-                            </button>
-                        </div>
-                        <p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
-                            Max file size: 5MB. Allowed formats: JPG, PNG, GIF
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Basic Information Section -->
-                <div class="profile-section">
-                    <h2>Basic Information</h2>
-                    <form id="profileForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="username">Username</label>
-                                <input type="text" id="username" required minlength="3">
-                            </div>
-                            <div class="form-group">
-                                <label for="email">Email</label>
-                                <input type="email" id="email" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="role">Role</label>
-                                <input type="text" id="role" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label for="memberSince">Member Since</label>
-                                <input type="text" id="memberSince" disabled>
-                            </div>
-                        </div>
-                        <div class="btn-group">
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Playlist Code Section -->
-                <div class="profile-section">
-                    <h2>Your Playlist Code</h2>
-                    <div class="info-card">
-                        <p><strong>Your unique playlist code:</strong> Use this code to access your personalized channel list in the FireVision IPTV app.</p>
-                    </div>
-                    <div class="playlist-code-display">
-                        <p style="margin: 0; color: #6b7280;">Playlist Code</p>
-                        <div class="playlist-code" id="playlistCode">------</div>
-                        <button class="btn btn-secondary" onclick="copyPlaylistCode()">📋 Copy Code</button>
-                    </div>
-                </div>
-
-                <!-- Password Change Section -->
-                <div class="profile-section">
-                    <h2>Change Password</h2>
-                    <form id="passwordForm">
-                        <div class="form-group">
-                            <label for="currentPassword">Current Password</label>
-                            <input type="password" id="currentPassword" required minlength="6">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="newPassword">New Password</label>
-                                <input type="password" id="newPassword" required minlength="6">
-                            </div>
-                            <div class="form-group">
-                                <label for="confirmPassword">Confirm New Password</label>
-                                <input type="password" id="confirmPassword" required minlength="6">
-                            </div>
-                        </div>
-                        <div class="btn-group">
-                            <button type="submit" class="btn btn-primary">Change Password</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Channel Assignment Section (for regular users) -->
-                <div id="userChannelsSection" class="profile-section hidden">
-                    <h2>My Assigned Channels</h2>
-                    <div class="info-card">
-                        <p><strong>Total Channels:</strong> <span id="assignedChannelsCount">0</span></p>
-                    </div>
-                    <p style="color: #6b7280;">Contact your administrator to manage your channel assignments.</p>
-                </div>
+                </section>
             </div>
         </div>
     </div>
 
+    <!-- Scripts -->
+    <script src="/vendor/jquery/dist/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
+    <!-- Common UI Components -->
+    <script src="navbar.js"></script>
+    <script src="sidebar.js"></script>
+    <!-- Page Scripts -->
+    <script src="common.js"></script>
     <script>
-        const API_BASE = window.location.origin;
-        let sessionId = localStorage.getItem('sessionId');
+        // Re-using common.js variables
         let currentUser = null;
 
-        // Toast notification
-        function showToast(message, duration = 3000) {
-            const existingToast = document.querySelector('.toast-notification');
-            if (existingToast) {
-                existingToast.remove();
-            }
-
-            const toast = document.createElement('div');
-            toast.className = 'toast-notification';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => toast.classList.add('show'), 10);
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-
-        // Check authentication
-        async function checkAuth() {
-            if (!sessionId) {
-                window.location.href = '/admin/';
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
-                    headers: { 'X-Session-Id': sessionId }
-                });
-
-                if (!response.ok) {
-                    window.location.href = '/admin/';
-                    return;
-                }
-
-                const data = await response.json();
-                currentUser = data.user;
-                showDashboard();
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Use common.js checkAuth
+            currentUser = await checkAuth();
+            if (currentUser) {
+                showDashboard(currentUser, 'profile');
                 loadUserProfile();
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                window.location.href = '/admin/';
             }
-        }
-
-        // Show dashboard
-        function showDashboard() {
-            // Preload dashboard for smooth transition
-            requestAnimationFrame(() => {
-                document.getElementById('loginScreen').classList.remove('active');
-                requestAnimationFrame(() => {
-                    document.getElementById('dashboardScreen').classList.add('active');
-                });
-            });
-        }
-
-        // Update sidebar with user info
-        function updateSidebar() {
-            document.getElementById('loggedInUser').textContent = currentUser.username;
-            document.getElementById('loggedInUserRole').textContent = currentUser.role || 'User';
-
-            // Set sidebar profile picture or initials
-            if (currentUser.profilePicture) {
-                document.getElementById('sidebarProfilePicture').src = API_BASE + currentUser.profilePicture;
-                document.getElementById('sidebarProfilePicture').classList.remove('hidden');
-                document.getElementById('sidebarProfilePlaceholder').classList.add('hidden');
-            } else {
-                const initials = currentUser.username ? currentUser.username.substring(0, 2).toUpperCase() : 'U';
-                document.getElementById('sidebarProfileInitials').textContent = initials;
-            }
-
-            // Hide Users tab for non-admin users
-            if (currentUser.role !== 'Admin') {
-                const usersNavLink = document.getElementById('usersNavLink');
-                if (usersNavLink) {
-                    usersNavLink.style.display = 'none';
-                }
-            }
-        }
+        });
 
         // Load user profile
         function loadUserProfile() {
-            updateSidebar();
+            // Sidebar is updated by showDashboard -> updateSidebar in common.js
+            // But we need to update the profile page specific fields
 
             document.getElementById('username').value = currentUser.username || '';
             document.getElementById('email').value = currentUser.email || '';
@@ -442,6 +363,7 @@
 
             const username = document.getElementById('username').value;
             const email = document.getElementById('email').value;
+            const sessionId = getSessionId();
 
             try {
                 const response = await fetch(`${API_BASE}/api/v1/auth/profile`, {
@@ -459,6 +381,8 @@
                     showToast('Profile updated successfully!');
                     currentUser = data.user;
                     loadUserProfile();
+                    // Also update sidebar
+                    updateSidebar(currentUser, 'profile');
                 } else {
                     showToast(data.error || 'Failed to update profile');
                 }
@@ -475,6 +399,7 @@
             const currentPassword = document.getElementById('currentPassword').value;
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
+            const sessionId = getSessionId();
 
             if (newPassword !== confirmPassword) {
                 showToast('New passwords do not match!');
@@ -509,6 +434,7 @@
         document.getElementById('profilePictureInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            const sessionId = getSessionId();
 
             // Validate file size (5MB)
             if (file.size > 5 * 1024 * 1024) {
@@ -540,7 +466,7 @@
                     document.getElementById('profilePicturePlaceholder').classList.add('hidden');
                     document.getElementById('deleteProfilePictureBtn').classList.remove('hidden');
 
-                    updateSidebar();
+                    updateSidebar(currentUser, 'profile');
                 } else {
                     showToast(data.error || 'Failed to upload profile picture');
                 }
@@ -558,6 +484,7 @@
             if (!confirm('Are you sure you want to delete your profile picture?')) {
                 return;
             }
+            const sessionId = getSessionId();
 
             try {
                 const response = await fetch(`${API_BASE}/api/v1/auth/profile-picture`, {
@@ -580,7 +507,7 @@
                     const initials = currentUser.username ? currentUser.username.substring(0, 2).toUpperCase() : 'U';
                     document.getElementById('profileInitials').textContent = initials;
 
-                    updateSidebar();
+                    updateSidebar(currentUser, 'profile');
                 } else {
                     showToast(data.error || 'Failed to delete profile picture');
                 }
@@ -588,21 +515,6 @@
                 console.error('Error deleting profile picture:', error);
                 showToast('Failed to delete profile picture');
             }
-        });
-
-        // Logout
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            try {
-                await fetch(`${API_BASE}/api/v1/auth/logout`, {
-                    method: 'POST',
-                    headers: { 'X-Session-Id': sessionId }
-                });
-            } catch (error) {
-                console.error('Logout error:', error);
-            }
-
-            localStorage.removeItem('sessionId');
-            window.location.href = '/admin/';
         });
 
         // Copy playlist code
@@ -615,11 +527,6 @@
                 showToast('Failed to copy playlist code');
             });
         }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-        });
     </script>
 </body>
 </html>

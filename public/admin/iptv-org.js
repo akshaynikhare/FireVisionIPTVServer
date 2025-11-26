@@ -12,26 +12,11 @@ let videoEventHandlers = null;
 
 // ==================== INITIALIZATION ====================
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Show loading bar
-    showLoadingBar();
-
-    // Check authentication
-    const user = await checkAuth();
-    if (!user) return;
-
-    // Show dashboard with IPTV-org as active page
-    showDashboard(user, 'iptv-org');
-
-    // Initialize event listeners
-    initializeEventListeners();
-
-    // Load data and hide loading bar when done
-    try {
+document.addEventListener('DOMContentLoaded', () => {
+    AdminCore.initPage('iptv-org', async () => {
+        initializeEventListeners();
         await loadIptvOrgPlaylists();
-    } finally {
-        hideLoadingBar();
-    }
+    });
 });
 
 // ==================== EVENT LISTENERS ====================
@@ -80,39 +65,25 @@ function initializeEventListeners() {
     }
 
     // Player modal close buttons
-    document.querySelectorAll('[data-close="playerModal"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modal = document.getElementById('playerModal');
-            modal.classList.remove('active');
-            cleanupVideoPlayer();
-        });
+    // Bootstrap 4 handles data-dismiss="modal" automatically
+    // We need to hook into the hide event to cleanup the player
+    $('#playerModal').on('hidden.bs.modal', function () {
+        cleanupVideoPlayer();
     });
 
     // Channel details modal close buttons
-    document.querySelectorAll('[data-close="channelDetailsModal"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modal = document.getElementById('channelDetailsModal');
-            modal.classList.remove('active');
-            currentChannelDetail = null;
-        });
+    // Bootstrap 4 handles data-dismiss="modal" automatically
+    $('#channelDetailsModal').on('hidden.bs.modal', function () {
+        currentChannelDetail = null;
     });
 
-    // Click outside modal to close
-    document.addEventListener('click', (e) => {
-        // Close playerModal if clicking outside
-        const playerModal = document.getElementById('playerModal');
-        if (e.target === playerModal) {
-            playerModal.classList.remove('active');
-            cleanupVideoPlayer();
-        }
+    // Import confirmation button
+    const confirmImportBtn = document.getElementById('confirmImportBtn');
+    if (confirmImportBtn) {
+        confirmImportBtn.addEventListener('click', confirmImportChannels);
+    }
 
-        // Close channelDetailsModal if clicking outside
-        const channelDetailsModal = document.getElementById('channelDetailsModal');
-        if (e.target === channelDetailsModal) {
-            channelDetailsModal.classList.remove('active');
-            currentChannelDetail = null;
-        }
-    });
+    // Click outside modal to close - Bootstrap handles this automatically
 }
 
 // ==================== PLAYLIST FUNCTIONS ====================
@@ -133,28 +104,58 @@ async function loadIptvOrgPlaylists() {
 
 function renderPlaylistsGrid(playlists) {
     const grid = document.getElementById('playlistsGrid');
+    const placeholder = document.getElementById('playlistsPlaceholder');
+
+    // Check if required elements exist
+    if (!grid) {
+        console.error('playlistsGrid element not found in DOM');
+        return;
+    }
+
     grid.innerHTML = '';
 
+    if (!playlists || playlists.length === 0) {
+        if (placeholder) placeholder.classList.remove('hidden');
+        return;
+    }
+
+    if (placeholder) placeholder.classList.add('hidden');
+
+    // Show ALL playlists including "All Channels"
     playlists.forEach(playlist => {
         const card = document.createElement('div');
-        card.className = 'playlist-card';
+        card.className = 'playlist-card btn btn-outline-primary';
         card.innerHTML = `
-            <h3>${playlist.name}</h3>
-            <p>${playlist.description}</p>
+            <span><strong>${playlist.name}</strong></span>
         `;
-        card.onclick = () => fetchIptvOrgPlaylist(playlist.url);
+        card.onclick = () => fetchIptvOrgPlaylist(playlist.filter);
         grid.appendChild(card);
     });
 }
 
-async function fetchIptvOrgPlaylist(url) {
+async function fetchIptvOrgPlaylist(filter) {
     try {
         document.getElementById('iptvOrgChannels').classList.add('hidden');
         document.getElementById('iptvOrgPlaceholder').classList.add('hidden');
         document.getElementById('iptvOrgLoading').classList.remove('hidden');
 
+        // Build query parameters from filter object
+        const params = new URLSearchParams();
+        if (filter.country) params.append('country', filter.country);
+
+        // Handle both single language and multiple languages
+        if (filter.languages && Array.isArray(filter.languages)) {
+            // Multiple languages - send as comma-separated string
+            params.append('languages', filter.languages.join(','));
+        } else if (filter.language) {
+            // Single language
+            params.append('language', filter.language);
+        }
+
+        if (filter.category) params.append('category', filter.category);
+
         const sessionId = getSessionId();
-        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=${encodeURIComponent(url)}`, {
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?${params.toString()}`, {
             headers: { 'X-Session-Id': sessionId }
         });
 
@@ -167,7 +168,7 @@ async function fetchIptvOrgPlaylist(url) {
     } catch (error) {
         console.error('Error fetching playlist:', error);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
-        alert('Failed to fetch playlist');
+        showToast('Failed to fetch playlist', 3000);
     }
 }
 
@@ -180,8 +181,8 @@ async function loadAllIptvOrgChannels() {
         showToast('Loading all IPTV-org channels...', 'info');
 
         const sessionId = getSessionId();
-        // Use the /fetch endpoint without URL to get ALL enriched data
-        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch?url=all`, {
+        // Use the /fetch endpoint without filters to get ALL enriched data
+        const response = await fetch(`${API_BASE}/api/v1/iptv-org/fetch`, {
             headers: { 'X-Session-Id': sessionId }
         });
 
@@ -249,6 +250,7 @@ function renderIptvOrgTable(channels) {
     iptvOrgDataTable = $('#iptvOrgTable').DataTable({
         data: channels,
         pageLength: 25,
+        deferRender: true,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
         order: [[2, 'asc']], // Sort by Name column
         columns: [
@@ -413,16 +415,32 @@ function handleSelectAllIptvOrg(e) {
 
 // ==================== IMPORT CHANNELS ====================
 
-async function handleImportSelected() {
+function handleImportSelected() {
     if (selectedIptvOrgChannels.size === 0) {
-        alert('Please select channels to import');
+        showToast('Please select channels to import', 3000);
         return;
     }
+
+    // Update count in modal
+    const countEl = document.getElementById('importChannelCount');
+    if (countEl) {
+        countEl.textContent = selectedIptvOrgChannels.size;
+    }
+
+    // Show confirmation modal
+    $('#importConfirmationModal').modal('show');
+}
+
+async function confirmImportChannels() {
+    // Close modal
+    $('#importConfirmationModal').modal('hide');
 
     const selectedChannelsData = Array.from(selectedIptvOrgChannels).map(index => iptvOrgChannels[index]);
     const replaceExisting = false;
 
     try {
+        showToast(`Importing ${selectedChannelsData.length} channels...`, 3000);
+
         const sessionId = getSessionId();
         const response = await fetch(`${API_BASE}/api/v1/iptv-org/import`, {
             method: 'POST',
@@ -439,16 +457,18 @@ async function handleImportSelected() {
         const data = await response.json();
 
         if (data.success) {
-            alert(data.message);
+            showToast(data.message, 3000);
             selectedIptvOrgChannels.clear();
-            // Redirect to channels page
-            window.location.href = '/admin/';
+            // Redirect to channels page after a short delay
+            setTimeout(() => {
+                window.location.href = '/admin/channels.html';
+            }, 1500);
         } else {
-            alert(data.error || 'Import failed');
+            showToast(data.error || 'Import failed', 3000);
         }
     } catch (error) {
         console.error('Error importing channels:', error);
-        alert('Failed to import channels');
+        showToast('Failed to import channels', 3000);
     }
 }
 
@@ -464,7 +484,7 @@ function previewIptvOrgChannel(channel) {
 
 function handleDetailPreview() {
     if (currentChannelDetail) {
-        document.getElementById('channelDetailsModal').classList.remove('active');
+        $('#channelDetailsModal').modal('hide');
         previewIptvOrgChannel(currentChannelDetail);
     }
 }
@@ -488,7 +508,7 @@ function showChannelDetails(channel) {
     document.getElementById('detailCountry').textContent = country;
     document.getElementById('detailUrl').textContent = channel.channelUrl || 'N/A';
 
-    document.getElementById('channelDetailsModal').classList.add('active');
+    $('#channelDetailsModal').modal('show');
 }
 
 // ==================== VIDEO PLAYER ====================
@@ -780,6 +800,6 @@ function playChannel(channel) {
         errorDetails.textContent = 'Your browser does not support HLS streaming. Please try using Chrome, Firefox, or Safari.';
     }
 
-    modal.classList.add('active');
+    $('#playerModal').modal('show');
     console.log('🎭 Player modal opened');
 }

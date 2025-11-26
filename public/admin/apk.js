@@ -3,28 +3,14 @@
 
 // State
 let apkVersions = [];
+let apkDataTable = null;
 
 // Initialize on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', async () => {
-    // Show loading bar
-    showLoadingBar();
-
-    // Check authentication first
-    const user = await checkAuth();
-    if (!user) return; // Will redirect to login if not authenticated
-
-    // Show dashboard with apk as active page
-    showDashboard(user, 'apk');
-
-    // Initialize page functionality
-    initializeApkManagerListeners();
-
-    // Load data and hide loading bar when done
-    try {
+document.addEventListener('DOMContentLoaded', () => {
+    AdminCore.initPage('apk', async () => {
+        initializeApkManagerListeners();
         await loadApkVersions();
-    } finally {
-        hideLoadingBar();
-    }
+    });
 });
 
 // Initialize APK Manager event listeners
@@ -51,10 +37,8 @@ function initializeApkManagerListeners() {
 // Load APK versions from server
 async function loadApkVersions() {
     const loadingEl = document.getElementById('loadingApk');
-    const tableBody = document.getElementById('apkVersionsTableBody');
-
+    
     if (loadingEl) loadingEl.style.display = 'block';
-    if (tableBody) tableBody.innerHTML = '';
 
     try {
         // Use the new JSON-based public endpoint (no auth needed)
@@ -67,7 +51,7 @@ async function loadApkVersions() {
         const data = await response.json();
         apkVersions = data.data || [];
 
-        renderApkVersionsTable();
+        renderApkVersionsTable(apkVersions);
         updateApkStats();
         updateDownloadLinks();
     } catch (error) {
@@ -79,41 +63,98 @@ async function loadApkVersions() {
 }
 
 // Render APK versions table
-function renderApkVersionsTable() {
-    const tableBody = document.getElementById('apkVersionsTableBody');
-    if (!tableBody) return;
-
-    if (apkVersions.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;">No APK versions uploaded yet</td></tr>';
+function renderApkVersionsTable(versions) {
+    // Wait for jQuery and DataTables to be ready
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+        console.log('Waiting for jQuery/DataTables to load...');
+        setTimeout(() => renderApkVersionsTable(versions), 100);
         return;
     }
 
-    tableBody.innerHTML = apkVersions.map(version => `
-        <tr>
-            <td><strong>${version.versionName}</strong></td>
-            <td>${version.versionCode}</td>
-            <td><code>${version.apkFileName || 'N/A'}</code></td>
-            <td>${formatFileSize(version.apkFileSize)}</td>
-            <td>
-                <span class="badge ${version.isActive ? 'badge-success' : 'badge-inactive'}">
-                    ${version.isActive ? 'Active' : 'Inactive'}
-                </span>
-            </td>
-            <td>
-                <span class="badge ${version.isMandatory ? 'badge-warning' : 'badge-info'}">
-                    ${version.isMandatory ? 'Yes' : 'No'}
-                </span>
-            </td>
-            <td>${formatDate(version.releasedAt)}</td>
-            <td>
-                <button class="btn btn-small btn-info" onclick="viewApkDetails('${version.versionCode}')">View</button>
-                <button class="btn btn-small btn-primary" onclick="downloadApk('${version.apkFileName}')">Download</button>
-                <span style="color: #6b7280; font-size: 0.75rem; margin-left: 0.5rem;">
-                    (Edit versions.json to modify)
-                </span>
-            </td>
-        </tr>
-    `).join('');
+    // Destroy existing DataTable if it exists
+    if (apkDataTable) {
+        apkDataTable.destroy();
+        apkDataTable = null;
+    }
+
+    // Initialize DataTable
+    apkDataTable = $('#apkVersionsTable').DataTable({
+        data: versions,
+        pageLength: 10,
+        deferRender: true,
+        order: [[1, 'desc']], // Sort by Version Code descending
+        columns: [
+            {
+                // Version Name
+                data: 'versionName',
+                render: function(data) {
+                    return `<strong>${data}</strong>`;
+                }
+            },
+            {
+                // Version Code
+                data: 'versionCode'
+            },
+            {
+                // File Name
+                data: 'apkFileName',
+                render: function(data) {
+                    return `<code>${data || 'N/A'}</code>`;
+                }
+            },
+            {
+                // Size
+                data: 'apkFileSize',
+                render: function(data) {
+                    return formatFileSize(data);
+                }
+            },
+            {
+                // Status
+                data: 'isActive',
+                render: function(data) {
+                    return `<span class="badge ${data ? 'badge-success' : 'badge-inactive'}">${data ? 'Active' : 'Inactive'}</span>`;
+                }
+            },
+            {
+                // Mandatory
+                data: 'isMandatory',
+                render: function(data) {
+                    return `<span class="badge ${data ? 'badge-warning' : 'badge-info'}">${data ? 'Yes' : 'No'}</span>`;
+                }
+            },
+            {
+                // Released
+                data: 'releasedAt',
+                render: function(data) {
+                    return formatDate(data);
+                }
+            },
+            {
+                // Actions
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    return `
+                        <button class="btn btn-sm btn-info btn-view" data-code="${row.versionCode}">View</button>
+                        <button class="btn btn-sm btn-primary btn-download" data-file="${row.apkFileName}">Download</button>
+                    `;
+                }
+            }
+        ],
+        initComplete: function() {
+            // Event delegation for buttons
+            $('#apkVersionsTable').on('click', '.btn-view', function() {
+                const code = $(this).data('code');
+                viewApkDetails(code);
+            });
+
+            $('#apkVersionsTable').on('click', '.btn-download', function() {
+                const file = $(this).data('file');
+                downloadApk(file);
+            });
+        }
+    });
 }
 
 // Update APK statistics

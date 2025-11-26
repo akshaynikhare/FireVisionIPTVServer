@@ -6,89 +6,90 @@
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' 'unsafe-inline' 'unsafe-eval';
         connect-src 'self' https: http: blob: data: ws: wss:;
-        font-src 'self';
+        font-src 'self' data:;
         frame-src 'self';
         img-src 'self' data: https: http:;
         media-src 'self' blob: data: https: http:;
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net;
-        style-src 'self' 'unsafe-inline' https://cdn.datatables.net;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline';
         worker-src 'self' blob:">
-
     <title>Login - FireVision IPTV Admin</title>
+    <!-- Vendor Styles -->
+    <link rel="stylesheet" href="/vendor/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="screen active">
-        <div class="login-container">
-            <div class="login-box">
-                <h1>🔐 Admin Login</h1>
-                <p class="subtitle">FireVision IPTV Dashboard</p>
-                <form id="loginForm">
-                    <div class="form-group">
-                        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+<body class="hold-transition login-page">
+    <div class="login-box">
+        <div class="card card-outline card-primary">
+            <div class="card-header text-center">
+                <a href="channels.html" class="h1"><b>FireVision</b> IPTV</a>
+            </div>
+            <div class="card-body">
+                <p class="login-box-msg">Sign in to start your session</p>
+                <form id="loginForm" autocomplete="off">
+                    <div class="input-group mb-3">
+                        <input type="text" id="username" class="form-control" placeholder="Username" required autocomplete="username">
+                        <div class="input-group-append">
+                            <div class="input-group-text">
+                                <span class="fas fa-user"></span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+                    <div class="input-group mb-3">
+                        <input type="password" id="password" class="form-control" placeholder="Password" required autocomplete="current-password">
+                        <div class="input-group-append">
+                            <div class="input-group-text">
+                                <span class="fas fa-lock"></span>
+                            </div>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-fill">Login</button>
-                    <div id="loginError" class="error hidden"></div>
+                    <div id="loginError" class="alert alert-danger py-2 px-3 d-none mb-3"></div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        </div>
+                    </div>
                 </form>
-                <p class="help-text">Enter your admin credentials</p>
             </div>
         </div>
     </div>
-
+    <!-- Vendor Scripts -->
+    <script src="/vendor/jquery/dist/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
     <script>
-        // API Configuration
         const API_BASE = window.location.origin;
-
-        // Check if already logged in, redirect to channels
         const sessionId = localStorage.getItem('sessionId');
         if (sessionId) {
-            // Verify session is valid
-            fetch(`${API_BASE}/api/v1/auth/me`, {
-                headers: { 'X-Session-Id': sessionId }
-            }).then(response => {
-                if (response.ok) {
-                    // Valid session, redirect to channels
-                    window.location.href = '/admin/channels.html';
-                }
-            }).catch(err => {
-                console.error('Auth check failed:', err);
-            });
+            fetch(`${API_BASE}/api/v1/auth/me`, { headers: { 'X-Session-Id': sessionId } })
+                .then(r => { if (r.ok) window.location.href = '/admin/channels.html'; })
+                .catch(err => console.error('Auth check failed:', err));
         }
-
-        // Login Handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('loginError');
-
+            errorDiv.classList.add('d-none');
             try {
                 const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
-                    // Store session
                     localStorage.setItem('sessionId', data.sessionId);
-
-                    // Redirect to channels page
                     window.location.href = '/admin/channels.html';
                 } else {
                     errorDiv.textContent = data.error || 'Login failed';
-                    errorDiv.classList.remove('hidden');
+                    errorDiv.classList.remove('d-none');
                 }
             } catch (error) {
                 errorDiv.textContent = 'Connection error';
-                errorDiv.classList.remove('hidden');
+                errorDiv.classList.remove('d-none');
             }
         });
     </script>

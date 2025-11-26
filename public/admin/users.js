@@ -8,26 +8,11 @@ let assignChannelsDataTable = null;
 let currentUserId = null;
 
 // ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', async () => {
-    // Show loading bar
-    showLoadingBar();
-
-    // Check authentication first
-    const user = await checkAuth();
-    if (!user) return;
-
-    // Show dashboard with users as active page
-    showDashboard(user, 'users');
-
-    // Initialize event listeners
-    initializeUserEventListeners();
-
-    // Load data and hide loading bar when done
-    try {
+document.addEventListener('DOMContentLoaded', () => {
+    AdminCore.initPage('users', async () => {
+        initializeUserEventListeners();
         await loadUsers();
-    } finally {
-        hideLoadingBar();
-    }
+    });
 });
 
 // Initialize event listeners specific to user management
@@ -75,35 +60,12 @@ function initializeUserEventListeners() {
     }
 
     // Close user modal
-    document.querySelectorAll('[data-close="userModal"]').forEach(btn => {
-        btn.addEventListener('click', closeUserModal);
-    });
-
+    // Bootstrap 4 handles data-dismiss="modal" automatically
+    
     // Close assign channels modal
-    document.querySelectorAll('[data-close="assignChannelsModal"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.getElementById('assignChannelsModal').classList.remove('active');
-        });
-    });
+    // Bootstrap 4 handles data-dismiss="modal" automatically
 
-    // Close modals when clicking outside
-    const userModal = document.getElementById('userModal');
-    if (userModal) {
-        userModal.addEventListener('click', function(e) {
-            if (e.target === userModal) {
-                closeUserModal();
-            }
-        });
-    }
-
-    const assignModal = document.getElementById('assignChannelsModal');
-    if (assignModal) {
-        assignModal.addEventListener('click', function(e) {
-            if (e.target === assignModal) {
-                assignModal.classList.remove('active');
-            }
-        });
-    }
+    // Close modals when clicking outside - Bootstrap handles this automatically
 }
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -180,6 +142,7 @@ function renderUsersTable(usersToRender) {
     usersDataTable = $('#usersTable').DataTable({
         data: usersToRender,
         pageLength: 25,
+        deferRender: true,
         order: [[6, 'desc']], // Sort by Last Login descending
         columns: [
             {
@@ -300,13 +263,12 @@ function updateUserStats(users) {
 
 function openUserModal(userId = null) {
     currentUserId = userId;
-    const modal = document.getElementById('userModal');
     const title = document.getElementById('userModalTitle');
     const form = document.getElementById('userForm');
     const passwordHint = document.getElementById('passwordHint');
     const playlistCodeDisplay = document.getElementById('playlistCodeDisplay');
 
-    if (!modal || !form) return;
+    if (!form) return;
 
     form.reset();
 
@@ -344,7 +306,7 @@ function openUserModal(userId = null) {
         if (passwordField) passwordField.setAttribute('required', 'required');
     }
 
-    modal.classList.add('active');
+    $('#userModal').modal('show');
 }
 
 async function handleUserSubmit(e) {
@@ -417,10 +379,7 @@ async function handleUserSubmit(e) {
 }
 
 function closeUserModal() {
-    const modal = document.getElementById('userModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
+    $('#userModal').modal('hide');
     currentUserId = null;
 }
 
@@ -522,10 +481,7 @@ async function openAssignChannelsModal(userId) {
 
         renderAssignChannelsTable(allChannels, user.channels);
 
-        const modal = document.getElementById('assignChannelsModal');
-        if (modal) {
-            modal.classList.add('active');
-        }
+        $('#assignChannelsModal').modal('show');
     } catch (error) {
         console.error('Error loading channels:', error);
         showToast('Failed to load channels', 'error');
@@ -551,6 +507,7 @@ function renderAssignChannelsTable(allChannels, userChannelIds) {
     assignChannelsDataTable = $('#assignChannelsTable').DataTable({
         data: allChannels,
         pageLength: 10,
+        deferRender: true,
         order: [[1, 'asc']],
         columns: [
             {
@@ -632,10 +589,7 @@ async function handleSaveChannels() {
 
         if (data.success) {
             showToast(`Assigned ${selectedChannelIds.length} channels successfully`, 'success');
-            const modal = document.getElementById('assignChannelsModal');
-            if (modal) {
-                modal.classList.remove('active');
-            }
+            $('#assignChannelsModal').modal('hide');
             loadUsers(); // Refresh users table
         } else {
             showToast(data.error || 'Failed to assign channels', 'error');

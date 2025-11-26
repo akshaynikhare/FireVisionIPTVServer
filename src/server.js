@@ -14,12 +14,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://code.jquery.com", "https://cdn.datatables.net", "https://cdn.jsdelivr.net", "https://vjs.zencdn.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://vjs.zencdn.net"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.datatables.net", "https://vjs.zencdn.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://vjs.zencdn.net"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      connectSrc: ["'self'", "https:", "http:", "blob:", "data:", "ws:", "wss:", "https://cdn.jsdelivr.net"],
-      fontSrc: ["'self'"],
+      connectSrc: ["'self'", "https:", "http:", "blob:", "data:", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "blob:", "data:", "https:", "http:"],
       frameSrc: ["'none'"],
@@ -48,6 +48,9 @@ app.use(morgan('combined'));
 // Static files for APK downloads
 app.use('/apks', express.static(process.env.APK_STORAGE_PATH || './apks'));
 
+// Static files for node_modules (AdminLTE, Bootstrap, etc.)
+app.use('/vendor', express.static('node_modules'));
+
 // Static files for admin UI
 app.use('/admin', express.static('public/admin'));
 
@@ -56,7 +59,15 @@ app.use(express.static('public'));
 
 // Routes
 const { router: authRouter } = require('./routes/auth');
+const { router: jwtRouter } = require('./routes/jwt');
+const publicAuthRouter = require('./routes/publicAuth');
+const oauthRouter = require('./routes/oauth');
+const playlistRouter = require('./routes/playlist');
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/jwt', jwtRouter);
+app.use('/api/v1/public', publicAuthRouter);
+app.use('/api/v1/oauth', oauthRouter);
+app.use('/api/v1/playlist', playlistRouter);
 app.use('/api/v1/channels', require('./routes/channels'));
 // Use simplified JSON-based app routes instead of MongoDB-based
 app.use('/api/v1/app', require('./routes/app-simple'));
