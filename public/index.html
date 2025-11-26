@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FireVision IPTV Server</title>
+    <title>FireVision - The Open IPTV Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,372 +15,795 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
             min-height: 100vh;
+            color: #1a1a1a;
+        }
+
+        /* Header */
+        header {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 600px;
-            width: 100%;
-            padding: 48px 40px;
-            text-align: center;
-        }
-
-        .logo {
-            font-size: 48px;
-            margin-bottom: 8px;
-        }
-
-        h1 {
-            color: #1a202c;
-            font-size: 32px;
-            margin-bottom: 8px;
-            font-weight: 700;
-        }
-
-        .version {
-            color: #718096;
-            font-size: 14px;
-            margin-bottom: 32px;
-            font-weight: 500;
-        }
-
-        .status {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #f0fdf4;
-            color: #15803d;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 32px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: #22c55e;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            padding: 16px 24px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #f7fafc;
-            color: #2d3748;
-            border: 2px solid #e2e8f0;
-        }
-
-        .btn-secondary:hover {
-            background: #edf2f7;
-            border-color: #cbd5e0;
-            transform: translateY(-2px);
-        }
-
-        .btn-icon {
-            font-size: 20px;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .info-card {
-            background: #f7fafc;
-            padding: 16px;
-            border-radius: 10px;
-            text-align: left;
-        }
-
-        .info-card-version {
-            background: #f7fafc;
-            padding: 16px;
-            border-radius: 10px;
-            text-align: left;
-            display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            padding: 20px 60px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
             gap: 12px;
         }
 
-        .info-label {
-            color: #718096;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
         }
 
-        .info-value {
-            color: #1a202c;
-            font-size: 16px;
+        .logo-text {
+            font-size: 20px;
             font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-auth {
             display: flex;
             align-items: center;
             gap: 4px;
         }
 
-        .download-mini-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
+        .header-link {
+            color: #6b7280;
             text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 10px 16px;
+        }
+
+        .header-link:hover {
+            color: #1a1a1a;
+        }
+
+        .header-git {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-git .header-link {
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 32px;
+        }
+
+        .version-badge {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 6px 12px;
+            border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
-            white-space: nowrap;
-            transition: all 0.2s ease;
+        }
+
+        .btn-join {
+            background: #1a1a1a;
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-join:hover {
+            background: #000000;
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        .hero {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 60px 80px;
+            text-align: center;
+        }
+
+        .release-badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+            padding: 8px 18px;
+            border-radius: 24px;
+            margin-bottom: 36px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.2);
         }
 
-        .download-mini-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        .release-dot {
+            width: 6px;
+            height: 6px;
+            background: #8b5cf6;
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
         }
 
-        .download-mini-btn:disabled,
-        .download-mini-btn.disabled {
-            opacity: 0.5;
+        @keyframes pulse-dot {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(0.95);
+            }
+        }
+
+        .hero h1 {
+            font-size: 72px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 28px;
+            color: #1a1a1a;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero h1 .subtitle-text {
+            color: #1a1a1a;
+        }
+
+        .hero-subtitle {
+            font-size: 19px;
+            color: #6b7280;
+            line-height: 1.7;
+            max-width: 680px;
+            margin: 0 auto 48px;
+            font-weight: 400;
+        }
+
+        .hero-subtitle strong {
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 80px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 36px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover::before {
+            opacity: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(139, 92, 246, 0.35);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #1a1a1a;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-secondary:hover {
+            border-color: #d1d5db;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Preview Section */
+        .preview-section {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 60px;
+        }
+
+        .preview-card {
+            background: white;
+            border-radius: 20px;
+            padding: 56px 48px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .preview-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-card:hover::before {
+            opacity: 1;
+        }
+
+        .preview-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: 28px;
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.25);
+        }
+
+        .preview-card h3 {
+            font-size: 19px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .preview-card p {
+            font-size: 14px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .app-preview {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 20px;
+            padding: 56px 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-preview::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
             pointer-events: none;
-            cursor: not-allowed;
         }
 
-        .endpoints {
-            background: #f7fafc;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: left;
+        .tv-icon {
+            width: 88px;
+            height: 88px;
+            background: rgba(139, 92, 246, 0.25);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 44px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+            position: relative;
+            z-index: 1;
         }
 
-        .endpoints h3 {
-            color: #1a202c;
+        .app-preview h3 {
+            font-size: 21px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 10px;
+            letter-spacing: -0.01em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-preview p {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 500;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Features Section */
+        .features {
+            background: #f8f9fa;
+            padding: 100px 60px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin-bottom: 60px;
+        }
+
+        .feature-card {
+            text-align: center;
+        }
+
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .feature-card:hover .feature-icon {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.25);
+        }
+
+        .feature-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 14px;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            font-size: 15px;
+            color: #6b7280;
+            line-height: 1.7;
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            padding: 48px 60px 32px;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h4 {
             font-size: 14px;
             font-weight: 700;
-            margin-bottom: 12px;
+            color: #1a1a1a;
+            margin-bottom: 16px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .endpoint-list {
+        .footer-section p {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .footer-links {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
         }
 
-        .endpoint {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #4a5568;
+        .footer-links a {
+            color: #6b7280;
+            text-decoration: none;
             font-size: 14px;
-            font-family: 'Monaco', 'Courier New', monospace;
+            transition: color 0.2s;
         }
 
-        .endpoint-method {
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 700;
+        .footer-links a:hover {
+            color: #8b5cf6;
         }
 
-        .footer {
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid #e2e8f0;
-            color: #718096;
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-top: 32px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-text {
+            color: #9ca3af;
             font-size: 13px;
         }
 
-        @media (max-width: 640px) {
-            .container {
-                padding: 32px 24px;
-            }
+        .footer-link {
+            color: #8b5cf6;
+            text-decoration: none;
+            font-weight: 600;
+        }
 
-            h1 {
-                font-size: 24px;
-            }
+        .footer-link:hover {
+            text-decoration: underline;
+        }
 
-            .info-grid {
+        .footer-social {
+            display: flex;
+            gap: 16px;
+        }
+
+        .footer-social a {
+            color: #6b7280;
+            transition: color 0.2s;
+        }
+
+        .footer-social a:hover {
+            color: #8b5cf6;
+        }
+
+        @media (max-width: 1024px) {
+            .preview-section {
                 grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 16px 24px;
+            }
+
+            .hero {
+                padding: 60px 24px 40px;
+            }
+
+            .hero h1 {
+                font-size: 40px;
+            }
+
+            .hero-subtitle {
+                font-size: 16px;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .preview-section,
+            .features {
+                padding: 40px 24px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            footer {
+                padding: 32px 24px 24px;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">📺</div>
-        <h1>FireVision IPTV Server</h1>
-        <p class="version">Version 1.0.0</p>
-
-        <div class="status">
-            <span class="status-dot"></span>
-            Server Online
+    <!-- Header -->
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">📺</div>
+            <span class="logo-text">FireVision</span>
         </div>
-
-        <div class="info-grid">
-            <div class="info-card">
-                <div class="info-label">Channels</div>
-                <div class="info-value" id="channelCount">
-                    <span>Loading...</span>
-                </div>
+        <div class="header-actions">
+            <div class="header-auth">
+                <a href="/user/login.html" class="header-link">Login</a>
+                <a href="/user/register.html" class="btn-join">Join In</a>
             </div>
-            <div class="info-card-version">
-                <div style="flex: 1;">
-                    <div class="info-label">Latest APK</div>
-                    <div class="info-value" id="latestVersion">
-                        <span>Loading...</span>
-                    </div>
-                </div>
-                <a href="#" id="downloadBtn" class="download-mini-btn">
-                    <span>📱</span>
-                    <span>Download</span>
+            |
+            <div class="header-git">
+                <a href="https://github.com/akshaynikhare/FireVisionIPTVServer" target="_blank" class="header-link">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
                 </a>
+                <span class="version-badge" id="versionBadge">v1.4</span>
             </div>
         </div>
+    </header>
 
-        <div class="actions">
-            <a href="/admin" class="btn btn-primary">
-                <span class="btn-icon">⚙️</span>
-                <span>Admin Dashboard</span>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="release-badge">
+            <span class="release-dot"></span>
+            <span>Open Source Release v1.4.0</span>
+        </div>
+
+        <h1>
+            <span class="highlight">FireVision IPTV</span><br>
+            <span class="subtitle-text">Cloud Management</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            The ultimate open-source solution for managing your channels. Deploy your own <strong>FireVision IPTV</strong> server with a native Android TV client in minutes.
+        </p>
+
+        <div class="hero-actions">
+            <a href="#" id="createListBtn" class="btn btn-primary">
+                ➜ Create your Channel List
+            </a>
+            <a href="#" id="downloadApkBtn" class="btn btn-secondary">
+                📱 Download APK for Android TV
             </a>
         </div>
 
-        <div class="endpoints">
-            <h3>API Endpoints</h3>
-            <div class="endpoint-list">
-                <div class="endpoint">
-                    <span class="endpoint-method">GET</span>
-                    <span>/health</span>
+        <!-- Preview Section -->
+        <div class="preview-section">
+            <div class="preview-card">
+                <div class="preview-icon">⚙️</div>
+                <h3>Server Dashboard</h3>
+                <p>Admin Panel Screenshot</p>
+            </div>
+
+            <div class="app-preview">
+                <div class="tv-icon">📺</div>
+                <h3>Android TV App</h3>
+                <p>Full native experience</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="features-container">
+            <!-- Features Grid -->
+            <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3>Self Hosted</h3>
+                <p>You own your data. Host locally or on any VPS using our Docker image.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📺</div>
+                <h3>Native Android TV</h3>
+                <p>Kotlin built client optimized for D-Pad navigation and leanback launchers.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <h3>REST API</h3>
+                <p>Full RESTful API documentation for custom integrations and automation.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Live Updates</h3>
+                <p>Push channel updates to devices instantly via WebSockets.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Lightweight</h3>
+                <p>Backend written in Go. Minimal resource usage (&lt;50MB RAM).</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>MIT License</h3>
+                <p>Free for personal and commercial use. Modify as you see fit.</p>
+            </div>
+        </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>FireVision IPTV</h4>
+                <p>The ultimate open-source solution for managing your IPTV channels with a native Android TV client.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Product</h4>
+                <div class="footer-links">
+                    <a href="/user/login.html">User Login</a>
+                    <a href="/user/register.html">Register</a>
+                    <a href="#" id="footerDownloadBtn">Download APK</a>
                 </div>
-                <div class="endpoint">
-                    <span class="endpoint-method">GET</span>
-                    <span>/api/v1/channels</span>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Admin</h4>
+                <div class="footer-links">
+                    <a href="/admin">Admin Login</a>
+                    <a href="/admin/channels.html">Manage Channels</a>
+                    <a href="/admin/users.html">Manage Users</a>
+                    <a href="/admin/apk.html">APK Management</a>
                 </div>
-                <div class="endpoint">
-                    <span class="endpoint-method">GET</span>
-                    <span>/api/v1/app/version</span>
-                </div>
-                <div class="endpoint">
-                    <span class="endpoint-method">GET</span>
-                    <span>/api/v1/app/download</span>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <div class="footer-links">
+                    <a href="https://github.com/akshaynikhare/FireVisionIPTVServer" target="_blank">GitHub</a>
+                    <a href="https://github.com/akshaynikhare/FireVisionIPTVServer/blob/main/API_DOCUMENTATION.md" target="_blank">API Docs</a>
+                    <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a>
                 </div>
             </div>
         </div>
-
-        <div class="footer">
-            Powered by FireVision IPTV &copy; 2025
+        
+        <div class="footer-bottom">
+            <div>
+                <p class="footer-text">
+                    © 2025 FireVision IPTV • Open Source Project
+                </p>
+                <p class="footer-text" style="margin-top: 4px;">
+                    <a href="https://github.com/akshaynikhare/FireVisionIPTVServer" class="footer-link" target="_blank" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        View Source Code & Creator Profile on GitHub
+                    </a>
+                </p>
+            </div>
+            <div class="footer-social">
+                <a href="https://github.com/akshaynikhare" target="_blank" title="Creator Profile">
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
         </div>
-    </div>
+    </footer>
 
     <script>
-        // Fetch stats on page load
-        async function loadStats() {
+        // Load version and stats
+        async function loadData() {
             try {
-                // Fetch channel count
-                const channelsRes = await fetch('/api/v1/channels');
-                if (channelsRes.ok) {
-                    const channelsData = await channelsRes.json();
-                    // The API returns {success: true, count: X, data: [...]}
-                    const channelCount = channelsData.count || (Array.isArray(channelsData.data) ? channelsData.data.length : 0);
-                    document.getElementById('channelCount').innerHTML =
-                        `<span>${channelCount}</span>`;
-                } else {
-                    document.getElementById('channelCount').innerHTML = '<span>0</span>';
-                }
-
-                // Fetch latest app version using /latest endpoint
+                // Fetch latest app version
                 const versionRes = await fetch('/api/v1/app/latest');
                 if (versionRes.ok) {
                     const versionData = await versionRes.json();
                     if (versionData.success && versionData.data && versionData.data.versionName) {
-                        document.getElementById('latestVersion').innerHTML =
-                            `<span>v${versionData.data.versionName}</span>`;
-
+                        const version = versionData.data.versionName;
+                        document.getElementById('versionBadge').textContent = `v${version}`;
+                        
                         // Update download button
-                        const downloadBtn = document.getElementById('downloadBtn');
+                        const downloadBtn = document.getElementById('downloadApkBtn');
                         downloadBtn.href = '/api/v1/app/download';
-                        downloadBtn.download = `FireVisionIPTV-v${versionData.data.versionName}.apk`;
-                        downloadBtn.classList.remove('disabled');
-                    } else {
-                        document.getElementById('latestVersion').innerHTML =
-                            '<span>N/A</span>';
-                        const downloadBtn = document.getElementById('downloadBtn');
-                        downloadBtn.classList.add('disabled');
-                        downloadBtn.title = 'No APK available';
+                        downloadBtn.download = `FireVisionIPTV-v${version}.apk`;
                     }
-                } else {
-                    document.getElementById('latestVersion').innerHTML = '<span>N/A</span>';
-                    const downloadBtn = document.getElementById('downloadBtn');
-                    downloadBtn.classList.add('disabled');
-                    downloadBtn.title = 'No APK available';
                 }
             } catch (error) {
-                console.error('Error loading stats:', error);
-                document.getElementById('channelCount').innerHTML = '<span>Error</span>';
-                document.getElementById('latestVersion').innerHTML = '<span>Error</span>';
+                console.error('Error loading data:', error);
             }
         }
 
-        // Load stats when page loads
-        loadStats();
+        // Redirect create channel list to login
+        document.getElementById('createListBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/user/login.html';
+        });
+
+        // Footer download button
+        document.getElementById('footerDownloadBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/api/v1/app/download';
+        });
+
+        // Load data on page load
+        loadData();
     </script>
 </body>
 </html>

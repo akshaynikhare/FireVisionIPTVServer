@@ -13,83 +13,266 @@
         script-src 'self' 'unsafe-inline' 'unsafe-eval';
         style-src 'self' 'unsafe-inline';
         worker-src 'self' blob:">
-    <title>Login - FireVision IPTV Admin</title>
-    <!-- Vendor Styles -->
-    <link rel="stylesheet" href="/vendor/bootstrap/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    <title>Admin Login - FireVision IPTV</title>
+    
+    <!-- AdminLTE CSS -->
     <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-box {
+            width: 360px;
+            margin: 7% auto;
+        }
+        .login-logo {
+            font-size: 35px;
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 300;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .login-logo b {
+            font-weight: 700;
+        }
+        .login-logo .badge {
+            font-size: 14px;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        .login-card-body {
+            background: #fff;
+            border-top: 3px solid #dc3545;
+            color: #666;
+            padding: 20px;
+        }
+        .login-box-msg {
+            margin: 0;
+            padding: 0 20px 20px;
+            text-align: center;
+        }
+        .input-group-text {
+            background-color: transparent;
+            border-right: 0;
+        }
+        .form-control {
+            border-left: 0;
+        }
+        .form-control:focus {
+            border-color: #ced4da;
+            box-shadow: none;
+        }
+        .input-group-text + .form-control:focus {
+            border-left: 0;
+        }
+        .btn-primary {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        .btn-primary:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+        .alert {
+            border-radius: 0;
+        }
+    </style>
 </head>
 <body class="hold-transition login-page">
     <div class="login-box">
-        <div class="card card-outline card-primary">
-            <div class="card-header text-center">
-                <a href="channels.html" class="h1"><b>FireVision</b> IPTV</a>
-            </div>
-            <div class="card-body">
-                <p class="login-box-msg">Sign in to start your session</p>
-                <form id="loginForm" autocomplete="off">
+        <div class="login-logo">
+            📺 <b>FireVision</b> IPTV <span class="badge badge-danger">Admin</span>
+        </div>
+        
+        <div class="card">
+            <div class="card-body login-card-body">
+                <p class="login-box-msg">Sign in to admin dashboard</p>
+
+                <div id="loginError" class="alert alert-danger" style="display: none;"></div>
+                
+                <form id="loginForm">
                     <div class="input-group mb-3">
-                        <input type="text" id="username" class="form-control" placeholder="Username" required autocomplete="username">
+                        <input type="text" class="form-control" placeholder="Username" id="username" name="username" required autocomplete="username">
                         <div class="input-group-append">
                             <div class="input-group-text">
                                 <span class="fas fa-user"></span>
                             </div>
                         </div>
                     </div>
+                    
                     <div class="input-group mb-3">
-                        <input type="password" id="password" class="form-control" placeholder="Password" required autocomplete="current-password">
+                        <input type="password" class="form-control" placeholder="Password" id="password" name="password" required autocomplete="current-password">
                         <div class="input-group-append">
                             <div class="input-group-text">
                                 <span class="fas fa-lock"></span>
                             </div>
                         </div>
                     </div>
-                    <div id="loginError" class="alert alert-danger py-2 px-3 d-none mb-3"></div>
+                    
                     <div class="row">
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <div class="col-8">
+                            <div class="icheck-primary">
+                                <input type="checkbox" id="remember">
+                                <label for="remember">
+                                    Remember Me
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign In</button>
                         </div>
                     </div>
                 </form>
+
+                <p class="mb-1 mt-3">
+                    <a href="#" id="forgotPassword">I forgot my password</a>
+                </p>
+                <p class="mb-0">
+                    <a href="/user/login.html" class="text-center">User Login →</a>
+                </p>
             </div>
         </div>
     </div>
-    <!-- Vendor Scripts -->
+    <!-- jQuery -->
     <script src="/vendor/jquery/dist/jquery.min.js"></script>
+    <!-- Bootstrap 4 -->
     <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- AdminLTE App -->
     <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
+    
     <script>
         const API_BASE = window.location.origin;
-        const sessionId = localStorage.getItem('sessionId');
-        if (sessionId) {
-            fetch(`${API_BASE}/api/v1/auth/me`, { headers: { 'X-Session-Id': sessionId } })
-                .then(r => { if (r.ok) window.location.href = '/admin/channels.html'; })
-                .catch(err => console.error('Auth check failed:', err));
-        }
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('loginError');
-            errorDiv.classList.add('d-none');
-            try {
-                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    localStorage.setItem('sessionId', data.sessionId);
-                    window.location.href = '/admin/channels.html';
-                } else {
-                    errorDiv.textContent = data.error || 'Login failed';
-                    errorDiv.classList.remove('d-none');
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('loginForm');
+            const errorMsg = document.getElementById('loginError');
+            const loginBtn = document.getElementById('loginBtn');
+            
+            console.log('Admin login page initialized');
+            
+            function showError(msg) {
+                console.error('Login error:', msg);
+                errorMsg.innerHTML = msg;
+                errorMsg.style.display = 'block';
+                setTimeout(() => {
+                    errorMsg.style.display = 'none';
+                }, 5000);
+            }
+            
+            function hideError() {
+                errorMsg.style.display = 'none';
+            }
+            
+            // Handle login form submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideError();
+                
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                const remember = document.getElementById('remember').checked;
+                
+                if (!username || !password) {
+                    showError('Please enter both username and password');
+                    return;
                 }
-            } catch (error) {
-                errorDiv.textContent = 'Connection error';
-                errorDiv.classList.remove('d-none');
+                
+                loginBtn.disabled = true;
+                const originalText = loginBtn.innerHTML;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+                
+                try {
+                    console.log('Attempting admin login for:', username);
+                    const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    const data = await response.json();
+                    console.log('Response data:', data);
+                    
+                    if (response.ok && data.success) {
+                        // Check if user has Admin role
+                        if (data.user && data.user.role === 'Admin') {
+                            console.log('Admin login successful');
+                            localStorage.setItem('sessionId', data.sessionId);
+                            
+                            // Store remember me preference
+                            if (remember) {
+                                localStorage.setItem('rememberMeAdmin', 'true');
+                                localStorage.setItem('usernameAdmin', username);
+                            } else {
+                                localStorage.removeItem('rememberMeAdmin');
+                                localStorage.removeItem('usernameAdmin');
+                            }
+                            
+                            // Redirect to admin dashboard
+                            window.location.href = '/admin/users.html';
+                        } else {
+                            // User is not an admin
+                            showError('Access denied. Only administrators can access this area.<br><a href="/user/login.html" style="color: #fff; text-decoration: underline;">Go to User Login →</a>');
+                            loginBtn.disabled = false;
+                            loginBtn.innerHTML = originalText;
+                        }
+                    } else {
+                        showError(data.error || 'Login failed. Please check your credentials.');
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = originalText;
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showError('Network error. Please try again.');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = originalText;
+                }
+            });
+            
+            // Handle forgot password
+            document.getElementById('forgotPassword').addEventListener('click', (e) => {
+                e.preventDefault();
+                alert('Password reset functionality will be available soon.\n\nPlease send an email to: akshay@cadnative.com\nInclude your username and registered email address.');
+            });
+            
+            // Check if already logged in
+            const sessionId = localStorage.getItem('sessionId');
+            if (sessionId) {
+                console.log('Found existing session, checking validity');
+                fetch(`${API_BASE}/api/v1/auth/me`, {
+                    headers: { 'X-Session-Id': sessionId }
+                })
+                .then(async res => {
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.user && data.user.role === 'Admin') {
+                            console.log('Valid admin session found, redirecting');
+                            window.location.href = '/admin/users.html';
+                        } else {
+                            console.log('Not an admin user, clearing session');
+                            localStorage.removeItem('sessionId');
+                        }
+                    } else {
+                        console.log('Session invalid, clearing');
+                        localStorage.removeItem('sessionId');
+                    }
+                })
+                .catch(err => {
+                    console.error('Session check failed:', err);
+                });
+            }
+            
+            // Pre-fill username if remembered
+            if (localStorage.getItem('rememberMeAdmin') === 'true') {
+                const savedUsername = localStorage.getItem('usernameAdmin');
+                if (savedUsername) {
+                    document.getElementById('username').value = savedUsername;
+                    document.getElementById('remember').checked = true;
+                }
             }
         });
     </script>

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const Playlist = require('../models/Playlist');
 const { signAccessToken, signRefreshToken, persistRefreshToken } = require('../utils/jwtUtil');
 
 // Environment config
@@ -18,30 +17,22 @@ function generateRandomPassword() {
   return Math.random().toString(36).slice(-10) + 'Aa1!';
 }
 
-// Helper: create user + playlist if new
+// Helper: create user with channel list if new
 async function ensureUserAndPlaylist(findCriteria, baseProfile) {
   let user = await User.findOne(findCriteria);
   if (!user) {
-    const playlistCode = await User.generatePlaylistCode();
+    const channelListCode = await User.generateChannelListCode();
     user = new User({
       username: baseProfile.username,
       email: baseProfile.email || `${baseProfile.username}@placeholder.local`,
       password: generateRandomPassword(),
       role: 'User',
-      playlistCode,
+      channelListCode,
       googleId: baseProfile.googleId,
       githubId: baseProfile.githubId,
       isActive: true
     });
     await user.save();
-    const playlist = new Playlist({
-      userId: user._id,
-      name: `${user.username}'s Playlist`,
-      playlistCode: user.playlistCode,
-      channels: [],
-      isPublic: false
-    });
-    await playlist.save();
   } else {
     // Update email if newly provided and different
     if (baseProfile.email && baseProfile.email !== user.email) {
@@ -123,7 +114,7 @@ router.get('/google/callback', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        playlistCode: user.playlistCode
+        channelListCode: user.channelListCode
       }
     });
   } catch (e) {
@@ -215,7 +206,7 @@ router.get('/github/callback', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        playlistCode: user.playlistCode
+        channelListCode: user.channelListCode
       }
     });
   } catch (e) {

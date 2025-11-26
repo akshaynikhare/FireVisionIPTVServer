@@ -131,10 +131,10 @@ function renderChannelsTable(channelsToRender) {
                 data: 'channelImg',
                 orderable: false,
                 render: function(data, type, row) {
-                    const logoUrl = data ? getProxiedImageUrl(data) : DEFAULT_LOGO;
+                    const logoUrl = (row.tvgLogo || data) ? getProxiedImageUrl(row.tvgLogo || data) : '/uploads/profiles/default.png';
                     const uniqueId = `img-${row._id || Math.random().toString(36).substring(2, 11)}`;
                     // Don't set src yet - will be loaded sequentially
-                    return `<div class="img-loading-container" data-img-src="${logoUrl}" id="${uniqueId}"><img class="channel-logo" alt="${row.channelName}"></div>`;
+                    return `<div class="img-loading-container" data-img-src="${logoUrl}" id="${uniqueId}"><img class="channel-logo" alt="${row.channelName}" style="width:40px;height:40px;object-fit:contain;"></div>`;
                 }
             },
             {
@@ -175,14 +175,6 @@ function renderChannelsTable(channelsToRender) {
                     return row.metadata.isWorking
                         ? '<span class="status-badge status-working">✓ Working</span>'
                         : '<span class="status-badge status-not-working">✗ Not Working</span>';
-                }
-            },
-            {
-                // URL column (hidden)
-                data: 'channelUrl',
-                visible: false,
-                render: function(data, type, row) {
-                    return data;
                 }
             },
             {

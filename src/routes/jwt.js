@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
-const Playlist = require('../models/Playlist');
 const { signAccessToken, signRefreshToken, persistRefreshToken, hashToken } = require('../utils/jwtUtil');
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me';
@@ -54,7 +53,7 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        playlistCode: user.playlistCode
+        channelListCode: user.channelListCode
       }
     });
   } catch (e) {
@@ -133,18 +132,19 @@ router.get('/me', requireJwtAuth, async (req, res) => {
   }
 });
 
-// User playlist (M3U) via JWT
+// User channel list (M3U) via JWT
 router.get('/playlist.m3u', requireJwtAuth, async (req, res) => {
   try {
-    const playlist = await Playlist.findOne({ userId: req.userId });
-    if (!playlist) {
-      return res.status(404).send('#EXTM3U\n#ERROR:Playlist not found');
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).send('#EXTM3U\n#ERROR:User not found');
     }
-    const m3u = await playlist.generateM3U();
+    const m3u = await user.generateUserPlaylist();
     res.setHeader('Content-Type', 'audio/x-mpegurl');
+    res.setHeader('Content-Disposition', `attachment; filename="${user.username}-channels.m3u"`);
     return res.send(m3u);
   } catch (e) {
-    console.error('Playlist m3u error', e);
+    console.error('Channel list m3u error', e);
     return res.status(500).send('#EXTM3U\n#ERROR:Internal error');
   }
 });

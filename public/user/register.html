@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register - FireVision IPTV</title>
+  
+  <!-- AdminLTE CSS -->
+  <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+  
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .register-box {
+      width: 360px;
+      margin: 5% auto;
+    }
+    .register-logo {
+      font-size: 35px;
+      text-align: center;
+      margin-bottom: 25px;
+      font-weight: 300;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .register-logo b {
+      font-weight: 700;
+    }
+    .register-card-body {
+      background: #fff;
+      border-top: 3px solid #007bff;
+      color: #666;
+      padding: 20px;
+    }
+    .register-box-msg {
+      margin: 0;
+      padding: 0 20px 20px;
+      text-align: center;
+    }
+    .input-group-text {
+      background-color: transparent;
+      border-right: 0;
+    }
+    .form-control {
+      border-left: 0;
+    }
+    .form-control:focus {
+      border-color: #ced4da;
+      box-shadow: none;
+    }
+    .input-group-text + .form-control:focus {
+      border-left: 0;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+    .social-auth-links {
+      margin: 10px 0;
+    }
+    .btn-google {
+      background-color: #dd4b39;
+      border-color: #dd4b39;
+      color: #fff;
+    }
+    .btn-google:hover {
+      background-color: #c23321;
+      border-color: #c23321;
+      color: #fff;
+    }
+    .btn-github {
+      background-color: #333;
+      border-color: #333;
+      color: #fff;
+    }
+    .btn-github:hover {
+      background-color: #24292e;
+      border-color: #24292e;
+      color: #fff;
+    }
+    .alert {
+      border-radius: 0;
+    }
+  </style>
+</head>
+<body class="hold-transition register-page">
+  <div class="register-box">
+    <div class="register-logo">
+      📺 <b>FireVision</b> IPTV
+    </div>
+    
+    <div class="card">
+      <div class="card-body register-card-body">
+        <p class="register-box-msg">Register a new membership</p>
+
+        <div id="errorMsg" class="alert alert-danger" style="display: none;"></div>
+        <div id="successMsg" class="alert alert-success" style="display: none;"></div>
+        
+        <form id="registerForm">
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" placeholder="Username" id="username" name="username" required>
+            <div class="input-group-append">
+              <div class="input-group-text">
+                <span class="fas fa-user"></span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="input-group mb-3">
+            <input type="email" class="form-control" placeholder="Email" id="email" name="email" required>
+            <div class="input-group-append">
+              <div class="input-group-text">
+                <span class="fas fa-envelope"></span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="input-group mb-3">
+            <input type="password" class="form-control" placeholder="Password" id="password" name="password" required minlength="6">
+            <div class="input-group-append">
+              <div class="input-group-text">
+                <span class="fas fa-lock"></span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="input-group mb-3">
+            <input type="password" class="form-control" placeholder="Confirm password" id="confirmPassword" name="confirmPassword" required minlength="6">
+            <div class="input-group-append">
+              <div class="input-group-text">
+                <span class="fas fa-lock"></span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-8">
+              <div class="icheck-primary">
+                <input type="checkbox" id="agreeTerms" name="terms" value="agree" required>
+                <label for="agreeTerms">
+                  I agree to the <a href="#">terms</a>
+                </label>
+              </div>
+            </div>
+            <div class="col-4">
+              <button type="submit" class="btn btn-primary btn-block" id="registerBtn">Register</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="social-auth-links text-center">
+          <p>- OR -</p>
+          <a href="/api/v1/auth/google" class="btn btn-block btn-google">
+            <i class="fab fa-google mr-2"></i> Sign up using Google
+          </a>
+          <a href="/api/v1/auth/github" class="btn btn-block btn-github">
+            <i class="fab fa-github mr-2"></i> Sign up using GitHub
+          </a>
+        </div>
+
+        <a href="login.html" class="text-center">I already have a membership</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- jQuery -->
+  <script src="/vendor/jquery/dist/jquery.min.js"></script>
+  <!-- Bootstrap 4 -->
+  <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- AdminLTE App -->
+  <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
+  
+  <script>
+    const API_BASE = window.location.origin;
+    
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.getElementById('registerForm');
+      const errorMsg = document.getElementById('errorMsg');
+      const successMsg = document.getElementById('successMsg');
+      const registerBtn = document.getElementById('registerBtn');
+      
+      console.log('Registration page initialized');
+      
+      function showError(msg) {
+        console.error('Registration error:', msg);
+        errorMsg.textContent = msg;
+        errorMsg.style.display = 'block';
+        successMsg.style.display = 'none';
+        setTimeout(() => {
+          errorMsg.style.display = 'none';
+        }, 5000);
+      }
+      
+      function showSuccess(msg) {
+        console.log('Registration success:', msg);
+        successMsg.textContent = msg;
+        successMsg.style.display = 'block';
+        errorMsg.style.display = 'none';
+      }
+      
+      function hideMessages() {
+        errorMsg.style.display = 'none';
+        successMsg.style.display = 'none';
+      }
+      
+      // Handle registration form submission
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideMessages();
+        
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const agreeTerms = document.getElementById('agreeTerms').checked;
+        
+        // Validation
+        if (!username || !email || !password || !confirmPassword) {
+          showError('All fields are required');
+          return;
+        }
+        
+        if (password.length < 6) {
+          showError('Password must be at least 6 characters long');
+          return;
+        }
+        
+        if (password !== confirmPassword) {
+          showError('Passwords do not match');
+          return;
+        }
+        
+        if (!agreeTerms) {
+          showError('You must agree to the terms and conditions');
+          return;
+        }
+        
+        registerBtn.disabled = true;
+        const originalText = registerBtn.innerHTML;
+        registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registering...';
+        
+        try {
+          console.log('Attempting registration for:', username);
+          const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+          });
+          
+          console.log('Response status:', response.status);
+          const data = await response.json();
+          console.log('Response data:', data);
+          
+          if (response.ok && data.success) {
+            console.log('Registration successful');
+            showSuccess('Registration successful! Redirecting to login...');
+            form.reset();
+            
+            // Redirect to login after 2 seconds
+            setTimeout(() => {
+              window.location.href = 'login.html';
+            }, 2000);
+          } else {
+            showError(data.error || 'Registration failed. Please try again.');
+            registerBtn.disabled = false;
+            registerBtn.innerHTML = originalText;
+          }
+        } catch (error) {
+          console.error('Registration error:', error);
+          showError('Network error. Please try again.');
+          registerBtn.disabled = false;
+          registerBtn.innerHTML = originalText;
+        }
+      });
+      
+      // Check if already logged in
+      const sessionId = localStorage.getItem('sessionId');
+      if (sessionId) {
+        console.log('User already logged in, checking session');
+        fetch(`${API_BASE}/api/v1/auth/me`, {
+          headers: { 'X-Session-Id': sessionId }
+        })
+        .then(res => {
+          if (res.ok) {
+            console.log('Valid session found, redirecting to channels');
+            window.location.href = '/user/channels.html';
+          }
+        })
+        .catch(err => {
+          console.error('Session check failed:', err);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

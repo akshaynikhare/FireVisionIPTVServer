@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' https: http: blob: data: ws: wss:;
+        font-src 'self' data:;
+        frame-src 'self';
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://vjs.zencdn.net;
+        style-src 'self' 'unsafe-inline';
+        worker-src 'self' blob:">
+
+    <title>My Profile - FireVision IPTV</title>
+    <!-- AdminLTE 3 / Bootstrap 4 -->
+    <link rel="stylesheet" href="/vendor/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="/admin/style.css">
+</head>
+<body class="hold-transition sidebar-mini layout-fixed">
+    <div id="dashboardScreen" class="screen">
+        <div class="wrapper">
+            <!-- Navbar -->
+            <div id="navbar-placeholder"></div>
+            
+            <!-- Sidebar -->
+            <div id="sidebar-placeholder"></div>
+            
+            <div class="content-wrapper">
+                <section class="content-header">
+                    <div class="container-fluid">
+                        <div class="row mb-2">
+                            <div class="col-sm-6"><h1>My Profile</h1></div>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="content">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <!-- Profile Card -->
+                            <div class="col-md-4">
+                                <div class="card card-primary card-outline">
+                                    <div class="card-body box-profile">
+                                        <div class="text-center">
+                                            <img id="profilePicture" class="profile-user-img img-fluid img-circle d-none" alt="Profile Picture">
+                                            <div id="profilePlaceholder" class="profile-user-img img-fluid img-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width:100px;height:100px;font-size:40px;font-weight:600;">
+                                                <span id="profileInitials">U</span>
+                                            </div>
+                                        </div>
+
+                                        <h3 class="profile-username text-center mt-3" id="profileUsername">User</h3>
+                                        <p class="text-muted text-center" id="profileEmail">user@example.com</p>
+
+                                        <ul class="list-group list-group-unbordered mb-3">
+                                            <li class="list-group-item">
+                                                <b>Role</b> <span class="float-right badge badge-info" id="profileRole">User</span>
+                                            </li>
+                                            <li class="list-group-item">
+                                                <b>Total Channels</b> <span class="float-right" id="profileChannelCount">0</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <!-- Channel List Code Card -->
+                                <div class="card card-warning card-outline">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-qrcode mr-2"></i>Channel List Code</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="text-muted small">Use this code to pair your TV app</p>
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control" id="profileChannelListCode" value="-" readonly>
+                                            <div class="input-group-append">
+                                                <button class="btn btn-outline-secondary" type="button" id="copyCodeBtn" title="Copy Code">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-warning btn-block btn-sm" id="regenerateCodeBtn">
+                                            <i class="fas fa-sync"></i> Regenerate Code
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Profile Details & Password Change -->
+                            <div class="col-md-8">
+                                <!-- Profile Information -->
+                                <div class="card card-primary card-outline" id="profileViewCard">
+                                    <div class="card-header">
+                                        <h3 class="card-title">Profile Information</h3>
+                                        <div class="card-tools">
+                                            <button type="button" class="btn btn-tool" id="editProfileBtn">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4">Username</dt>
+                                            <dd class="col-sm-8" id="viewUsername">-</dd>
+
+                                            <dt class="col-sm-4">Email</dt>
+                                            <dd class="col-sm-8" id="viewEmail">-</dd>
+
+                                            <dt class="col-sm-4">Profile Picture</dt>
+                                            <dd class="col-sm-8" id="viewProfilePicture">
+                                                <span class="text-muted">Not set</span>
+                                            </dd>
+
+                                            <dt class="col-sm-4">Member Since</dt>
+                                            <dd class="col-sm-8" id="viewCreatedAt">-</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+
+                                <!-- Edit Profile Form (hidden by default) -->
+                                <div class="card card-primary" id="profileEditCard" style="display: none;">
+                                    <div class="card-header">
+                                        <h3 class="card-title">Edit Profile</h3>
+                                    </div>
+                                    <form id="profileForm">
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="editUsername">Username</label>
+                                                <input type="text" class="form-control" id="editUsername" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editEmail">Email</label>
+                                                <input type="email" class="form-control" id="editEmail" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editProfilePicture">Profile Picture URL (optional)</label>
+                                                <input type="text" class="form-control" id="editProfilePicture" placeholder="https://example.com/image.jpg">
+                                                <small class="form-text text-muted">Enter a URL to your profile picture or leave blank</small>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save"></i> Save Changes
+                                            </button>
+                                            <button type="button" class="btn btn-default float-right" id="cancelEditBtn">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <!-- Change Password -->
+                                <div class="card card-warning card-outline" id="passwordViewCard">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-key mr-2"></i>Security</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="text-muted">Keep your account secure by using a strong password</p>
+                                        <button type="button" class="btn btn-warning" id="changePasswordBtn">
+                                            <i class="fas fa-key"></i> Change Password
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Change Password Form (hidden by default) -->
+                                <div class="card card-warning" id="passwordEditCard" style="display: none;">
+                                    <div class="card-header">
+                                        <h3 class="card-title">Change Password</h3>
+                                    </div>
+                                    <form id="passwordForm">
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="currentPassword">Current Password</label>
+                                                <input type="password" class="form-control" id="currentPassword" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="newPassword">New Password</label>
+                                                <input type="password" class="form-control" id="newPassword" required minlength="6">
+                                                <small class="form-text text-muted">Minimum 6 characters</small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="confirmPassword">Confirm New Password</label>
+                                                <input type="password" class="form-control" id="confirmPassword" required minlength="6">
+                                            </div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <button type="submit" class="btn btn-warning">
+                                                <i class="fas fa-save"></i> Update Password
+                                            </button>
+                                            <button type="button" class="btn btn-default float-right" id="cancelPasswordBtn">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Regenerate Code Confirmation Modal -->
+    <div class="modal fade" id="regenerateCodeModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-danger">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i> Regenerate Channel List Code
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-tv mr-2"></i>
+                        <strong>Warning:</strong> Your TV will be unlinked!
+                    </div>
+                    <p>Regenerating your channel list code will:</p>
+                    <ul>
+                        <li>Create a new unique code</li>
+                        <li><strong>Unlink all connected TV devices</strong></li>
+                        <li>Require you to update the code on your TV app</li>
+                    </ul>
+                    <p class="mb-0">Are you sure you want to continue?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmRegenerateBtn">
+                        <i class="fas fa-sync-alt"></i> Yes, Regenerate Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendor Scripts -->
+    <script src="/vendor/jquery/dist/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="/admin/core.js"></script>
+    <script src="common.js"></script>
+    <script src="navbar.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>

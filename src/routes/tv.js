@@ -12,20 +12,20 @@ router.get('/playlist/:code', async (req, res) => {
         if (!code || code.length !== 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid playlist code. Code must be 6 characters.'
+                error: 'Invalid channel list code. Code must be 6 characters.'
             });
         }
 
-        // Find user by playlist code
+        // Find user by channel list code
         const user = await User.findOne({
-            playlistCode: code.toUpperCase(),
+            channelListCode: code.toUpperCase(),
             isActive: true
         });
 
         if (!user) {
             return res.status(404).json({
                 success: false,
-                error: 'Invalid or inactive playlist code'
+                error: 'Invalid or inactive channel list code'
             });
         }
 
@@ -57,20 +57,20 @@ router.get('/playlist/:code/json', async (req, res) => {
         if (!code || code.length !== 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid playlist code. Code must be 6 characters.'
+                error: 'Invalid channel list code. Code must be 6 characters.'
             });
         }
 
-        // Find user by playlist code
+        // Find user by channel list code
         const user = await User.findOne({
-            playlistCode: code.toUpperCase(),
+            channelListCode: code.toUpperCase(),
             isActive: true
         }).populate('channels');
 
         if (!user) {
             return res.status(404).json({
                 success: false,
-                error: 'Invalid or inactive playlist code'
+                error: 'Invalid or inactive channel list code'
             });
         }
 
@@ -95,7 +95,7 @@ router.get('/playlist/:code/json', async (req, res) => {
             success: true,
             user: {
                 username: user.username,
-                playlistCode: user.playlistCode
+                channelListCode: user.channelListCode
             },
             count: channels.length,
             channels: channels
@@ -117,20 +117,20 @@ router.post('/pair', async (req, res) => {
         if (!code || code.length !== 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid playlist code. Code must be 6 characters.'
+                error: 'Invalid channel list code. Code must be 6 characters.'
             });
         }
 
-        // Find user by playlist code
+        // Find user by channel list code
         const user = await User.findOne({
-            playlistCode: code.toUpperCase(),
+            channelListCode: code.toUpperCase(),
             isActive: true
         });
 
         if (!user) {
             return res.status(404).json({
                 success: false,
-                error: 'Invalid or inactive playlist code'
+                error: 'Invalid or inactive channel list code'
             });
         }
 
@@ -148,7 +148,7 @@ router.post('/pair', async (req, res) => {
             message: 'Device paired successfully',
             data: {
                 username: user.username,
-                playlistCode: user.playlistCode,
+                channelListCode: user.channelListCode,
                 channelsCount: user.role === 'Admin' ? 'All' : user.channels.length
             }
         });
@@ -169,12 +169,12 @@ router.get('/verify/:code', async (req, res) => {
         if (!code || code.length !== 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid playlist code format'
+                error: 'Invalid channel list code format'
             });
         }
 
         const user = await User.findOne({
-            playlistCode: code.toUpperCase(),
+            channelListCode: code.toUpperCase(),
             isActive: true
         });
 

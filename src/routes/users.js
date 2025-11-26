@@ -51,8 +51,8 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
             });
         }
 
-        // Generate unique playlist code
-        const playlistCode = await User.generatePlaylistCode();
+        // Generate unique channel list code
+        const channelListCode = await User.generateChannelListCode();
 
         // Create new user
         const user = new User({
@@ -60,7 +60,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
             password,
             email,
             role: role || 'User',
-            playlistCode,
+            channelListCode,
             isActive: isActive !== undefined ? isActive : true
         });
 
@@ -195,159 +195,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Assign channels to user (Admin only)
-router.post('/:id/channels', requireAuth, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { channelIds } = req.body;
+// Note: Channel assignment removed - users manage their own channels via /api/v1/user-playlist
 
-        if (!Array.isArray(channelIds)) {
-            return res.status(400).json({
-                success: false,
-                error: 'channelIds must be an array'
-            });
-        }
 
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
 
-        // Verify all channel IDs exist
-        const channels = await Channel.find({ _id: { $in: channelIds } });
-        if (channels.length !== channelIds.length) {
-            return res.status(400).json({
-                success: false,
-                error: 'Some channel IDs are invalid'
-            });
-        }
 
-        user.channels = channelIds;
-        await user.save();
-
-        res.json({
-            success: true,
-            message: 'Channels assigned successfully',
-            data: {
-                userId: user._id,
-                channelsCount: channelIds.length
-            }
-        });
-    } catch (error) {
-        console.error('Error assigning channels:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to assign channels'
-        });
-    }
-});
-
-// Add channels to user (Admin only)
-router.post('/:id/channels/add', requireAuth, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { channelIds } = req.body;
-
-        if (!Array.isArray(channelIds)) {
-            return res.status(400).json({
-                success: false,
-                error: 'channelIds must be an array'
-            });
-        }
-
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
-
-        // Add new channels without duplicates
-        const existingIds = user.channels.map(id => id.toString());
-        const newChannelIds = channelIds.filter(id => !existingIds.includes(id.toString()));
-
-        if (newChannelIds.length === 0) {
-            return res.json({
-                success: true,
-                message: 'No new channels to add',
-                data: {
-                    userId: user._id,
-                    channelsCount: user.channels.length
-                }
-            });
-        }
-
-        user.channels.push(...newChannelIds);
-        await user.save();
-
-        res.json({
-            success: true,
-            message: `Added ${newChannelIds.length} channels`,
-            data: {
-                userId: user._id,
-                channelsCount: user.channels.length,
-                addedCount: newChannelIds.length
-            }
-        });
-    } catch (error) {
-        console.error('Error adding channels:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to add channels'
-        });
-    }
-});
-
-// Remove channels from user (Admin only)
-router.post('/:id/channels/remove', requireAuth, requireAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { channelIds } = req.body;
-
-        if (!Array.isArray(channelIds)) {
-            return res.status(400).json({
-                success: false,
-                error: 'channelIds must be an array'
-            });
-        }
-
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
-
-        const beforeCount = user.channels.length;
-        user.channels = user.channels.filter(
-            id => !channelIds.includes(id.toString())
-        );
-        await user.save();
-
-        const removedCount = beforeCount - user.channels.length;
-
-        res.json({
-            success: true,
-            message: `Removed ${removedCount} channels`,
-            data: {
-                userId: user._id,
-                channelsCount: user.channels.length,
-                removedCount
-            }
-        });
-    } catch (error) {
-        console.error('Error removing channels:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to remove channels'
-        });
-    }
-});
 
 // Regenerate playlist code (Admin or own profile)
 router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
@@ -371,14 +223,14 @@ router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
         }
 
         // Generate new code
-        user.playlistCode = await User.generatePlaylistCode();
+        user.channelListCode = await User.generateChannelListCode();
         await user.save();
 
         res.json({
             success: true,
-            message: 'Playlist code regenerated successfully',
+            message: 'Channel list code regenerated successfully',
             data: {
-                playlistCode: user.playlistCode
+                channelListCode: user.channelListCode
             }
         });
     } catch (error) {

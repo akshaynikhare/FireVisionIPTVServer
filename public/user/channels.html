@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' https: http: blob: data: ws: wss:;
+        font-src 'self' data:;
+        frame-src 'self';
+        img-src 'self' data: https: http:;
+        media-src 'self' blob: data: https: http:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://vjs.zencdn.net;
+        style-src 'self' 'unsafe-inline';
+        worker-src 'self' blob:">
+
+    <title>My Personal Channels - FireVision IPTV</title>
+    <!-- AdminLTE 3 / Bootstrap 4 / DataTables -->
+    <link rel="stylesheet" href="/vendor/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="/vendor/datatables.net-bs4/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="/admin/style.css">
+</head>
+<body class="hold-transition sidebar-mini layout-fixed">
+    <div id="dashboardScreen" class="screen">
+        <div class="wrapper">
+            <!-- Navbar -->
+            <div id="navbar-placeholder"></div>
+            
+            <!-- Sidebar -->
+            <div id="sidebar-placeholder"></div>
+            
+            <div class="content-wrapper">
+                <section class="content-header">
+                    <div class="container-fluid">
+                        <div class="row mb-2">
+                            <div class="col-sm-6"><h1>My Personal Channels</h1></div>
+                            <div class="col-sm-6">
+                                <ol class="breadcrumb float-sm-right">
+                                    <li class="breadcrumb-item active">My Personal Channels</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="content">
+                    <div class="container-fluid">
+                        <!-- Stats Boxes -->
+                        <div class="row">
+                            <div class="col-lg-6 col-6">
+                                <div class="small-box bg-info">
+                                    <div class="inner">
+                                        <h3 id="myChannelCount">0</h3>
+                                        <p>Total Channels</p>
+                                    </div>
+                                    <div class="icon">
+                                        <i class="fas fa-tv"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 col-6">
+                                <div class="small-box bg-success">
+                                    <div class="inner">
+                                        <h3 id="workingChannels">-</h3>
+                                        <p>Working Channels</p>
+                                    </div>
+                                    <div class="icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- My Channels Card -->
+                        <div class="card card-primary card-outline">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="fas fa-list mr-2"></i>My Personal Channel List</h3>
+                                <div class="card-tools">
+                                    <button id="addChannelBtn" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add Channel</button>
+                                    <button id="bulkTestBtn" class="btn btn-success btn-sm"><i class="fas fa-vial"></i> Test</button>
+                                    <button id="bulkTestPendingBtn" class="btn btn-info btn-sm"><i class="fas fa-clock"></i> Test Pending</button>
+                                    <button id="bulkDeleteBtn" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
+                                    <button id="bulkDeleteNotWorkingBtn" class="btn btn-warning btn-sm"><i class="fas fa-times-circle"></i> Delete Not Working</button>
+                                    <button id="bulkDeleteAllBtn" class="btn btn-danger btn-sm"><i class="fas fa-fire"></i> Delete All</button>
+                                    <a href="/api/v1/user-playlist/me/playlist.m3u" class="btn btn-success btn-sm" id="downloadM3U">
+                                        <i class="fas fa-download"></i> M3U
+                                    </a>
+                                    <span id="testProgress" class="badge badge-info ml-2"></span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="loadingChannels" class="text-center text-muted" style="padding: 20px;">
+                                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                    <p class="mt-2">Loading channels...</p>
+                                </div>
+                                <div id="noChannelsMessage" class="text-center text-muted" style="display:none; padding: 40px;">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p class="mb-3">Your personal channel list is empty. Start by importing channels from IPTV-org!</p>
+                                    <a href="iptv-org.html" class="btn btn-primary">
+                                        <i class="fas fa-globe"></i> Import from IPTV-org
+                                    </a>
+                                </div>
+                                <div id="channelsTableWrapper" class="dt-container">
+                                    <table id="channelsTable" class="table table-striped table-bordered table-hover" style="width:100%; display:none;">
+                                        <thead>
+                                            <tr>
+                                                <th ><input type="checkbox" id="selectAll"></th>
+                                                <th >Logo</th>
+                                                <th>Name</th>
+                                                <th>Group</th>
+                                                <th >Language</th>
+                                                <th >Status</th>
+                                                <th >Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="channelsTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Modal -->
+    <div class="modal fade" id="playerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="playerTitle">Channel Player</h5>
+                        <p id="playerChannelName" class="mb-0 small text-muted"></p>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="player-container">
+                        <video id="videoPlayer" controls preload="auto" style="width:100%;max-height:80vh;" class="bg-black"></video>
+                        <div id="playerLoading" class="player-loading d-none">
+                            <div class="spinner"></div>
+                            <p>Loading stream...</p>
+                        </div>
+                        <div id="playerError" class="player-error d-none">
+                            <p>❌ Failed to load stream</p>
+                            <p class="error-details"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="player-info border-top">
+                    <div class="info-row">
+                        <strong>Stream URL:</strong>
+                        <span id="playerUrl" class="url-truncate"></span>
+                    </div>
+                    <div class="info-row">
+                        <strong>Status:</strong>
+                        <span id="playerStatus">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channel Form Modal -->
+    <div class="modal fade" id="channelModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Channel</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="channelForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="channelIdHidden">
+                        <div class="mb-3">
+                            <label for="channelId" class="form-label">Channel ID</label>
+                            <input type="text" id="channelId" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="channelName" class="form-label">Name</label>
+                            <input type="text" id="channelName" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="channelUrl" class="form-label">Stream URL</label>
+                            <input type="text" id="channelUrl" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="channelImg" class="form-label">Logo URL</label>
+                            <input type="text" id="channelImg" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="channelGroup" class="form-label">Group/Category</label>
+                            <input type="text" id="channelGroup" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="channelLanguage" class="form-label">Language</label>
+                            <input type="text" id="channelLanguage" class="form-control" placeholder="e.g., English, Hindi, etc.">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelBtn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Channel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete All Confirmation Modal -->
+    <div class="modal fade" id="deleteAllConfirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to delete all channels from your personal list? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelDeleteAllBtn">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteAllBtn">Delete All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="deleteConfirmationMessage" class="mb-0"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Not Working Confirmation Modal -->
+    <div class="modal fade" id="deleteNotWorkingConfirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Not Working Channels</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to delete <strong id="notWorkingCount">0</strong> non-working channels? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelDeleteNotWorkingBtn">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteNotWorkingBtn">Delete Not Working</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendor Scripts -->
+    <script src="/vendor/jquery/dist/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/vendor/admin-lte/dist/js/adminlte.min.js"></script>
+    <script src="/vendor/datatables.net/js/dataTables.min.js"></script>
+    <script src="/vendor/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+    <script src="/vendor/hls.js/dist/hls.min.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="/admin/core.js"></script>
+    <script src="common.js"></script>
+    <script src="navbar.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="channels.js"></script>
+</body>
+</html>

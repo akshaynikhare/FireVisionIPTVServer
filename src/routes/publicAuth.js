@@ -2,7 +2,6 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/User');
-const Playlist = require('../models/Playlist');
 const { signAccessToken, signRefreshToken, persistRefreshToken } = require('../utils/jwtUtil');
 
 // Rate limiter for signup to mitigate abuse
@@ -56,8 +55,8 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(409).json({ success: false, error: 'Username or email already in use' });
     }
 
-    // Generate playlist code using User static (to keep parity)
-    const playlistCode = await User.generatePlaylistCode();
+    // Generate channel list code
+    const channelListCode = await User.generateChannelListCode();
 
     // Create user with role User only
     const user = new User({
@@ -65,20 +64,10 @@ router.post('/signup', signupLimiter, async (req, res) => {
       email,
       password,
       role: 'User',
-      playlistCode,
+      channelListCode,
       channels: []
     });
     await user.save();
-
-    // Create playlist doc (Option B model)
-    const playlist = new Playlist({
-      userId: user._id,
-      name: `${username}'s Playlist`,
-      playlistCode,
-      channels: [],
-      isPublic: false
-    });
-    await playlist.save();
 
     // Issue JWT tokens
     const accessToken = signAccessToken(user);
@@ -92,7 +81,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        playlistCode: user.playlistCode
+        channelListCode: user.channelListCode
       },
       tokens: { accessToken, refreshToken }
     });

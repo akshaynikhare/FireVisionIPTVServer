@@ -62,12 +62,12 @@ const { router: authRouter } = require('./routes/auth');
 const { router: jwtRouter } = require('./routes/jwt');
 const publicAuthRouter = require('./routes/publicAuth');
 const oauthRouter = require('./routes/oauth');
-const playlistRouter = require('./routes/playlist');
+const userPlaylistRouter = require('./routes/user-playlist');
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/jwt', jwtRouter);
 app.use('/api/v1/public', publicAuthRouter);
 app.use('/api/v1/oauth', oauthRouter);
-app.use('/api/v1/playlist', playlistRouter);
+app.use('/api/v1/user-playlist', userPlaylistRouter);
 app.use('/api/v1/channels', require('./routes/channels'));
 // Use simplified JSON-based app routes instead of MongoDB-based
 app.use('/api/v1/app', require('./routes/app-simple'));

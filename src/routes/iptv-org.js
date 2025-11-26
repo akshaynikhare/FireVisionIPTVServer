@@ -788,7 +788,7 @@ router.get('/fetch', async (req, res) => {
     }
 });
 
-// Import selected channels from IPTV-org
+// Import selected channels from IPTV-org (admin only)
 router.post('/import', async (req, res) => {
     try {
         const { channels, replaceExisting } = req.body;
@@ -846,6 +846,115 @@ router.post('/import', async (req, res) => {
         });
     } catch (error) {
         console.error('Error importing channels:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to import channels'
+        });
+    }
+});
+
+// Import selected channels from IPTV-org to user's playlist
+router.post('/import-user', async (req, res) => {
+    console.log('🔵 /import-user endpoint called');
+    console.log('👤 User ID:', req.user?.id);
+    console.log('📦 Request body:', req.body);
+    
+    try {
+        const { channels } = req.body;
+        const userId = req.user.id;
+
+        if (!channels || !Array.isArray(channels)) {
+            console.error('❌ Channels validation failed:', { channels: channels?.length });
+            return res.status(400).json({
+                success: false,
+                error: 'Channels array is required'
+            });
+        }
+
+        console.log(`📋 Processing ${channels.length} channels for user ${userId}`);
+
+        const User = require('../models/User');
+        const mongoose = require('mongoose');
+
+        const user = await User.findById(userId);
+        if (!user) {
+            console.error('❌ User not found:', userId);
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        console.log(`✅ User found: ${user.username}, existing channels: ${user.channels.length}`);
+
+        const existingChannelIds = new Set(user.channels.map(id => id.toString()));
+        const channelIdsToAdd = [];
+
+        for (const ch of channels) {
+            try {
+                // Check if channel already exists in system by URL
+                let existingChannel = await Channel.findOne({ channelUrl: ch.url });
+
+                if (existingChannel) {
+                    // Channel exists, add its ID to user's list if not already there
+                    const channelIdStr = existingChannel._id.toString();
+                    if (!existingChannelIds.has(channelIdStr)) {
+                        channelIdsToAdd.push(existingChannel._id);
+                        existingChannelIds.add(channelIdStr);
+                        console.log(`♻️ Reusing existing channel: ${ch.name}`);
+                    } else {
+                        console.log(`⏭️ Skipping duplicate: ${ch.name}`);
+                    }
+                } else {
+                    // Create new channel in system
+                    const newChannel = new Channel({
+                        channelId: ch.id || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        channelName: ch.name,
+                        channelUrl: ch.url,
+                        channelImg: ch.logo || '',
+                        tvgLogo: ch.logo || '',
+                        channelGroup: ch.category || 'IPTV-org',
+                        tvgName: ch.name || '',
+                        metadata: {
+                            country: ch.country,
+                            language: ch.language
+                        }
+                    });
+
+                    await newChannel.save();
+                    channelIdsToAdd.push(newChannel._id);
+                    existingChannelIds.add(newChannel._id.toString());
+                    console.log(`➕ Created new channel: ${ch.name}`);
+                }
+            } catch (error) {
+                console.error('❌ Error processing channel:', ch.name, error.message);
+                // Continue with next channel
+            }
+        }
+
+        // Add all new channels to user's list
+        if (channelIdsToAdd.length > 0) {
+            console.log(`📝 Before save - user channels count: ${user.channels.length}`);
+            user.channels.push(...channelIdsToAdd);
+            console.log(`📝 After push - user channels count: ${user.channels.length}`);
+            await user.save();
+            console.log(`✅ Saved! User ${user.username} now has ${user.channels.length} channels`);
+            
+            // Verify the save worked
+            const verifyUser = await User.findById(userId);
+            console.log(`✅ Verification: User ${verifyUser.username} has ${verifyUser.channels.length} channels in DB`);
+        } else {
+            console.log('⚠️ No new channels to add');
+        }
+
+        res.json({
+            success: true,
+            addedCount: channelIdsToAdd.length,
+            totalChannels: user.channels.length,
+            message: `Added ${channelIdsToAdd.length} channels to your list`
+        });
+    } catch (error) {
+        console.error('❌ Error importing channels for user:', error);
         res.status(500).json({
             success: false,
             error: error.message || 'Failed to import channels'

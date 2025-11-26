@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     default: 'User',
     index: true
   },
-  playlistCode: {
+  channelListCode: {
     type: String,
     required: true,
     unique: true,
@@ -100,8 +100,8 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Static method to generate unique playlist code
-userSchema.statics.generatePlaylistCode = async function() {
+// Static method to generate unique channel list code
+userSchema.statics.generateChannelListCode = async function() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code;
   let isUnique = false;
@@ -113,7 +113,7 @@ userSchema.statics.generatePlaylistCode = async function() {
     }
 
     // Check if code already exists
-    const existing = await this.findOne({ playlistCode: code });
+    const existing = await this.findOne({ channelListCode: code });
     if (!existing) {
       isUnique = true;
     }
@@ -122,7 +122,7 @@ userSchema.statics.generatePlaylistCode = async function() {
   return code;
 };
 
-// Method to generate M3U playlist for this user
+// Method to generate M3U playlist for this user's channel list
 userSchema.methods.generateUserPlaylist = async function() {
   const Channel = mongoose.model('Channel');
 
@@ -139,7 +139,7 @@ userSchema.methods.generateUserPlaylist = async function() {
   }
 
   let m3uContent = '#EXTM3U\n';
-  m3uContent += `#PLAYLIST:${this.username}'s Playlist\n\n`;
+  m3uContent += `#PLAYLIST:${this.username}'s Channel List\n\n`;
 
   channels.forEach(channel => {
     m3uContent += channel.toM3U() + '\n\n';

@@ -3,9 +3,8 @@
 
 // ==================== STATE VARIABLES ====================
 
-// Expose these globally so user script can access them
-window.iptvOrgChannels = [];
-window.selectedIptvOrgChannels = new Set();
+let iptvOrgChannels = [];
+let selectedIptvOrgChannels = new Set();
 let iptvOrgDataTable = null;
 let currentChannelDetail = null;
 let hlsInstance = null;
@@ -140,9 +139,6 @@ async function fetchIptvOrgPlaylist(filter) {
         document.getElementById('iptvOrgPlaceholder').classList.add('hidden');
         document.getElementById('iptvOrgLoading').classList.remove('hidden');
 
-        // Clear selections
-        window.selectedIptvOrgChannels.clear();
-
         // Build query parameters from filter object
         const params = new URLSearchParams();
         if (filter.country) params.append('country', filter.country);
@@ -164,9 +160,9 @@ async function fetchIptvOrgPlaylist(filter) {
         });
 
         const data = await response.json();
-        window.iptvOrgChannels = data.data;
+        iptvOrgChannels = data.data;
 
-        renderIptvOrgTable(window.iptvOrgChannels);
+        renderIptvOrgTable(iptvOrgChannels);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
     } catch (error) {
@@ -195,13 +191,13 @@ async function loadAllIptvOrgChannels() {
         }
 
         const data = await response.json();
-        window.iptvOrgChannels = data.data || [];
+        iptvOrgChannels = data.data || [];
 
-        renderIptvOrgTable(window.iptvOrgChannels);
+        renderIptvOrgTable(iptvOrgChannels);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
         document.getElementById('iptvOrgChannels').classList.remove('hidden');
 
-        showToast(`Loaded ${window.iptvOrgChannels.length} channels from cache`, 'success');
+        showToast(`Loaded ${iptvOrgChannels.length} channels from cache`, 'success');
     } catch (error) {
         console.error('Error loading all IPTV-org channels:', error);
         document.getElementById('iptvOrgLoading').classList.add('hidden');
@@ -349,7 +345,7 @@ function renderIptvOrgTable(channels) {
             // Add event listeners for action buttons
             $('#iptvOrgTable').on('click', '.btn-preview-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = window.iptvOrgChannels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     previewIptvOrgChannel(channel);
                 }
@@ -357,7 +353,7 @@ function renderIptvOrgTable(channels) {
 
             $('#iptvOrgTable').on('click', '.btn-info-iptv', function() {
                 const index = parseInt($(this).data('index'));
-                const channel = window.iptvOrgChannels[index];
+                const channel = iptvOrgChannels[index];
                 if (channel) {
                     showChannelDetails(channel);
                 }
@@ -380,9 +376,9 @@ function renderIptvOrgTable(channels) {
             $('#iptvOrgTable').on('change', '.iptv-org-select', function() {
                 const index = parseInt($(this).data('index'));
                 if ($(this).is(':checked')) {
-                    window.selectedIptvOrgChannels.add(index);
+                    selectedIptvOrgChannels.add(index);
                 } else {
-                    window.selectedIptvOrgChannels.delete(index);
+                    selectedIptvOrgChannels.delete(index);
                 }
             });
 
@@ -398,7 +394,7 @@ function renderIptvOrgTable(channels) {
 function selectAllIptvOrg() {
     document.querySelectorAll('.iptv-org-select').forEach((cb, index) => {
         cb.checked = true;
-        window.selectedIptvOrgChannels.add(index);
+        selectedIptvOrgChannels.add(index);
     });
 }
 
@@ -406,7 +402,7 @@ function deselectAllIptvOrg() {
     document.querySelectorAll('.iptv-org-select').forEach(cb => {
         cb.checked = false;
     });
-    window.selectedIptvOrgChannels.clear();
+    selectedIptvOrgChannels.clear();
 }
 
 function handleSelectAllIptvOrg(e) {
@@ -420,7 +416,7 @@ function handleSelectAllIptvOrg(e) {
 // ==================== IMPORT CHANNELS ====================
 
 function handleImportSelected() {
-    if (window.selectedIptvOrgChannels.size === 0) {
+    if (selectedIptvOrgChannels.size === 0) {
         showToast('Please select channels to import', 3000);
         return;
     }
@@ -428,19 +424,18 @@ function handleImportSelected() {
     // Update count in modal
     const countEl = document.getElementById('importChannelCount');
     if (countEl) {
-        countEl.textContent = window.selectedIptvOrgChannels.size;
+        countEl.textContent = selectedIptvOrgChannels.size;
     }
 
     // Show confirmation modal
     $('#importConfirmationModal').modal('show');
 }
 
-// Expose confirmImportChannels globally so it can be overridden in user context
-window.confirmImportChannels = async function confirmImportChannels() {
+async function confirmImportChannels() {
     // Close modal
     $('#importConfirmationModal').modal('hide');
 
-    const selectedChannelsData = Array.from(window.selectedIptvOrgChannels).map(index => window.iptvOrgChannels[index]);
+    const selectedChannelsData = Array.from(selectedIptvOrgChannels).map(index => iptvOrgChannels[index]);
     const replaceExisting = false;
 
     try {
@@ -463,7 +458,7 @@ window.confirmImportChannels = async function confirmImportChannels() {
 
         if (data.success) {
             showToast(data.message, 3000);
-            window.selectedIptvOrgChannels.clear();
+            selectedIptvOrgChannels.clear();
             // Redirect to channels page after a short delay
             setTimeout(() => {
                 window.location.href = '/admin/channels.html';
@@ -475,7 +470,7 @@ window.confirmImportChannels = async function confirmImportChannels() {
         console.error('Error importing channels:', error);
         showToast('Failed to import channels', 3000);
     }
-};
+}
 
 // ==================== CHANNEL PREVIEW & DETAILS ====================
 

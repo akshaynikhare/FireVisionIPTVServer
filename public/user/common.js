@@ -1,4 +1,4 @@
-// Common utilities and shared functionality for admin pages
+// Common utilities for user pages
 
 // API Configuration
 const API_BASE = window.location.origin;
@@ -43,25 +43,18 @@ let cachedUser = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 60000; // 1 minute
 
-// Check Authentication with caching and role verification
+// Check Authentication with caching (for regular users)
 async function checkAuth(forceRefresh = false) {
     const sessionId = getSessionId();
 
     if (!sessionId) {
-        window.location.href = '/admin/';
+        window.location.href = '/user/login.html';
         return null;
     }
 
     // Return cached user if available and not expired
     const now = Date.now();
     if (!forceRefresh && cachedUser && (now - cacheTimestamp < CACHE_DURATION)) {
-        // Verify role even with cached user
-        if (cachedUser.role !== 'Admin') {
-            console.warn('Access denied: User role is not Admin');
-            removeSessionId();
-            window.location.href = '/user/login.html';
-            return null;
-        }
         return cachedUser;
     }
 
@@ -72,27 +65,18 @@ async function checkAuth(forceRefresh = false) {
 
         if (response.ok) {
             const data = await response.json();
-            
-            // Check if user has Admin role
-            if (data.user.role !== 'Admin') {
-                console.warn('Access denied: User role is not Admin');
-                removeSessionId();
-                window.location.href = '/user/login.html';
-                return null;
-            }
-            
             cachedUser = data.user;
             cacheTimestamp = now;
             return data.user;
         } else {
             removeSessionId();
-            window.location.href = '/admin/';
+            window.location.href = '/user/login.html';
             return null;
         }
     } catch (error) {
         console.error('Auth check failed:', error);
         removeSessionId();
-        window.location.href = '/admin/';
+        window.location.href = '/user/login.html';
         return null;
     }
 }
@@ -101,9 +85,12 @@ async function checkAuth(forceRefresh = false) {
 function updateSidebar(user, activePage) {
     const loggedInUser = document.getElementById('loggedInUser');
     if (loggedInUser) loggedInUser.textContent = user.username;
-    
-    const loggedInUserRole = document.getElementById('loggedInUserRole');
-    if (loggedInUserRole) loggedInUserRole.textContent = user.role || 'User';
+
+    // Set channel list code
+    const channelListCode = document.getElementById('sidebarChannelListCode');
+    if (channelListCode) {
+        channelListCode.textContent = user.channelListCode || 'N/A';
+    }
 
     // Set sidebar profile picture or initials
     const profilePic = document.getElementById('sidebarProfilePicture');
@@ -113,7 +100,6 @@ function updateSidebar(user, activePage) {
     if (profilePic && profilePlaceholder) {
         if (user.profilePicture) {
             profilePic.src = API_BASE + user.profilePicture;
-            // Support both Bootstrap d-none and custom hidden class
             profilePic.classList.remove('d-none');
             profilePic.classList.remove('hidden');
             profilePlaceholder.classList.add('d-none');
@@ -128,29 +114,12 @@ function updateSidebar(user, activePage) {
         }
     }
 
-    // Hide Users tab for non-admin users
-    if (user.role !== 'Admin') {
-        const usersNavLink = document.getElementById('usersNavLink');
-        if (usersNavLink) {
-            // Try to hide the parent li for cleaner look in AdminLTE
-            const parentLi = usersNavLink.closest('.nav-item');
-            if (parentLi) {
-                parentLi.style.display = 'none';
-            } else {
-                usersNavLink.style.display = 'none';
-            }
-        }
-    }
-
     // Set active navigation item
-    // Target both new AdminLTE sidebar links and any legacy links
     const navLinks = document.querySelectorAll('.nav-sidebar .nav-link, nav a[data-page]');
     navLinks.forEach(link => {
-        // Determine page name from data-page or href
         let page = link.dataset.page;
         if (!page && link.getAttribute('href')) {
             const href = link.getAttribute('href');
-            // Extract filename without extension
             page = href.split('/').pop().replace('.html', '');
         }
         
@@ -172,7 +141,6 @@ function showLoadingBar() {
         document.body.appendChild(loadingBar);
     }
 
-    // Trigger animation immediately
     requestAnimationFrame(() => {
         loadingBar.classList.add('loading');
     });
@@ -189,23 +157,19 @@ function hideLoadingBar() {
     }
 }
 
-// Show dashboard (instant transition, no splash screen)
+// Show dashboard
 function showDashboard(user, activePage) {
-    // Show dashboard immediately for instant feedback
     const dashboardScreen = document.getElementById('dashboardScreen');
     if (dashboardScreen) {
         dashboardScreen.classList.add('active');
     }
 
-    // Update sidebar asynchronously
     requestAnimationFrame(() => {
         updateSidebar(user, activePage);
-        // Keep loading bar visible until page-specific data loads
-        // It will be hidden by the page after data loads
     });
 }
 
-// Logout handler
+// Logout handler for user pages
 async function handleLogout(event) {
     if (event) {
         event.preventDefault();
@@ -233,7 +197,7 @@ async function handleLogout(event) {
     removeSessionId();
     cachedUser = null;
     cacheTimestamp = 0;
-    window.location.href = '/admin/';
+    window.location.href = '/user/login.html';
 }
 
 // Image proxy helper function
@@ -250,9 +214,49 @@ const DEFAULT_LOGO_LARGE = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2F
 
 // Sequential Image Loading Function
 function loadImagesSequentially(tableSelector) {
-    if (window.AdminCore && typeof window.AdminCore.loadImagesSequentially === 'function') {
-        return window.AdminCore.loadImagesSequentially(tableSelector);
+    const containers = document.querySelectorAll(`${tableSelector} .img-loading-container`);
+    let currentIndex = 0;
+
+    function loadNextImage() {
+        if (currentIndex >= containers.length) {
+            return;
+        }
+
+        const container = containers[currentIndex];
+        const img = container.querySelector('img');
+        const imgSrc = container.getAttribute('data-img-src');
+
+        if (!imgSrc) {
+            currentIndex++;
+            loadNextImage();
+            return;
+        }
+
+        if (imgSrc.startsWith('data:')) {
+            img.src = imgSrc;
+            container.classList.add('loaded');
+            currentIndex++;
+            loadNextImage();
+            return;
+        }
+
+        img.onload = function() {
+            container.classList.add('loaded');
+            currentIndex++;
+            setTimeout(loadNextImage, 50);
+        };
+
+        img.onerror = function() {
+            img.src = DEFAULT_LOGO;
+            container.classList.add('loaded');
+            currentIndex++;
+            setTimeout(loadNextImage, 50);
+        };
+
+        img.src = imgSrc;
     }
+
+    loadNextImage();
 }
 
 // Initialize logout button

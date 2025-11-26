@@ -7,8 +7,6 @@
     <div class="sidebar">
         <!-- User Panel -->
         <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-
-
             <a class="image" href="profile.html">
                 <img id="sidebarProfilePicture" class="img-circle elevation-2 d-none" alt="Profile">
                 <div id="sidebarProfilePlaceholder" class="img-circle elevation-2 bg-primary text-center text-white" style="width:34px;height:34px;line-height:34px;font-weight:600;">
@@ -17,45 +15,36 @@
             </a>
             <div class="info">
                 <a href="profile.html" class="d-block" id="loggedInUser">User</a>
-            </div>
-        </div>
-
-        <!-- Sidebar Search Form -->
-        <div class="form-inline">
-            <div class="input-group" data-widget="sidebar-search">
-                <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
-                <div class="input-group-append">
-                    <button class="btn btn-sidebar">
-                        <i class="fas fa-search fa-fw"></i>
-                    </button>
-                </div>
+                <small class="d-block text-muted" style="font-size: 11px; margin-top: 2px;">
+                    Code: <span id="sidebarChannelListCode" class="text-warning">-</span>
+                </small>
             </div>
         </div>
 
         <!-- Sidebar Menu -->
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                <li class="nav-header">MANAGEMENT</li>
+                <li class="nav-header">MY CHANNELS</li>
                 <li class="nav-item">
-                    <a href="users.html" id="usersNavLink" class="nav-link" data-page="users">
-                        <i class="nav-icon fas fa-users"></i>
-                        <p>Users</p>
+                    <a href="channels.html" class="nav-link" data-page="channels">
+                        <i class="nav-icon fas fa-list"></i>
+                        <p>Channels</p>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="stats.html" class="nav-link" data-page="stats">
-                        <i class="nav-icon fas fa-chart-bar"></i>
-                        <p>Statistics</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="apk.html" class="nav-link" data-page="apk">
-                        <i class="nav-icon fas fa-mobile-alt"></i>
-                        <p>APK Manager</p>
+                    <a href="iptv-org.html" class="nav-link" data-page="iptv-org">
+                        <i class="nav-icon fas fa-globe"></i>
+                        <p>Import from IPTV-org</p>
                     </a>
                 </li>
                 
-                <li class="nav-header">SYSTEM</li>
+                <li class="nav-header">ACCOUNT</li>
+                <li class="nav-item">
+                    <a href="profile.html" class="nav-link" data-page="profile">
+                        <i class="nav-icon fas fa-user"></i>
+                        <p>My Profile</p>
+                    </a>
+                </li>
                 <li class="nav-item">
                     <a href="javascript:void(0)" id="logoutBtn" class="nav-link text-danger">
                         <i class="nav-icon fas fa-sign-out-alt"></i>

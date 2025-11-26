@@ -274,7 +274,7 @@ router.get('/me', requireAuth, async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        playlistCode: user.playlistCode,
+        channelListCode: user.channelListCode,
         profilePicture: user.profilePicture,
         isActive: user.isActive,
         lastLogin: user.lastLogin,
@@ -355,6 +355,109 @@ router.post('/change-password', requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to change password'
+    });
+  }
+});
+
+/**
+ * Update user profile
+ * Allows authenticated user to update their profile information
+ */
+router.put('/me', requireAuth, async (req, res) => {
+  try {
+    const { username, email, profilePicture } = req.body;
+
+    // Find user
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Check if username is being changed and if it's already taken
+    if (username && username !== user.username) {
+      const existingUser = await User.findOne({ username });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username already taken'
+        });
+      }
+      user.username = username;
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email already in use'
+        });
+      }
+      user.email = email;
+    }
+
+    // Update profile picture if provided
+    if (profilePicture !== undefined) {
+      user.profilePicture = profilePicture || null;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        channelListCode: user.channelListCode
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update profile'
+    });
+  }
+});
+
+/**
+ * Regenerate channel list code
+ * Generates a new unique code for the user's channel list
+ */
+router.post('/regenerate-channel-code', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Generate new channel list code
+    const newCode = await User.generateChannelListCode();
+    user.channelListCode = newCode;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Channel list code regenerated successfully',
+      channelListCode: newCode
+    });
+  } catch (error) {
+    console.error('Regenerate code error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to regenerate channel list code'
     });
   }
 });
@@ -609,6 +712,294 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
       success: false,
       error: 'Failed to delete profile picture'
     });
+  }
+});
+
+/**
+ * User Registration
+ * Allows new users to register without admin approval
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Validate input
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username, email, and password are required'
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Check if username already exists
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username already exists'
+      });
+    }
+
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already exists'
+      });
+    }
+
+    // Generate unique channel list code
+    const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+
+    // Create new user
+    const user = new User({
+      username,
+      email,
+      password,
+      role: 'user',
+      channelListCode,
+      isActive: true,
+      createdAt: new Date()
+    });
+
+    await user.save();
+
+    console.log('New user registered:', username);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        channelListCode: user.channelListCode
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Registration failed'
+    });
+  }
+});
+
+/**
+ * Google OAuth - Initiate authentication
+ */
+router.get('/google', (req, res) => {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
+  
+  if (!googleClientId || googleClientId === 'your-google-client-id') {
+    return res.status(500).send('Google OAuth is not configured. Please set GOOGLE_CLIENT_ID in environment variables.');
+  }
+
+  const scope = 'openid profile email';
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+  
+  res.redirect(authUrl);
+});
+
+/**
+ * Google OAuth - Callback
+ */
+router.get('/google/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect('/user/login.html?error=authentication_failed');
+    }
+
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
+
+    // Exchange code for tokens
+    const axios = require('axios');
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: googleClientId,
+      client_secret: googleClientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    // Get user info
+    const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const { email, name, picture } = userInfoResponse.data;
+
+    // Find or create user
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Generate username from email
+      const username = email.split('@')[0] + '_' + crypto.randomBytes(2).toString('hex');
+      const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+
+      user = new User({
+        username,
+        email,
+        password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
+        role: 'user',
+        channelListCode,
+        profilePicture: picture,
+        isActive: true,
+        createdAt: new Date()
+      });
+
+      await user.save();
+      console.log('New Google OAuth user created:', username);
+    }
+
+    // Create session
+    const sessionId = crypto.randomBytes(32).toString('hex');
+    const session = new Session({
+      sessionId,
+      userId: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+
+    await session.save();
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Redirect with session
+    res.redirect(`/user/channels.html?sessionId=${sessionId}`);
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    res.redirect('/user/login.html?error=authentication_failed');
+  }
+});
+
+/**
+ * GitHub OAuth - Initiate authentication
+ */
+router.get('/github', (req, res) => {
+  const githubClientId = process.env.GITHUB_CLIENT_ID;
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
+  
+  if (!githubClientId || githubClientId === 'your-github-client-id') {
+    return res.status(500).send('GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID in environment variables.');
+  }
+
+  const scope = 'read:user user:email';
+  const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
+  
+  res.redirect(authUrl);
+});
+
+/**
+ * GitHub OAuth - Callback
+ */
+router.get('/github/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect('/user/login.html?error=authentication_failed');
+    }
+
+    const githubClientId = process.env.GITHUB_CLIENT_ID;
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+    const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
+
+    // Exchange code for access token
+    const axios = require('axios');
+    const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', {
+      client_id: githubClientId,
+      client_secret: githubClientSecret,
+      code,
+      redirect_uri: redirectUri
+    }, {
+      headers: { Accept: 'application/json' }
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    // Get user info
+    const userResponse = await axios.get('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const githubUser = userResponse.data;
+
+    // Get user emails
+    const emailsResponse = await axios.get('https://api.github.com/user/emails', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const primaryEmail = emailsResponse.data.find(e => e.primary)?.email || emailsResponse.data[0]?.email;
+
+    // Find or create user
+    let user = await User.findOne({ email: primaryEmail });
+
+    if (!user) {
+      const username = githubUser.login + '_' + crypto.randomBytes(2).toString('hex');
+      const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+
+      user = new User({
+        username,
+        email: primaryEmail,
+        password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
+        role: 'user',
+        channelListCode,
+        profilePicture: githubUser.avatar_url,
+        isActive: true,
+        createdAt: new Date()
+      });
+
+      await user.save();
+      console.log('New GitHub OAuth user created:', username);
+    }
+
+    // Create session
+    const sessionId = crypto.randomBytes(32).toString('hex');
+    const session = new Session({
+      sessionId,
+      userId: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+
+    await session.save();
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Redirect with session
+    res.redirect(`/user/channels.html?sessionId=${sessionId}`);
+  } catch (error) {
+    console.error('GitHub OAuth callback error:', error);
+    res.redirect('/user/login.html?error=authentication_failed');
   }
 });
 

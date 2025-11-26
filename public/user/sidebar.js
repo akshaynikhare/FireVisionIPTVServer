@@ -1,5 +1,5 @@
 /**
- * Common Sidebar Component
+ * User Sidebar Component
  * Loads and injects the sidebar from sidebar.html template
  * Automatically highlights the active menu item based on current page
  */
@@ -32,7 +32,7 @@
     // Function to load and inject sidebar
     async function loadSidebar() {
         try {
-            const response = await fetch('sidebar.html');
+            const response = await fetch('/user/sidebar.html');
             if (!response.ok) throw new Error('Failed to load sidebar');
             
             const sidebarHTML = await response.text();
