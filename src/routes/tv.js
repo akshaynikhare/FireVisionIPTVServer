@@ -255,19 +255,26 @@ router.post('/pairing/request', async (req, res) => {
 // Confirm pairing (Web dashboard links user to PIN)
 router.post('/pairing/confirm', async (req, res) => {
     try {
-        const { pin, sessionId } = req.body;
+        const { pin } = req.body;
+        
+        console.log('Pairing confirmation attempt:', { pin, hasBody: !!req.body, hasHeader: !!req.headers['x-session-id'] });
         
         if (!pin || pin.length !== 6) {
+            console.warn('Invalid PIN format:', pin);
             return res.status(400).json({
                 success: false,
                 error: 'Invalid PIN format. PIN must be 6 digits.'
             });
         }
         
+        // Get session ID from header or body
+        const sessionId = req.headers['x-session-id'] || req.body.sessionId;
+        
         if (!sessionId) {
+            console.warn('No session ID provided in pairing request');
             return res.status(401).json({
                 success: false,
-                error: 'Session ID required for authentication'
+                error: 'Authentication required. Please log in.'
             });
         }
         
@@ -276,13 +283,25 @@ router.post('/pairing/confirm', async (req, res) => {
         const session = await Session.findOne({ sessionId }).populate('userId');
         
         if (!session || !session.userId) {
+            console.warn('Session not found or has no user:', sessionId);
             return res.status(401).json({
                 success: false,
-                error: 'Invalid or expired session'
+                error: 'Invalid or expired session. Please log in again.'
+            });
+        }
+        
+        // Check if session is still valid
+        if (!session.isValid()) {
+            console.warn('Session expired for user:', session.username);
+            await Session.deleteOne({ sessionId });
+            return res.status(401).json({
+                success: false,
+                error: 'Session has expired. Please log in again.'
             });
         }
         
         const user = session.userId;
+        console.log(`User authenticated for pairing: ${user.username} (${user.role})`);
         
         // Find pairing request
         const pairingRequest = await PairingRequest.findOne({
@@ -291,14 +310,16 @@ router.post('/pairing/confirm', async (req, res) => {
         });
         
         if (!pairingRequest) {
+            console.warn('PIN not found or not pending:', pin);
             return res.status(404).json({
                 success: false,
-                error: 'Invalid or expired PIN'
+                error: 'Invalid or expired PIN. The TV may have generated a new PIN or the PIN has already been used.'
             });
         }
         
         // Check if expired
         if (pairingRequest.isExpired()) {
+            console.warn('PIN expired:', pin);
             await pairingRequest.markExpired();
             return res.status(400).json({
                 success: false,
@@ -319,7 +340,7 @@ router.post('/pairing/confirm', async (req, res) => {
         user.lastLogin = new Date();
         await user.save();
         
-        console.log(`Pairing confirmed: PIN ${pin} linked to user ${user.username}`);
+        console.log(`✅ Pairing confirmed: PIN ${pin} linked to user ${user.username} (${user.channelListCode})`);
         
         res.json({
             success: true,
@@ -335,10 +356,10 @@ router.post('/pairing/confirm', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error confirming pairing:', error);
+        console.error('❌ Error confirming pairing:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to confirm pairing'
+            error: 'Failed to confirm pairing. Please try again.'
         });
     }
 });

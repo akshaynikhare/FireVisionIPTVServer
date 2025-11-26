@@ -6,7 +6,7 @@
     <title>Pair TV Device - User Dashboard</title>
     <link rel="stylesheet" href="/vendor/admin-lte/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="/vendor/@fortawesome/fontawesome-free/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/admin/style.css">
     <style>
         .pin-input-group {
             max-width: 400px;
@@ -43,15 +43,16 @@
     </style>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
-    <div class="wrapper">
-        <!-- Navbar -->
-        <nav class="main-header navbar navbar-expand navbar-white navbar-light" id="navbar-container"></nav>
+    <div id="dashboardScreen" class="screen">
+        <div class="wrapper">
+            <!-- Navbar -->
+            <div id="navbar-placeholder"></div>
 
-        <!-- Sidebar -->
-        <aside class="main-sidebar sidebar-dark-primary elevation-4" id="sidebar-container"></aside>
+            <!-- Sidebar -->
+            <div id="sidebar-placeholder"></div>
 
-        <!-- Content Wrapper -->
-        <div class="content-wrapper">
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
             <div class="content-header">
                 <div class="container-fluid">
                     <div class="row mb-2">
@@ -81,29 +82,26 @@
                                         </ol>
                                     </div>
 
-                                    <form id="pairingForm">
-                                        <div class="pin-input-group">
-                                            <div class="form-group">
-                                                <label for="pinInput">Enter 6-Digit PIN:</label>
-                                                <input 
-                                                    type="text" 
-                                                    class="form-control form-control-lg text-center" 
-                                                    id="pinInput" 
-                                                    placeholder="123456"
-                                                    maxlength="6"
-                                                    pattern="[0-9]{6}"
-                                                    required
-                                                    style="font-size: 32px; letter-spacing: 10px;"
-                                                >
-                                                <small class="form-text text-muted text-center">
-                                                    PIN must be exactly 6 digits
-                                                </small>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary btn-lg btn-block" id="pairBtn">
-                                                <i class="fas fa-link mr-2"></i>Pair Device
-                                            </button>
+                                    <div class="pin-input-group">
+                                        <div class="form-group">
+                                            <label for="pinInput">Enter 6-Digit PIN:</label>
+                                            <input 
+                                                type="text" 
+                                                class="form-control form-control-lg text-center" 
+                                                id="pinInput" 
+                                                placeholder="123456"
+                                                maxlength="6"
+                                                pattern="[0-9]{6}"
+                                                style="font-size: 32px; letter-spacing: 10px;"
+                                            >
+                                            <small class="form-text text-muted text-center">
+                                                PIN must be exactly 6 digits
+                                            </small>
                                         </div>
-                                    </form>
+                                        <button type="button" class="btn btn-primary btn-lg btn-block" id="pairBtn">
+                                            <i class="fas fa-link mr-2"></i>Pair Device
+                                        </button>
+                                    </div>
 
                                     <div id="statusMessage" class="mt-3" style="display: none;"></div>
                                 </div>
@@ -130,6 +128,7 @@
         <footer class="main-footer">
             <strong>FireVision IPTV Server</strong> - TV Device Pairing
         </footer>
+        </div>
     </div>
 
     <script src="/vendor/jquery/dist/jquery.min.js"></script>
@@ -138,134 +137,7 @@
     <script src="common.js"></script>
     <script src="navbar.js"></script>
     <script src="sidebar.js"></script>
-    <script>
-        const API_BASE = window.location.origin;
-        
-        // Check auth and load page
-        (async function() {
-            const user = await checkAuth();
-            if (!user) return;
-            
-            showDashboard(user, 'pair-device');
-            loadDeviceInfo(user);
-            
-            // Focus on PIN input
-            document.getElementById('pinInput').focus();
-            
-            // Auto-format PIN input (digits only)
-            document.getElementById('pinInput').addEventListener('input', (e) => {
-                e.target.value = e.target.value.replace(/\D/g, '');
-            });
-            
-            // Handle pairing form
-            document.getElementById('pairingForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                await handlePairing();
-            });
-        })();
-        
-        async function handlePairing() {
-            const pin = document.getElementById('pinInput').value.trim();
-            const statusDiv = document.getElementById('statusMessage');
-            const pairBtn = document.getElementById('pairBtn');
-            
-            if (pin.length !== 6) {
-                showStatus('PIN must be exactly 6 digits', 'error');
-                return;
-            }
-            
-            pairBtn.disabled = true;
-            pairBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Pairing...';
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/v1/tv/pairing/confirm`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Session-Id': localStorage.getItem('sessionId')
-                    },
-                    body: JSON.stringify({ 
-                        pin: pin,
-                        sessionId: localStorage.getItem('sessionId')
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showStatus(`
-                        <div class="pairing-success">
-                            <h5><i class="fas fa-check-circle mr-2"></i>Device Paired Successfully!</h5>
-                            <p><strong>Device:</strong> ${data.device.name} (${data.device.model})</p>
-                            <p><strong>Channel List Code:</strong> <code>${data.user.channelListCode}</code></p>
-                            <p class="mb-0">Your TV is now linked to your account. The app will load your channels automatically.</p>
-                        </div>
-                    `, 'success');
-                    
-                    document.getElementById('pinInput').value = '';
-                    
-                    // Reload device info
-                    const user = await checkAuth(true);
-                    if (user) loadDeviceInfo(user);
-                } else {
-                    showStatus(data.error || 'Failed to pair device', 'error');
-                }
-            } catch (error) {
-                console.error('Pairing error:', error);
-                showStatus('Connection error. Please try again.', 'error');
-            } finally {
-                pairBtn.disabled = false;
-                pairBtn.innerHTML = '<i class="fas fa-link mr-2"></i>Pair Device';
-            }
-        }
-        
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('statusMessage');
-            statusDiv.style.display = 'block';
-            
-            if (type === 'success') {
-                statusDiv.innerHTML = message;
-            } else if (type === 'error') {
-                statusDiv.innerHTML = `
-                    <div class="pairing-error">
-                        <h5><i class="fas fa-exclamation-circle mr-2"></i>Error</h5>
-                        <p class="mb-0">${message}</p>
-                    </div>
-                `;
-            }
-        }
-        
-        function loadDeviceInfo(user) {
-            const deviceDiv = document.getElementById('deviceInfo');
-            
-            if (user.metadata && user.metadata.lastPairedDevice) {
-                const pairedDate = user.metadata.pairedAt ? 
-                    new Date(user.metadata.pairedAt).toLocaleString() : 'Unknown';
-                
-                deviceDiv.innerHTML = `
-                    <div class="info-box">
-                        <span class="info-box-icon bg-info"><i class="fas fa-tv"></i></span>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Last Paired Device</span>
-                            <span class="info-box-number">${user.metadata.lastPairedDevice}</span>
-                            <small>Model: ${user.metadata.deviceModel || 'Unknown'}</small><br>
-                            <small>Paired: ${pairedDate}</small>
-                        </div>
-                    </div>
-                    <p class="text-muted mt-3">
-                        <i class="fas fa-key mr-2"></i>
-                        Your channel list code: <strong><code>${user.channelListCode}</code></strong>
-                    </p>
-                `;
-            } else {
-                deviceDiv.innerHTML = `
-                    <p class="text-muted">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        No devices paired yet. Enter a PIN from your TV to get started.
-                    </p>
-                `;
-            }
-        }
-    </script>
+    <script src="pair-device.js"></script>
 </body>
 </html>
+
