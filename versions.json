@@ -21,10 +21,20 @@
       "isMandatory": false,
       "minCompatibleVersion": 1,
       "releasedAt": "2025-11-15T00:00:00.000Z"
+    },{
+      "versionName": "1.5",
+      "versionCode": 5,
+      "apkFileName": "firevision-iptv-1.5.apk",
+      "apkFileSize": 55275706,
+      "releaseNotes": "FireVision IPTV Update\n- Performance improvements\n- Bug fixes\n- Enhanced stability",
+      "isActive": true,
+      "isMandatory": false,
+      "minCompatibleVersion": 1,
+      "releasedAt": "2025-11-27T00:00:00.000Z"
     }
   ],
   "latestVersion": {
-    "versionName": "1.4",
-    "versionCode": 4
+    "versionName": "1.5",
+    "versionCode": 5
   }
 }

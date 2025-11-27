@@ -1,0 +1,3177 @@
+{
+  "success": true,
+  "channels": [
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16c89",
+      "channelName": "9X Jalwa",
+      "channelUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/9x-jalwa/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16c8c",
+      "channelName": "9X Jhakaas",
+      "channelUrl": "https://amg01281-9xmediapvtltd-9xjhakaas-samsungin-ci2cs.amagi.tv/playlist/amg01281-9xmediapvtltd-9xjhakaas-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16c8f",
+      "channelName": "9XM",
+      "channelUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/manifest/0bc8e8376bd8417a1b6761138aa41c26c7309312/9xm/23886666-8fc5-470f-aab1-bd637ed607b1/3.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16c92",
+      "channelName": "Aaj Tak",
+      "channelUrl": "https://livehub-voidnet.onrender.com/cluster/streamcore/in/AAJTAK_REDIS.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16ca1",
+      "channelName": "Aastha",
+      "channelUrl": "https://aasthaott.akamaized.net/110923/smil:aasthatv.smil/chunklist_b1328000.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16ca4",
+      "channelName": "Aastha Bhajan",
+      "channelUrl": "https://aasthaott.akamaized.net/110923/smil:bhajan.smil/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16ca7",
+      "channelName": "ABP Ganga",
+      "channelUrl": "https://abplivetv.akamaized.net/hls/live/2043013/ganga/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16caa",
+      "channelName": "ABP Majha",
+      "channelUrl": "https://in1.sunilprasad.com.np/yuppLive/abp-majha/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cad",
+      "channelName": "ABP News",
+      "channelUrl": "https://abplivetv.akamaized.net/hls/live/2043010/hindi/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cb3",
+      "channelName": "Abzy Dhakad",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/4fe6ab07a13543d6bdb2ec63b3e2df44/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cb6",
+      "channelName": "Abzy Movies",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/db8d4eca72d64748a00d0631debf542d/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cb9",
+      "channelName": "&flix",
+      "channelUrl": "https://edge3-moblive.yuppcdn.net/drm/smil:nflixdrm.smil/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cbc",
+      "channelName": "&pictures",
+      "channelUrl": "http://87.255.35.150:18510",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cbf",
+      "channelName": "&prive HD",
+      "channelUrl": "http://87.255.35.150:18494",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cc2",
+      "channelName": "&TV",
+      "channelUrl": "https://amg01117-amg01117c1-amgplt0165.playout.now3.amagi.tv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cc5",
+      "channelName": "&xplor HD",
+      "channelUrl": "https://playyonogames.in/z5/stream.m3u8?id=0-9-209",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Tamil, Chinese, Hebrew, Indonesian, Portuguese, Russian, Spanish",
+        "tags": []
+      },
+      "_id": "692802aaef89f25953a16cc8",
+      "channelName": "Angel TV",
+      "channelUrl": "https://janya-digimix.akamaized.net/vglive-sk-904559/africa/ngrp:angelafrica_all/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Japanese, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16cf2",
+      "channelName": "Animax",
+      "channelUrl": "https://amg02159-kcglobal-amg02159c1-samsung-in-521.playouts.now.amagi.tv/playlist/amg02159-kcglobal-animax-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "animation",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16cf5",
+      "channelName": "Anjan TV",
+      "channelUrl": "https://anjantvevent.pc.cdn.bitgravity.com/anjantv/live/amlst:event_anjan_,b400,b800,b1024,b1200,b1500,b4000,.smil/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16cf8",
+      "channelName": "APN",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/apnnews/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16cfb",
+      "channelName": "Aradana TV",
+      "channelUrl": "https://cdn-1.pishow.tv/live/961/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16cfe",
+      "channelName": "Argus News",
+      "channelUrl": "https://live.argusnews.in/hls/argustv.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d01",
+      "channelName": "Artist Aloud",
+      "channelUrl": "https://live.hungama.com/linear/artist-aloud/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d04",
+      "channelName": "Ashrafi Channel",
+      "channelUrl": "https://ashrafichannel.livebox.co.in/ashrafivhannelhls/live.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d07",
+      "channelName": "Asianet News Kannada",
+      "channelUrl": "https://asianetnews.vgcdn.net/ptnr-Embed/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/e2e5f74b-d075-45e4-aa07-e604a45fc1b1/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d0a",
+      "channelName": "Awaaz India TV",
+      "channelUrl": "http://awaazindia.livebox.co.in/AwaazIndaTVhls/Live.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d0d",
+      "channelName": "B4U Kadak",
+      "channelUrl": "https://cdnb4u.wiseplayout.com/B4U_Kadak/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d10",
+      "channelName": "B4U Movies",
+      "channelUrl": "https://cdnb4u.wiseplayout.com/B4U_Movies/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d13",
+      "channelName": "B4U Music",
+      "channelUrl": "https://cdnb4u.wiseplayout.com/B4U_Music/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d16",
+      "channelName": "B4U Plus",
+      "channelUrl": "http://183.89.246.119:8881/play/a08l/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d19",
+      "channelName": "Balle Balle",
+      "channelUrl": "https://mcncdndigital.com/balleballetv/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d1c",
+      "channelName": "Bansal News",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/bansalnews/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d1f",
+      "channelName": "Bflix Movies",
+      "channelUrl": "http://163.61.227.29:8000/play/a05s/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d22",
+      "channelName": "Bharat24",
+      "channelUrl": "https://cdn.ottlive.co.in/bharat24/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Urdu, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d25",
+      "channelName": "Bharat Express",
+      "channelUrl": "https://stream1.livebox.co.in/VCAREhls/live.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d28",
+      "channelName": "Boogle Bollywood",
+      "channelUrl": "http://live.agmediachandigarh.com/booglebollywood/774e3ea9f3fa9bcdac47f445b83b6653.sdp/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d2b",
+      "channelName": "Channel Divya",
+      "channelUrl": "https://mcncdndigital.com/divyatv/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d2e",
+      "channelName": "CNBC TV18",
+      "channelUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/cnbc-tv18/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "business",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d31",
+      "channelName": "Colors",
+      "channelUrl": "http://87.255.35.150:18890",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d37",
+      "channelName": "Colors Cineplex",
+      "channelUrl": "http://87.255.35.150:18296",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d3a",
+      "channelName": "Colors Cineplex Bollywood",
+      "channelUrl": "http://103.182.170.32:8888/play/a01o",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d40",
+      "channelName": "Colors Infinity",
+      "channelUrl": "http://87.255.35.150:18838",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d46",
+      "channelName": "Colors Marathi",
+      "channelUrl": "http://87.255.35.150:18233",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d4c",
+      "channelName": "Colors Rishtey Asia",
+      "channelUrl": "http://87.255.35.150:18886",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d52",
+      "channelName": "CVR English",
+      "channelUrl": "https://cdn-2.pishow.tv/live/425/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d55",
+      "channelName": "Dabangg",
+      "channelUrl": "https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg01448-samsungin-dabanggin-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d58",
+      "channelName": "Dangal TV",
+      "channelUrl": "https://live-dangal.akamaized.net/liveabr/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d5b",
+      "channelName": "DD Arun Prabha",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/308556d9fd1246adb479ef012a39bbfe/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Assamese, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d5e",
+      "channelName": "DD Assam",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/d380bf5c167b4319a46cdd8204bc26b2/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d64",
+      "channelName": "DD Bharati",
+      "channelUrl": "https://cdn-1.pishow.tv/live/10/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "culture",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d67",
+      "channelName": "DD Bihar",
+      "channelUrl": "https://cdn-4.pishow.tv/live/35/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d6a",
+      "channelName": "DD Chhattisgarh",
+      "channelUrl": "https://cdn-1.pishow.tv/live/15/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Konkani (macrolanguage), Marathi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d6d",
+      "channelName": "DD Goa",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/e5b9db1cc184406bb97159da2f120f91/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d70",
+      "channelName": "DD Haryana",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/950fc69666474351bde0a32b9600c804/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d73",
+      "channelName": "DD Himachal Pradesh",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/afd2e335b0ba40eb9bdf1096118c6ede/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d76",
+      "channelName": "DD Jharkhand",
+      "channelUrl": "https://d3eyhgoylams0m.cloudfront.net/v1/manifest/93ce20f0f52760bf38be911ff4c91ed02aa2fd92/ed7bd2c7-8d10-4051-b397-2f6b90f99acb/2c6c5c20-6afe-47c4-934f-a0d7002cb151/2.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d79",
+      "channelName": "DD Kashir",
+      "channelUrl": "https://cdn-6.pishow.tv/live/16/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d7c",
+      "channelName": "DD Kisan",
+      "channelUrl": "https://cdn-6.pishow.tv/live/9/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "education",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d7f",
+      "channelName": "DD Madhya Pradesh",
+      "channelUrl": "https://cdn-1.pishow.tv/live/31/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d82",
+      "channelName": "DD Manipur",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/8b75afc6576f450e8f554b6c877681d2/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d85",
+      "channelName": "DD Meghalaya",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/4f81bc8d13dd49b484da35988abb8729/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Lushai, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d88",
+      "channelName": "DD Mizoram",
+      "channelUrl": "https://d3eyhgoylams0m.cloudfront.net/v1/manifest/93ce20f0f52760bf38be911ff4c91ed02aa2fd92/ed7bd2c7-8d10-4051-b397-2f6b90f99acb/22ee1f87-4ac9-4d6b-9ec4-d5287739b4b4/2.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d8b",
+      "channelName": "DD Nagaland",
+      "channelUrl": "https://d2lk5u59tns74c.cloudfront.net/out/v1/29c92e0bef954a6d9b0908d1be29c1f0/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d8e",
+      "channelName": "DD National",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/40492a64c1db4a1385ba1a397d357d3a/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d91",
+      "channelName": "DD News",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/0811cd8c37ca4c409d5385a6cd2fa18b/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d94",
+      "channelName": "DD Rajasthan",
+      "channelUrl": "https://cdn-1.pishow.tv/live/34/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d97",
+      "channelName": "DD Sahyadri",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/66dcc3ebe182447ba42837e746cf0c7c/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d9a",
+      "channelName": "DD Sports",
+      "channelUrl": "https://cdn-6.pishow.tv/live/13/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16d9d",
+      "channelName": "DD Tripura",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/52b998e9510d41c29ad2ceca8ea3d849/index_3.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Urdu, Hindi, English",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16da0",
+      "channelName": "DD Urdu",
+      "channelUrl": "https://cdn-4.pishow.tv/live/8/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802abef89f25953a16da3",
+      "channelName": "DD Uttarakhand",
+      "channelUrl": "https://cdn-1.pishow.tv/live/17/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16da6",
+      "channelName": "DD Uttar Pradesh",
+      "channelUrl": "https://cdn-1.pishow.tv/live/36/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16da9",
+      "channelName": "Dhamaal",
+      "channelUrl": "https://playyonogames.in/live.php?format=.m3u8&id=535",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16daf",
+      "channelName": "Dheeran TV",
+      "channelUrl": "https://live.we2live.in/dheerantv/dheerantv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16db2",
+      "channelName": "Dhinchaak",
+      "channelUrl": "http://14.199.164.20:4001/play/a0o5/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16db5",
+      "channelName": "Dil Se",
+      "channelUrl": "https://live.hungama.com/linear/dil-se/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16db8",
+      "channelName": "Disha TV",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/dishatv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dbb",
+      "channelName": "Disney Channel",
+      "channelUrl": "http://66.102.120.18:8000/play/a013/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "kids",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dc1",
+      "channelName": "E 24",
+      "channelUrl": "https://live-e24.dailyhunt.in/eternowsa/live/amlst:E24_,b256,b512,b1024,b1824,.smil/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dc4",
+      "channelName": "Enter10 Bangla",
+      "channelUrl": "https://live-bangla.akamaized.net/liveabr/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dc7",
+      "channelName": "Epic TV",
+      "channelUrl": "https://epiconvh.akamaized.net/live/epic/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dca",
+      "channelName": "ET Now",
+      "channelUrl": "https://pubads.g.doubleclick.net/ssai/event/pJrzNyDoT_K_GwYQsijTsQ/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "business",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dcd",
+      "channelName": "ET Now Swadesh",
+      "channelUrl": "https://d32gxr3r1ksq2p.cloudfront.net/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dd0",
+      "channelName": "Fakt Marathi",
+      "channelUrl": "https://cdn-6.pishow.tv/live/10002/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dd3",
+      "channelName": "Fateh TV",
+      "channelUrl": "https://ott.livelegitpro.in/fatehtv/fatehtv/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dd6",
+      "channelName": "Filmeraa",
+      "channelUrl": "https://a.jsrdn.com/broadcast/7ef91d3d7a/+0000/c.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dd9",
+      "channelName": "First India News",
+      "channelUrl": "https://xlbor37ydvaj-hls-live.wmncdn.net/firstindianewstv1/live.stream/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16ddc",
+      "channelName": "GDNS Ludhiana",
+      "channelUrl": "http://akalmultimedia.net:1935/gdnslive/gdns-live/chunklist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16ddf",
+      "channelName": "Global Punjab",
+      "channelUrl": "https://server.livelegitpro.in/globalpunjab/globalpunjab/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16de5",
+      "channelName": "Good News Today",
+      "channelUrl": "https://aajtaklive.vgcdn.net/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/3196cced-ce29-4219-9809-f07ccdaa02b9/vglive-sk-848805/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16de8",
+      "channelName": "GoodNews TV",
+      "channelUrl": "https://bpgdlwwar3ze-hls-live.wmncdn.net/goodnews/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16deb",
+      "channelName": "Good Shepherd TV",
+      "channelUrl": "http://162.250.201.58:8032/goodshepherd/web/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, Tamil, Telugu, Malayalam",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dee",
+      "channelName": "Gubbare",
+      "channelUrl": "https://epiconvh.akamaized.net/live/gubbare/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "kids",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16df1",
+      "channelName": "Gyandarshan",
+      "channelUrl": "https://cdn-6.pishow.tv/live/14/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "education",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16df4",
+      "channelName": "Harvest USA",
+      "channelUrl": "https://7mbd4ogkr3gx-hls-live.wmncdn.net/harvestusa/d57ffba6564caea2fee3f4085f19a098.sdp/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16df7",
+      "channelName": "Hi Dost!",
+      "channelUrl": "https://cdn-1.pishow.tv/live/224/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dfa",
+      "channelName": "Hindi Khabar",
+      "channelUrl": "https://server.livelegitpro.in:9899/hindikhabar/hindikhabar/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16dfd",
+      "channelName": "Hindu Dharmam",
+      "channelUrl": "https://cdn-1.pishow.tv/live/959/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e00",
+      "channelName": "History TV18",
+      "channelUrl": "https://amg01448-amg01448c16-samsung-in-3495.playouts.now.amagi.tv/playlist/amg01448-samsungindia-historychannelenglish-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "documentary",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e06",
+      "channelName": "HNN 24x7",
+      "channelUrl": "https://ott.livelegitpro.in:9899/hnnnews/hnnnews/tracks-v1/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e09",
+      "channelName": "Hope Channel India",
+      "channelUrl": "https://videodelivery.net/98334a974d26e45759c6baa8bceabbcf/manifest/video.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e0c",
+      "channelName": "Hornbill TV",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/hornbilltv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e0f",
+      "channelName": "Hungama TV",
+      "channelUrl": "http://87.255.35.150:18811",
+      "channelImg": "",
+      "channelGroup": "kids",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e12",
+      "channelName": "IBC 24",
+      "channelUrl": "https://cdn-3.pishow.tv/live/220/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e15",
+      "channelName": "Ind 24",
+      "channelUrl": "https://gmkd5nkednxo-hls-live.wmncdn.net/ind24tv/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e18",
+      "channelName": "India News",
+      "channelUrl": "https://newsxott.in/hls/indianewsnational.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e1b",
+      "channelName": "India News Haryana",
+      "channelUrl": "https://livetv.newsx.com/itv/itvnetwork2/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e1e",
+      "channelName": "India News Madhya Pradesh/Chhattisgarh",
+      "channelUrl": "https://livetv.newsx.com/itv/itvnetwork7/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e21",
+      "channelName": "India News Rajasthan",
+      "channelUrl": "https://livetv.newsx.com/itv/itvnetwork9/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e24",
+      "channelName": "India News Uttar Pradesh",
+      "channelUrl": "https://livetv.newsx.com/itv/itvnetwork3/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e27",
+      "channelName": "India Today",
+      "channelUrl": "https://indiatodaylive.akamaized.net/hls/live/2014320/indiatoday/indiatodaylive/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e2d",
+      "channelName": "India TV",
+      "channelUrl": "https://pl-indiatvnews.akamaized.net/out/v1/db79179b608641ceaa5a4d0dd0dca8da/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e30",
+      "channelName": "India Voice",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/indiavoice/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e33",
+      "channelName": "Indywood TV",
+      "channelUrl": "https://43wrzjnpqoxe-hls-live.wmncdn.net/indywood/indywoodtv/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, Chhattisgarhi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e36",
+      "channelName": "INH 24x7",
+      "channelUrl": "https://7epd6o8edk9b-hls-live.wmncdn.net/inh24/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e39",
+      "channelName": "Insync",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/insync/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e3c",
+      "channelName": "Ishara TV",
+      "channelUrl": "https://epiconvh.akamaized.net/live/ishaara/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e3f",
+      "channelName": "Ishwar Bhakti TV",
+      "channelUrl": "https://6n3yow8pl9ok-hls-live.5centscdn.com/ishwartvlive/tv.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e42",
+      "channelName": "Jantantra TV",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/jantantratv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e45",
+      "channelName": "Janta TV",
+      "channelUrl": "https://live.wmncdn.net/jantatv/live.stream/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e48",
+      "channelName": "Jan TV",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/jantv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e4b",
+      "channelName": "Jinvani Channel",
+      "channelUrl": "https://cdn-2.pishow.tv/live/989/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e4e",
+      "channelName": "JK 24x7 News",
+      "channelUrl": "https://live.gulistannews.in/hls/jk.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e51",
+      "channelName": "Kadak Hits",
+      "channelUrl": "https://live.hungama.com/linear/kadak-hits/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e54",
+      "channelName": "Kashish News",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/kashishnews/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e57",
+      "channelName": "Kaumudy TV",
+      "channelUrl": "https://oqgdrkxby4rm-hls-live.5centscdn.com/kaumudytv/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e5a",
+      "channelName": "Khabar Fast",
+      "channelUrl": "https://live.gbtechnology.in/khabarfast/khabarfast/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e5d",
+      "channelName": "Khabrain Abhi Tak",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/khabrainabhitak/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e60",
+      "channelName": "K News India",
+      "channelUrl": "https://knews.livebox.co.in/youtubehls/live.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e63",
+      "channelName": "Life TV",
+      "channelUrl": "http://59c3ec70cfde0.streamlock.net/channel_6/channel6/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e66",
+      "channelName": "Lok Sabha TV",
+      "channelUrl": "https://playhls.media.nic.in/hls/live/lstv/lstv.m3u8",
+      "channelImg": "",
+      "channelGroup": "legislative",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e69",
+      "channelName": "Maha Movie",
+      "channelUrl": "http://14.199.164.20:4001/play/a0q7/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e6c",
+      "channelName": "Maiboli",
+      "channelUrl": "https://sablive-ddpb.akamaized.net/maiboli/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e6f",
+      "channelName": "Manoranjan Grand",
+      "channelUrl": "https://cdn-1.pishow.tv/live/1011/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e72",
+      "channelName": "Manoranjan TV",
+      "channelUrl": "https://cdn-1.pishow.tv/live/1013/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e75",
+      "channelName": "Mastiii",
+      "channelUrl": "https://sablive-ddpb.akamaized.net/mastii/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e78",
+      "channelName": "Max Middle East",
+      "channelUrl": "http://87.255.35.150:18851",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e7e",
+      "channelName": "Mercy TV",
+      "channelUrl": "https://5dd3981940faa.streamlock.net/mercytv/mercytv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e81",
+      "channelName": "MH One Shraddha",
+      "channelUrl": "https://paramount.jswk.online/shraddhamhone/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e84",
+      "channelName": "Mirror Now",
+      "channelUrl": "https://pubads.g.doubleclick.net/ssai/event/DXkHhH2QSnma-HnE3QJqlA/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e87",
+      "channelName": "MNX",
+      "channelUrl": "http://87.255.35.150:18936",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Tamil",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e8a",
+      "channelName": "Movies Now",
+      "channelUrl": "http://87.255.35.150:18935",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e8d",
+      "channelName": "MTV",
+      "channelUrl": "http://144.217.70.181:9587/hin2/MTVINDIA/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e90",
+      "channelName": "Music India",
+      "channelUrl": "https://cdn-2.pishow.tv/live/226/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e93",
+      "channelName": "Namdhari TV",
+      "channelUrl": "https://namdhari.tv/live/sbs1.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e96",
+      "channelName": "Nazara",
+      "channelUrl": "https://epiconvh.akamaized.net/live/nazara/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e99",
+      "channelName": "Nazrana Music",
+      "channelUrl": "https://live.hungama.com/linear/nazrana/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e9c",
+      "channelName": "NDTV 24x7",
+      "channelUrl": "https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16e9f",
+      "channelName": "NDTV Good Times",
+      "channelUrl": "https://amg01448-samsungin-ndtvgoodtimes-samsungin-ad-gp.amagi.tv/playlist/amg01448-samsungin-ndtvgoodtimes-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "lifestyle",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16ea2",
+      "channelName": "NDTV India",
+      "channelUrl": "https://ndtvindiaelemarchana.akamaized.net/hls/live/2003679/ndtvindia/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802acef89f25953a16ea5",
+      "channelName": "NDTV Profit",
+      "channelUrl": "https://ndtvprofitelemarchana.akamaized.net/hls/live/2003680/ndtvprofit/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "business",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eab",
+      "channelName": "Network 10",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/network10/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eae",
+      "channelName": "News 1 India",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/news1india/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eb1",
+      "channelName": "News9Live",
+      "channelUrl": "https://vg-tv9yupp.akamaized.net/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/vglive-sk-237347/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eb4",
+      "channelName": "News 11",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/news11bharat/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eb7",
+      "channelName": "News18 Kerala",
+      "channelUrl": "https://nw18live.cdn.jio.com/bpk-tv/News18_Kerala_NW18_MOB/output01/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eba",
+      "channelName": "News 24",
+      "channelUrl": "https://vidcdn.vidgyor.com/news24-origin/liveabr/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ebd",
+      "channelName": "News Nation",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/6cd2f649739a45ca9de1daf81cc7d0f2/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ec0",
+      "channelName": "News X",
+      "channelUrl": "https://newsxott.in/hls/newsx.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ec3",
+      "channelName": "Northeast Live",
+      "channelUrl": "https://server.thelegitpro.in/northeastlive/northeastlive/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ec6",
+      "channelName": "Pop Pataka",
+      "channelUrl": "https://live.hungama.com/linear/pop-pataka/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ec9",
+      "channelName": "Pravah Picture",
+      "channelUrl": "https://live.dinesh29.com.np/stream/jiotvplus/starpravahpicturehd/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Goan Konkani, English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ecc",
+      "channelName": "Prudent Media",
+      "channelUrl": "https://prudentmcdn.rixcast.com/prudentm.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ecf",
+      "channelName": "Punjabi Zindabad TV",
+      "channelUrl": "http://stream.pztv.online/pztv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ed2",
+      "channelName": "Raj Pariwar",
+      "channelUrl": "https://livestream.rajtvnet.in/hlslive/Admin/px08241089/live/Raj_Pariwar/master_1.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ed5",
+      "channelName": "Republic Bharat",
+      "channelUrl": "https://vg-republictvlive.akamaized.net/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/vglive-sk-275673/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ed8",
+      "channelName": "Republic TV",
+      "channelUrl": "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/2e31d831f08640ff92f65003bdc89991/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16edb",
+      "channelName": "Rongeen TV",
+      "channelUrl": "https://server.thelegitpro.in/rongeentv/rongeentv/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi, Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ede",
+      "channelName": "Saam TV",
+      "channelUrl": "https://cdn-3.pishow.tv/live/437/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ee1",
+      "channelName": "Sadhna",
+      "channelUrl": "https://6n3yow8pl9ok-hls-live.5centscdn.com/sadhanalivetv/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ee4",
+      "channelName": "Sadhna Plus News",
+      "channelUrl": "https://6n3yow8pl9ok-hls-live.5centscdn.com/sadhananewstv/live.stream/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ee7",
+      "channelName": "Salvation TV",
+      "channelUrl": "https://ktismaservers.in:3902/live/salvationtvlive.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eea",
+      "channelName": "Samachar Plus 24x7",
+      "channelUrl": "https://samacharplus.livebox.co.in/samacharplushls/live.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eed",
+      "channelName": "Sangeet Marathi",
+      "channelUrl": "https://cdn-3.pishow.tv/live/1229/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ef0",
+      "channelName": "Sansad TV",
+      "channelUrl": "https://hls.media.nic.in/hls/live/lstv/lstv.m3u8",
+      "channelImg": "",
+      "channelGroup": "legislative",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ef6",
+      "channelName": "Sanskar TV",
+      "channelUrl": "https://d26idhjf0y1p2g.cloudfront.net/out/v1/cd66dd25b9774cb29943bab54bbf3e2f/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ef9",
+      "channelName": "Sanskar UK",
+      "channelUrl": "https://d34z4embz0hjf6.cloudfront.net/out/v1/7ac2789ff9a544a49337d1ffc54ce61c/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16efc",
+      "channelName": "Sanskar USA",
+      "channelUrl": "https://d2netiedy8cz3x.cloudfront.net/out/v1/9bf6fa4ac8d6432cb98da13b121ba3c2/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16eff",
+      "channelName": "Sanskar Web TV",
+      "channelUrl": "https://deatfcv3xdvi3.cloudfront.net/out/v1/7a43dd2f64e34ec28da1b4bd6923251a/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f02",
+      "channelName": "Satsang TV",
+      "channelUrl": "https://d2vfwvjxwtwq1t.cloudfront.net/out/v1/6b24239d5517495b986e7705490c6e65/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f05",
+      "channelName": "Satsang Web TV",
+      "channelUrl": "https://d1ji7e9jbzm5g8.cloudfront.net/out/v1/769f22f64d80442889306b9c4abea63c/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f08",
+      "channelName": "Shemaroo Josh",
+      "channelUrl": "https://cdn-1.pishow.tv/live/1451/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f0b",
+      "channelName": "Shemaroo Marathi Bana",
+      "channelUrl": "https://livetv-channels.b-cdn.net/8042/chunklist0.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f0e",
+      "channelName": "Shemaroo TV",
+      "channelUrl": "https://cdn-3.pishow.tv/live/230/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f11",
+      "channelName": "ShowBox",
+      "channelUrl": "https://epiconvh.akamaized.net/live/showbox/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f14",
+      "channelName": "Shubhsandesh",
+      "channelUrl": "https://6284rn2xr7xv-hls-live.wmncdn.net/shubhsandeshtv1/live123.stream/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f17",
+      "channelName": "Shubh TV",
+      "channelUrl": "https://d2g1vdc6ozl2o8.cloudfront.net/out/v1/0a0dc7d7911b4fddbb4dfc963fdd4b9e/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f1a",
+      "channelName": "Songdew TV",
+      "channelUrl": "https://yupplivefragcp3.yuppcdn.net/260423/smil:songdew.smil/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f1d",
+      "channelName": "Sony Marathi",
+      "channelUrl": "https://nxtlive.net/sliv/stream.php?e=.m3u8&id=985980256",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f23",
+      "channelName": "Sony Max 2",
+      "channelUrl": "http://87.255.35.150:18841",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f26",
+      "channelName": "Sony Pal",
+      "channelUrl": "http://87.255.35.150:18887",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f29",
+      "channelName": "Sony Pix",
+      "channelUrl": "http://87.255.35.150:18495",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f2c",
+      "channelName": "Sony Sports Ten 1",
+      "channelUrl": "http://87.255.35.150:18926",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f2f",
+      "channelName": "Sony Sports Ten 2",
+      "channelUrl": "http://87.255.35.150:18927",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f32",
+      "channelName": "Sony Sports Ten 3",
+      "channelUrl": "http://87.255.35.150:18848",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Bengali, Malayalam",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f35",
+      "channelName": "Sony Sports Ten 5",
+      "channelUrl": "http://87.255.35.150:18818",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, Tamil, Telugu, Bengali, Marathi, Malayalam, Kannada, Oriya (macrolanguage)",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f38",
+      "channelName": "Sony Yay!",
+      "channelUrl": "http://87.255.35.150:18285",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f3b",
+      "channelName": "Star Bharat",
+      "channelUrl": "http://87.255.35.150:18555",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f3e",
+      "channelName": "Star Gold Select",
+      "channelUrl": "http://87.255.35.150:18429",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f41",
+      "channelName": "Star Movies",
+      "channelUrl": "http://87.255.35.150:18301",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f44",
+      "channelName": "Star Movies Select",
+      "channelUrl": "http://87.255.35.150:18548",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f47",
+      "channelName": "StarPlus",
+      "channelUrl": "https://tvsen7.aynaott.com/sphdbd/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f4a",
+      "channelName": "Star Pravah",
+      "channelUrl": "http://87.255.35.150:18447",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f4d",
+      "channelName": "Star Sports 2",
+      "channelUrl": "http://87.255.35.150:18828",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi, Bengali, Malayalam",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f50",
+      "channelName": "Star Sports 3",
+      "channelUrl": "http://87.255.35.150:18804",
+      "channelImg": "",
+      "channelGroup": "sports",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f53",
+      "channelName": "Steelbird Music",
+      "channelUrl": "https://cdn2.in/SteelbirdMusicTVhls/live.m3u8",
+      "channelImg": "",
+      "channelGroup": "music",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f56",
+      "channelName": "Subharti TV",
+      "channelUrl": "https://yuppftalive.akamaized.net/080823/subhartitv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f59",
+      "channelName": "Sudarshan News",
+      "channelUrl": "https://ott.livelegitpro.in/sudarshannews/sudarshannews/tracks-v1/index.fmp4.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f5c",
+      "channelName": "Sun Marathi",
+      "channelUrl": "https://live.dinesh29.com.np/stream/jiotvplus/sunmarathi/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f5f",
+      "channelName": "Sun Neo",
+      "channelUrl": "http://163.61.227.29:8000/play/a04t/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "entertainment",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f62",
+      "channelName": "SVBC 4",
+      "channelUrl": "https://player.mslivestream.net/mslive/13a2927187b9700ae7ea82d7841d5b68.sdp/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f65",
+      "channelName": "Swadesh News",
+      "channelUrl": "https://cdn-2.pishow.tv/live/465/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f68",
+      "channelName": "Swaraj Express SMBC",
+      "channelUrl": "https://cdn-2.pishow.tv/live/477/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f6b",
+      "channelName": "Taaza TV",
+      "channelUrl": "https://stream.playbox.co.in:19360/taaza/taaza.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f6e",
+      "channelName": "Tehzeeb TV",
+      "channelUrl": "https://cdn-4.pishow.tv/live/239/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English, Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f71",
+      "channelName": "Times Now",
+      "channelUrl": "https://pubads.g.doubleclick.net/ssai/event/1mR1QUQ3Tg-VuKfiyjwNuA/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f77",
+      "channelName": "Times Now Navbharat",
+      "channelUrl": "https://amg01448-samsungin-tinnavbharat-samsungin-ad-m8.amagi.tv/playlist/amg01448-samsungin-tinnavbharat-samsungin/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f7d",
+      "channelName": "Total Bhakti",
+      "channelUrl": "https://d34z4embz0hjf6.cloudfront.net/out/v1/d55b3323a9f142638f897378f0b526fe/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f80",
+      "channelName": "Travelxp",
+      "channelUrl": "https://travelxp-travelxp-3-nl.samsung.wurl.tv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "travel",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f8f",
+      "channelName": "TV9 Bharatvarsh",
+      "channelUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9hinjzgtpe/liveabr/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f92",
+      "channelName": "TV 9 Marathi",
+      "channelUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9marlygv8h/liveabr/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f95",
+      "channelName": "TV BRICS English",
+      "channelUrl": "https://engbrics.mediacdn.ru/cdn/brics/english/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "general",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f98",
+      "channelName": "Vyas Channel",
+      "channelUrl": "https://playhls.media.nic.in/hls/live/vyas/vyas.m3u8",
+      "channelImg": "",
+      "channelGroup": "education",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16f9e",
+      "channelName": "WeatherSpy",
+      "channelUrl": "https://jukin-weatherspy-2-in.samsung.wurl.tv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "weather",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fa1",
+      "channelName": "WION",
+      "channelUrl": "https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Urdu, English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fbc",
+      "channelName": "Zainabia Channel",
+      "channelUrl": "https://zainabia.livebox.co.in/ZainabiaChannelhls/channel.m3u8",
+      "channelImg": "",
+      "channelGroup": "religious",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fbf",
+      "channelName": "Zee 24 Taas",
+      "channelUrl": "https://dgrvlduwztkd4.cloudfront.net/index_5.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fc2",
+      "channelName": "Zee Action",
+      "channelUrl": "http://87.255.35.150:18507",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi, Tamil, Telugu",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fc5",
+      "channelName": "Zee Bharat",
+      "channelUrl": "https://vg-zeefta.akamaized.net/ptnr-yupptv/title-zeehindustan/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/96bbab12-582e-4540-af70-510ab6824581/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "English",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fc8",
+      "channelName": "Zee Bollymovies",
+      "channelUrl": "https://amg17931-zee-amg17931c8-samsung-au-8871.playouts.now.amagi.tv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fce",
+      "channelName": "Zee Bollywood",
+      "channelUrl": "http://87.255.35.150:18861",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fd1",
+      "channelName": "Zee Business",
+      "channelUrl": "https://dwby15d04agvq.cloudfront.net/index_1.m3u8",
+      "channelImg": "",
+      "channelGroup": "business",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fd7",
+      "channelName": "Zee Cinema",
+      "channelUrl": "https://amg17931-zee-amg17931c5-samsung-au-8873.playouts.now.amagi.tv/playlist.m3u8",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Telugu, Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fdd",
+      "channelName": "Zee Cinemalu",
+      "channelUrl": "http://87.255.35.150:18578",
+      "channelImg": "",
+      "channelGroup": "movies",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fe0",
+      "channelName": "Zee Delhi NCR Haryana",
+      "channelUrl": "https://vg-zeefta.akamaized.net/ptnr-yupptv/title-zeedelhincr/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/cc483a15-1b39-4642-872d-5d08d362ed01/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fe3",
+      "channelName": "Zee Madhya Pradesh Chhattisgarh",
+      "channelUrl": "https://vg-zeefta.akamaized.net/ptnr-yupptv/title-zeemadhyachhattisgarh/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/2ab17056-6187-4f0e-a34d-f436ac479d6c/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fe6",
+      "channelName": "Zee Marathi",
+      "channelUrl": "http://87.255.35.150:18234",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fe9",
+      "channelName": "Zee News",
+      "channelUrl": "https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8",
+      "channelImg": "",
+      "channelGroup": "news",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fec",
+      "channelName": "Zee Rajasthan",
+      "channelUrl": "https://vg-zeefta.akamaized.net/ptnr-yupptv/title-zeerajashthannews/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/8e864b9a-1681-41a0-99a6-387490bc5b24/main.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Marathi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16fef",
+      "channelName": "Zee Talkies",
+      "channelUrl": "https://playyonogames.in/z5/stream.m3u8?id=0-9-zeetalkies",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ff2",
+      "channelName": "Zee TV",
+      "channelUrl": "http://87.255.35.150:18849",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802adef89f25953a16ff5",
+      "channelName": "Zee Uttar Pradesh/Uttarakhand",
+      "channelUrl": "https://duw35ict5q7th.cloudfront.net/index_3.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aeef89f25953a16ff8",
+      "channelName": "Zing!",
+      "channelUrl": "http://183.89.246.119:8881/play/a09a/index.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    },
+    {
+      "metadata": {
+        "country": "IN",
+        "language": "Hindi",
+        "tags": []
+      },
+      "_id": "692802aeef89f25953a16ffb",
+      "channelName": "Zoom",
+      "channelUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/zoom-tv/master.m3u8",
+      "channelImg": "",
+      "channelGroup": "Uncategorized",
+      "tvgLogo": ""
+    }
+  ]
+}
