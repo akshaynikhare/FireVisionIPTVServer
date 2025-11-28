@@ -4,6 +4,7 @@
 // State
 let apkVersions = [];
 let apkDataTable = null;
+let latestApkInfo = null;
 
 // Initialize on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,29 +35,31 @@ function initializeApkManagerListeners() {
     }
 }
 
-// Load APK versions from server
+// Load APK info from server (GitHub-backed)
 async function loadApkVersions() {
     const loadingEl = document.getElementById('loadingApk');
     
     if (loadingEl) loadingEl.style.display = 'block';
 
     try {
-        // Use the new JSON-based public endpoint (no auth needed)
-        const response = await fetch(`${API_BASE}/api/v1/app/versions`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch APK versions');
+        // Use the GitHub-backed endpoints
+        const latestResponse = await fetch(`${API_BASE}/api/v1/app/latest`);
+        if (!latestResponse.ok) {
+            throw new Error('Failed to fetch latest APK info');
         }
 
-        const data = await response.json();
-        apkVersions = data.data || [];
+        const latestJson = await latestResponse.json();
+        latestApkInfo = latestJson.data || null;
+
+        // For now we only show the single latest version row
+        apkVersions = latestApkInfo ? [latestApkInfo] : [];
 
         renderApkVersionsTable(apkVersions);
         updateApkStats();
-        updateDownloadLinks();
+        await updateDownloadLinks();
     } catch (error) {
         console.error('Error loading APK versions:', error);
-        showToast('Failed to load APK versions', 3000);
+        showToast('Failed to load APK info from GitHub', 3000);
     } finally {
         if (loadingEl) loadingEl.style.display = 'none';
     }
@@ -82,10 +85,10 @@ function renderApkVersionsTable(versions) {
         data: versions,
         pageLength: 10,
         deferRender: true,
-        order: [[1, 'desc']], // Sort by Version Code descending
+        order: [[1, 'desc']], // Sort by Version Code / tag
         columns: [
             {
-                // Version Name
+                // Release Tag / Version Name
                 data: 'versionName',
                 render: function(data) {
                     return `<strong>${data}</strong>`;
@@ -96,7 +99,7 @@ function renderApkVersionsTable(versions) {
                 data: 'versionCode'
             },
             {
-                // File Name
+                // APK asset name
                 data: 'apkFileName',
                 render: function(data) {
                     return `<code>${data || 'N/A'}</code>`;
@@ -110,49 +113,26 @@ function renderApkVersionsTable(versions) {
                 }
             },
             {
-                // Status
-                data: 'isActive',
-                render: function(data) {
-                    return `<span class="badge ${data ? 'badge-success' : 'badge-inactive'}">${data ? 'Active' : 'Inactive'}</span>`;
-                }
-            },
-            {
-                // Mandatory
-                data: 'isMandatory',
-                render: function(data) {
-                    return `<span class="badge ${data ? 'badge-warning' : 'badge-info'}">${data ? 'Yes' : 'No'}</span>`;
-                }
-            },
-            {
-                // Released
+                // Published at
                 data: 'releasedAt',
                 render: function(data) {
                     return formatDate(data);
                 }
             },
             {
-                // Actions
+                // Download
                 data: null,
                 orderable: false,
                 render: function(data, type, row) {
-                    return `
-                        <button class="btn btn-sm btn-info btn-view" data-code="${row.versionCode}">View</button>
-                        <button class="btn btn-sm btn-primary btn-download" data-file="${row.apkFileName}">Download</button>
-                    `;
+                    if (!row.downloadUrl) {
+                        return '<span class="text-muted">N/A</span>';
+                    }
+                    return `<a href="${row.downloadUrl}" target="_blank" class="btn btn-sm btn-primary">Download</a>`;
                 }
             }
         ],
         initComplete: function() {
-            // Event delegation for buttons
-            $('#apkVersionsTable').on('click', '.btn-view', function() {
-                const code = $(this).data('code');
-                viewApkDetails(code);
-            });
-
-            $('#apkVersionsTable').on('click', '.btn-download', function() {
-                const file = $(this).data('file');
-                downloadApk(file);
-            });
+            // No extra handlers needed; direct GitHub download links
         }
     });
 }
@@ -163,24 +143,34 @@ function updateApkStats() {
     const latestNameEl = document.getElementById('latestVersionName');
     const latestCodeEl = document.getElementById('latestVersionCode');
 
-    const activeVersions = apkVersions.filter(v => v.isActive);
-    if (activeEl) activeEl.textContent = activeVersions.length;
-
-    const latestVersion = apkVersions.find(v => v.isActive) || apkVersions[0];
-    if (latestVersion) {
-        if (latestNameEl) latestNameEl.textContent = latestVersion.versionName;
-        if (latestCodeEl) latestCodeEl.textContent = latestVersion.versionCode;
+    if (latestApkInfo) {
+        if (activeEl) activeEl.textContent = '1';
+        if (latestNameEl) latestNameEl.textContent = latestApkInfo.versionName;
+        if (latestCodeEl) latestCodeEl.textContent = latestApkInfo.versionCode;
     } else {
+        if (activeEl) activeEl.textContent = '0';
         if (latestNameEl) latestNameEl.textContent = '-';
         if (latestCodeEl) latestCodeEl.textContent = '-';
     }
 }
 
 // Update download links
-function updateDownloadLinks() {
+async function updateDownloadLinks() {
     const fullLinkEl = document.getElementById('fullDownloadLink');
-    if (fullLinkEl) {
-        fullLinkEl.textContent = `${API_BASE}/api/v1/app/apk`;
+    if (!fullLinkEl) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/app/download-url`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch download URL');
+        }
+
+        const json = await response.json();
+        const url = json?.data?.downloadUrl || `${API_BASE}/api/v1/app/apk`;
+        fullLinkEl.value = url;
+    } catch (error) {
+        console.error('Error fetching full download URL:', error);
+        fullLinkEl.value = `${API_BASE}/api/v1/app/apk`;
     }
 }
 

@@ -1,8 +1,0 @@
-# Ignore all APK files (they can be large)
-*.apk
-
-# But track this .gitignore file
-!.gitignore
-
-# Optional: You can choose to commit specific APKs by using:
-# git add -f apks/specific-version.apk

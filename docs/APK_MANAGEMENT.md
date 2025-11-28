@@ -11,7 +11,7 @@ FireVisionIPTVServer/
 │   └── firevision-iptv-1.0.0.apk
 └── src/
     └── routes/
-        └── app-simple.js  # JSON-based routes
+        └── app-update.js  # GitHub-based APK routes
 ```
 
 ## How to Add a New Version
@@ -259,4 +259,4 @@ If you were using the MongoDB approach, you can export your versions:
 1. Export from MongoDB to JSON
 2. Update `versions.json` format
 3. Copy APK files to `apks/` directory
-4. Switch route in `server.js` to use `app-simple.js`
+4. Switch route in `server.js` to use `app-update.js`

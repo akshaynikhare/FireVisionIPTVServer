@@ -69,8 +69,8 @@ app.use('/api/v1/public', publicAuthRouter);
 app.use('/api/v1/oauth', oauthRouter);
 app.use('/api/v1/user-playlist', userPlaylistRouter);
 app.use('/api/v1/channels', require('./routes/channels'));
-// Use simplified JSON-based app routes instead of MongoDB-based
-app.use('/api/v1/app', require('./routes/app-simple'));
+// App update routes (GitHub-based APK delivery)
+app.use('/api/v1/app', require('./routes/app-update'));
 app.use('/api/v1/admin', require('./routes/admin'));
 app.use('/api/v1/iptv-org', require('./routes/iptv-org'));
 app.use('/api/v1/test', require('./routes/channel-test'));
