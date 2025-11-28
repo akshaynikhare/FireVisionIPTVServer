@@ -1,6 +1,6 @@
 {
   "name": "firevision-iptv-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Server for FireVisionIPTV - Manages channel lists and app updates",
   "main": "src/server.js",
   "scripts": {

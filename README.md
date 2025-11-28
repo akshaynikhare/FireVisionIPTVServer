@@ -398,6 +398,34 @@ curl -X POST https://tv.cadnative.com/api/v1/admin/channels/import-m3u \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d @playlist.json
+
+## Releases and Docker Image
+
+Docker images for the server are built and pushed via GitHub Actions.
+
+- Pushing to the `main` branch (with changes in `FireVisionIPTVServer`) triggers a Docker build and publish.
+- Creating/pushing a Git tag like `v1.0.0` also triggers a Docker build and publish.
+
+The workflow builds `FireVisionIPTVServer/Dockerfile` and pushes to Docker Hub as:
+
+- `${DOCKERHUB_USERNAME}/firevision-iptv-server:<version>`
+- `${DOCKERHUB_USERNAME}/firevision-iptv-server:latest`
+
+Where `<version>` is read from `versions.json` (field `current`) when present, otherwise it falls back to the short git SHA.
+
+To pull and run the image directly:
+
+```bash
+docker pull your-dockerhub-username/firevision-iptv-server:latest
+docker run -d --name firevision-iptv-server -p 80:80 \
+  -e MONGODB_URI=mongodb://mongodb:27017/firevision-iptv \
+  your-dockerhub-username/firevision-iptv-server:latest
+```
+
+Make sure the following GitHub Actions secrets are configured in the repository:
+
+- `DOCKERHUB_USERNAME` – your Docker Hub username
+- `DOCKERHUB_TOKEN` – a Docker Hub access token with permission to push images
 ```
 
 Where `playlist.json` contains:
