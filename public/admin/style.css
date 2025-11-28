@@ -258,3 +258,259 @@
 }
 
 /* End removal */
+
+/* ============ Statistics Page Styles ============ */
+
+/* Status indicator dot */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.bg-success {
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Small box enhancements */
+.small-box {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.small-box:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.small-box .inner h3 {
+    font-size: 2.2rem;
+    font-weight: 700;
+}
+
+.small-box .icon {
+    font-size: 70px;
+    opacity: 0.2;
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    transition: transform 0.3s;
+}
+
+.small-box:hover .icon {
+    transform: scale(1.1);
+}
+
+/* Info box shadow enhancement */
+.info-box.shadow-sm {
+    border-radius: 8px;
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.info-box.shadow-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Card outline enhancements */
+.card.card-outline {
+    border-top-width: 3px;
+}
+
+.card.card-outline .card-header {
+    background-color: #fff;
+}
+
+.card.card-outline .card-title {
+    font-weight: 600;
+}
+
+/* Sticky table header */
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f4f6f9 !important;
+}
+
+/* Timeline styles */
+.timeline {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 17px;
+    height: 100%;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 50px;
+    margin-bottom: 20px;
+}
+
+.timeline-item > i {
+    position: absolute;
+    left: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    z-index: 1;
+}
+
+.timeline-item-content {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px 15px;
+    border-left: 3px solid transparent;
+}
+
+.timeline-item-content .time {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.timeline-item-content .timeline-header {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    color: #343a40;
+}
+
+.timeline-item-content .timeline-body {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+/* Progress bar enhancements */
+.progress {
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Location bar styling */
+.location-bar {
+    padding: 5px 0;
+}
+
+/* Category item styling */
+.category-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.category-item:last-child {
+    border-bottom: none;
+}
+
+/* Badge color additions */
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+
+.bg-teal {
+    background-color: #20c997 !important;
+}
+
+.bg-orange {
+    background-color: #fd7e14 !important;
+}
+
+/* Gradient backgrounds */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%) !important;
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #d39e00 100%) !important;
+    color: #212529 !important;
+}
+
+/* Table hover enhancement */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* List group item enhancement */
+.list-group-item {
+    border-left: none;
+    border-right: none;
+    transition: background-color 0.2s;
+}
+
+.list-group-item:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+/* User avatar in list */
+.list-group-item img.rounded-circle {
+    border: 2px solid #e9ecef;
+}
+
+/* Responsive adjustments for stats */
+@media (max-width: 768px) {
+    .small-box .inner h3 {
+        font-size: 1.8rem;
+    }
+    
+    .small-box .icon {
+        font-size: 50px;
+    }
+    
+    .timeline::before {
+        left: 13px;
+    }
+    
+    .timeline-item {
+        padding-left: 40px;
+    }
+    
+    .timeline-item > i {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+}

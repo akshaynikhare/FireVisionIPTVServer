@@ -42,48 +42,203 @@
                 </section>
                 <section class="content">
                     <div class="container-fluid" id="statsView">
+                        <!-- Overview Stats Row -->
                         <div class="row">
-                            <div class="col-md-3">
-                                <div class="info-box bg-white mb-3">
-                                    <span class="info-box-icon bg-primary"><i class="fas fa-list"></i></span>
-                                    <div class="info-box-content">
-                                        <span class="info-box-text">Total Channels</span>
-                                        <span class="info-box-number" id="statTotalChannels">0</span>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="small-box bg-gradient-primary">
+                                    <div class="inner">
+                                        <h3 id="statTotalChannels">0</h3>
+                                        <p>Total Channels</p>
                                     </div>
+                                    <div class="icon"><i class="fas fa-tv"></i></div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="info-box bg-white mb-3">
-                                    <span class="info-box-icon bg-success"><i class="fas fa-check"></i></span>
-                                    <div class="info-box-content">
-                                        <span class="info-box-text">Active Channels</span>
-                                        <span class="info-box-number" id="statActiveChannels">0</span>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="small-box bg-gradient-success">
+                                    <div class="inner">
+                                        <h3 id="statActiveChannels">0</h3>
+                                        <p>Active Channels</p>
                                     </div>
+                                    <div class="icon"><i class="fas fa-check-circle"></i></div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="info-box bg-white mb-3">
-                                    <span class="info-box-icon bg-danger"><i class="fas fa-times"></i></span>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="small-box bg-gradient-info">
+                                    <div class="inner">
+                                        <h3 id="statTotalUsers">0</h3>
+                                        <p>Registered Users</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-users"></i></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="small-box bg-gradient-warning">
+                                    <div class="inner">
+                                        <h3 id="statActiveSessions">0</h3>
+                                        <p>Active Sessions</p>
+                                    </div>
+                                    <div class="icon"><i class="fas fa-signal"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Second Stats Row -->
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6">
+                                <div class="info-box bg-white shadow-sm">
+                                    <span class="info-box-icon bg-danger"><i class="fas fa-times-circle"></i></span>
                                     <div class="info-box-content">
                                         <span class="info-box-text">Inactive Channels</span>
                                         <span class="info-box-number" id="statInactiveChannels">0</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="info-box bg-white mb-3">
-                                    <span class="info-box-icon bg-info"><i class="fas fa-code"></i></span>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="info-box bg-white shadow-sm">
+                                    <span class="info-box-icon bg-purple"><i class="fas fa-mobile-alt"></i></span>
                                     <div class="info-box-content">
                                         <span class="info-box-text">App Versions</span>
                                         <span class="info-box-number" id="statTotalVersions">0</span>
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="info-box bg-white shadow-sm">
+                                    <span class="info-box-icon bg-teal"><i class="fas fa-link"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Total Pairings</span>
+                                        <span class="info-box-number" id="statTotalPairings">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="info-box bg-white shadow-sm">
+                                    <span class="info-box-icon bg-orange"><i class="fas fa-clock"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Pending Pairings</span>
+                                        <span class="info-box-number" id="statPendingPairings">0</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card">
-                            <div class="card-header"><h3 class="card-title">Channels by Category</h3></div>
-                            <div class="card-body">
-                                <div id="categoryChart"></div>
+                        
+                        <!-- Main Content Row -->
+                        <div class="row">
+                            <!-- Live Users / Active Sessions -->
+                            <div class="col-lg-6">
+                                <div class="card card-outline card-primary">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-broadcast-tower mr-2"></i>Live Users</h3>
+                                        <div class="card-tools">
+                                            <span class="badge badge-success" id="liveUsersCount">0 online</span>
+                                            <button type="button" class="btn btn-tool" onclick="loadStats()">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0" style="max-height: 350px; overflow-y: auto;">
+                                        <table class="table table-hover table-striped mb-0">
+                                            <thead class="thead-light sticky-top">
+                                                <tr>
+                                                    <th>User</th>
+                                                    <th>Location</th>
+                                                    <th>Last Activity</th>
+                                                    <th>Device</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="liveUsersTable">
+                                                <tr><td colspan="4" class="text-center text-muted py-4">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recent TV Pairings -->
+                            <div class="col-lg-6">
+                                <div class="card card-outline card-info">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-tv mr-2"></i>Recent TV Pairings</h3>
+                                        <div class="card-tools">
+                                            <span class="badge badge-info" id="recentPairingsCount">0 today</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0" style="max-height: 350px; overflow-y: auto;">
+                                        <table class="table table-hover table-striped mb-0">
+                                            <thead class="thead-light sticky-top">
+                                                <tr>
+                                                    <th>Device</th>
+                                                    <th>User</th>
+                                                    <th>Status</th>
+                                                    <th>Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="recentPairingsTable">
+                                                <tr><td colspan="4" class="text-center text-muted py-4">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Second Row -->
+                        <div class="row">
+                            <!-- Users by Location -->
+                            <div class="col-lg-4">
+                                <div class="card card-outline card-success">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-globe mr-2"></i>Users by Location</h3>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="locationChart" style="min-height: 280px; padding: 10px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recent Users -->
+                            <div class="col-lg-4">
+                                <div class="card card-outline card-warning">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-user-plus mr-2"></i>Recent Users</h3>
+                                    </div>
+                                    <div class="card-body p-0" style="max-height: 320px; overflow-y: auto;">
+                                        <ul class="list-group list-group-flush" id="recentUsersList">
+                                            <li class="list-group-item text-center text-muted py-4">Loading...</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Channels by Category -->
+                            <div class="col-lg-4">
+                                <div class="card card-outline card-secondary">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-chart-pie mr-2"></i>Channels by Category</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="categoryChart" style="min-height: 280px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Activity Timeline -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card card-outline card-dark">
+                                    <div class="card-header">
+                                        <h3 class="card-title"><i class="fas fa-history mr-2"></i>Recent Activity</h3>
+                                        <div class="card-tools">
+                                            <span class="badge badge-secondary" id="activityCount">Last 24 hours</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="timeline" id="activityTimeline">
+                                            <div class="text-center text-muted py-4">Loading activity...</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

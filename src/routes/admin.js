@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs').promises;
 const Channel = require('../models/Channel');
 const AppVersion = require('../models/AppVersion');
+const User = require('../models/User');
+const Session = require('../models/Session');
+const PairingRequest = require('../models/PairingRequest');
 const { requireAuth, requireAdmin } = require('./auth');
 
 // Apply session authentication and admin role check to all admin routes
@@ -367,9 +370,183 @@ router.delete('/app/versions/:id', async (req, res) => {
 
 // ============ STATISTICS ============
 
+// Detailed statistics endpoint
+router.get('/stats/detailed', async (req, res) => {
+  try {
+    // Channel statistics
+    const totalChannels = await Channel.countDocuments();
+    const activeChannels = await Channel.countDocuments({ isActive: true });
+    const inactiveChannels = await Channel.countDocuments({ isActive: false });
+    const channelsByGroup = await Channel.aggregate([
+      { $group: { _id: '$channelGroup', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // App version statistics
+    const totalVersions = await AppVersion.countDocuments();
+    const latestVersion = await AppVersion.getLatestVersion();
+
+    // User statistics
+    const totalUsers = await User.countDocuments();
+    const activeUsers = await User.countDocuments({ isActive: true });
+    const recentUsers = await User.find()
+      .select('username email role profilePicture createdAt lastLogin')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Session statistics
+    const now = new Date();
+    const activeSessions = await Session.find({ expiresAt: { $gt: now } })
+      .populate('userId', 'username email profilePicture')
+      .sort({ lastActivity: -1 })
+      .limit(20)
+      .lean();
+    
+    const totalSessions = await Session.countDocuments();
+    const activeSessionCount = await Session.countDocuments({ expiresAt: { $gt: now } });
+
+    // Sessions by location (based on IP)
+    const sessionsByLocation = await Session.aggregate([
+      { $match: { expiresAt: { $gt: now } } },
+      { $group: { _id: { $ifNull: ['$location', 'Unknown'] }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Pairing statistics
+    const totalPairings = await PairingRequest.countDocuments();
+    const pendingPairings = await PairingRequest.countDocuments({ status: 'pending', expiresAt: { $gt: now } });
+    const completedPairings = await PairingRequest.countDocuments({ status: 'completed' });
+    
+    // Today's pairings count
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayPairingsCount = await PairingRequest.countDocuments({ createdAt: { $gte: startOfToday } });
+
+    // Recent pairings
+    const recentPairings = await PairingRequest.find()
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Recent activity (combine various activities)
+    const activities = [];
+
+    // Add recent logins
+    const recentLogins = await Session.find()
+      .populate('userId', 'username')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+    
+    recentLogins.forEach(session => {
+      activities.push({
+        type: 'login',
+        title: 'User Login',
+        description: `${session.username || session.userId?.username || 'Unknown'} logged in`,
+        timestamp: session.createdAt
+      });
+    });
+
+    // Add recent registrations
+    const recentRegistrations = await User.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+    
+    recentRegistrations.forEach(user => {
+      activities.push({
+        type: 'register',
+        title: 'New User',
+        description: `${user.username} registered`,
+        timestamp: user.createdAt
+      });
+    });
+
+    // Add recent pairings to activity
+    recentPairings.slice(0, 5).forEach(pairing => {
+      activities.push({
+        type: 'pairing',
+        title: 'Device Pairing',
+        description: `${pairing.deviceName || 'Device'} ${pairing.status} by ${pairing.userId?.username || 'Unknown'}`,
+        timestamp: pairing.createdAt
+      });
+    });
+
+    // Sort activities by timestamp
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Format active sessions with user info
+    const formattedSessions = activeSessions.map(session => ({
+      username: session.userId?.username || session.username,
+      email: session.userId?.email || session.email,
+      profilePicture: session.userId?.profilePicture,
+      lastActivity: session.lastActivity,
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+      location: session.location || 'Unknown'
+    }));
+
+    // Format recent pairings with user info
+    const formattedPairings = recentPairings.map(pairing => ({
+      deviceName: pairing.deviceName,
+      deviceModel: pairing.deviceModel,
+      status: pairing.status,
+      username: pairing.userId?.username,
+      createdAt: pairing.createdAt,
+      pairedAt: pairing.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        channels: {
+          total: totalChannels,
+          active: activeChannels,
+          inactive: inactiveChannels,
+          byGroup: channelsByGroup
+        },
+        app: {
+          totalVersions,
+          latestVersion
+        },
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          recent: recentUsers
+        },
+        sessions: {
+          total: totalSessions,
+          active: activeSessionCount,
+          activeSessions: formattedSessions,
+          byLocation: sessionsByLocation
+        },
+        pairings: {
+          total: totalPairings,
+          pending: pendingPairings,
+          completed: completedPairings,
+          todayCount: todayPairingsCount,
+          recent: formattedPairings
+        },
+        activity: activities.slice(0, 15)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching detailed stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch detailed statistics'
+    });
+  }
+});
+
 router.get('/stats', async (req, res) => {
   try {
     const totalChannels = await Channel.countDocuments();
+    const activeChannels = await Channel.countDocuments({ isActive: true });
+    const inactiveChannels = await Channel.countDocuments({ isActive: false });
     const channelsByGroup = await Channel.aggregate([
       {
         $group: {
@@ -390,6 +567,8 @@ router.get('/stats', async (req, res) => {
       data: {
         channels: {
           total: totalChannels,
+          active: activeChannels,
+          inactive: inactiveChannels,
           byGroup: channelsByGroup
         },
         app: {
