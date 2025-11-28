@@ -7,8 +7,8 @@ on:
     tags:
       - 'v*.*.*'
     paths:
-      - 'FireVisionIPTVServer/**'
-      - 'FireVisionIPTVServer/.github/workflows/docker-publish.yml'
+      - '**'
+      - '.github/workflows/docker-publish.yml'
   workflow_dispatch:
 
 jobs:
@@ -37,7 +37,6 @@ jobs:
       - name: Extract version
         id: vars
         run: |
-          cd FireVisionIPTVServer
           if [ -f "versions.json" ]; then
             VERSION=$(jq -r '.current' versions.json)
           else
@@ -48,8 +47,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./FireVisionIPTVServer
-          file: ./FireVisionIPTVServer/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}
