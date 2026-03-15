@@ -78,6 +78,17 @@ npm run dev      # Starts backend (3000) + frontend (3001)
 
 Verify: `curl http://localhost:3000/health`
 
+### Default Accounts
+
+| Role  | Username   | Password       | URL                                            |
+| ----- | ---------- | -------------- | ---------------------------------------------- |
+| Admin | `admin`    | `admin123`     | http://localhost:3000/admin (legacy dashboard) |
+| User  | `testuser` | `TestUser123!` | —                                              |
+
+- **Admin** is created automatically on startup from `SUPER_ADMIN_*` env vars.
+- **Test user** is opt-in — only created if `TEST_USER_USERNAME` is set in `.env`. Remove it to skip.
+- **Change these in production** — set strong passwords via environment variables.
+
 ## Make Commands
 
 | Command           | Description                      |
@@ -150,7 +161,6 @@ npm run test:e2e         # Playwright E2E tests
 | PUT    | `/api/v1/admin/channels/:id`        | Update channel      |
 | DELETE | `/api/v1/admin/channels/:id`        | Delete channel      |
 | POST   | `/api/v1/admin/channels/import-m3u` | Import M3U playlist |
-| POST   | `/api/v1/admin/app/upload`          | Upload APK          |
 | GET    | `/api/v1/admin/stats`               | Server statistics   |
 
 See [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for full request/response examples.
@@ -213,9 +223,11 @@ Detailed guides in [`docs/`](docs/):
 - [API Documentation](docs/API_DOCUMENTATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Setup Guide](docs/SETUP_GUIDE.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
 - [Portainer Deployment](docs/PORTAINER_DEPLOYMENT.md)
-- [APK Management](docs/APK_MANAGEMENT.md)
+- [Admin Dashboard](docs/ADMIN_DASHBOARD.md)
 - [TV Pairing System](docs/TV_PAIRING_SYSTEM.md)
+- [Channel List Codes](docs/CHANNEL_LIST_CODE_SYSTEM.md)
 - [OAuth Setup](docs/OAUTH_SETUP.md)
 
 ## License

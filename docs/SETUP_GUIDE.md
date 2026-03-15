@@ -54,29 +54,30 @@ cp .env.example .env
 Open `.env` and configure the following critical settings:
 
 #### Server Configuration
+
 ```env
 NODE_ENV=production
 PORT=3000
 ```
 
 #### Database Configuration
+
 ```env
 MONGODB_URI=mongodb://mongodb:27017/firevision-iptv
 ```
 
 #### Security Configuration (IMPORTANT - Change These!)
+
 ```env
-API_KEY=your-unique-api-key-min-32-chars
-SESSION_SECRET=your-unique-session-secret-min-32-chars
+JWT_ACCESS_SECRET=your-unique-jwt-access-secret-min-32-chars
+JWT_REFRESH_SECRET=your-unique-jwt-refresh-secret-min-32-chars
 ALLOWED_ORIGINS=*
 ```
 
 **Generate Secure Keys:**
-```bash
-# Generate random API key
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# Generate random session secret
+```bash
+# Generate random JWT secrets
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
@@ -96,7 +97,8 @@ SUPER_ADMIN_EMAIL=admin@yourdomain.com
 ```
 
 **Password Requirements:**
-- Minimum 6 characters
+
+- Minimum 8 characters
 - Include uppercase, lowercase, numbers, and special characters
 - Avoid common passwords
 
@@ -131,6 +133,7 @@ docker-compose up -d --build
 ```
 
 This will:
+
 - Build the Node.js API container
 - Start MongoDB container
 - Start Nginx reverse proxy
@@ -144,6 +147,7 @@ docker-compose ps
 ```
 
 You should see:
+
 - `firevision-mongodb` - Running
 - `firevision-api` - Running
 - `firevision-nginx` - Running
@@ -162,6 +166,7 @@ docker-compose logs api | grep "Super Admin"
 ```
 
 Expected output:
+
 ```
 ✅ Super Admin user created successfully
    Username: your_admin_username
@@ -211,7 +216,7 @@ MONGODB_URI=mongodb://localhost:27017/firevision-iptv
 #### 4. Start the Server
 
 ```bash
-npm start
+npm run dev
 ```
 
 ---
@@ -221,11 +226,13 @@ npm start
 ### 1. Access Admin Dashboard
 
 Open your browser and navigate to:
+
 ```
 http://localhost:8009/admin
 ```
 
 Or if using Nginx:
+
 ```
 http://localhost/admin
 ```
@@ -233,12 +240,14 @@ http://localhost/admin
 ### 2. Login with Super Admin Credentials
 
 Use the credentials you configured in `.env`:
+
 - **Username:** `your_admin_username` (or `SUPER_ADMIN_USERNAME` value)
 - **Password:** `YourSecurePassword123!` (or `SUPER_ADMIN_PASSWORD` value)
 
 ### 3. Verify Login
 
 After successful login, you should see:
+
 - Admin Dashboard with navigation menu
 - User Management section
 - Channel Management section
@@ -257,9 +266,10 @@ Click "User Management" in the admin dashboard sidebar.
 #### 2. Add New User
 
 Click "Add User" button and fill in:
+
 - **Username:** Unique username (3-50 characters)
 - **Email:** Valid email address
-- **Password:** Minimum 6 characters
+- **Password:** Minimum 8 characters
 - **Role:** Choose "Admin" or "User"
   - **Admin:** Full access to dashboard and all features
   - **User:** Only access to their playlist
@@ -273,6 +283,7 @@ Click "Add User" button and fill in:
 4. Click "Save"
 
 **Note:**
+
 - Admins get access to ALL channels automatically
 - Regular users only get assigned channels
 
@@ -281,6 +292,7 @@ Click "Add User" button and fill in:
 Each user gets a unique 6-character playlist code (e.g., `ABC123`)
 
 Users can access their playlist at:
+
 ```
 http://localhost:8009/api/v1/tv/playlist/ABC123
 ```
@@ -305,6 +317,7 @@ curl -X POST http://localhost:8009/api/v1/auth/login \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -341,6 +354,7 @@ curl -X GET http://localhost:8009/api/v1/users \
 ### 2. Use HTTPS in Production
 
 Update Nginx configuration to enable SSL:
+
 ```bash
 # Place SSL certificates in nginx/ssl/
 # Edit nginx/nginx.conf to enable SSL
@@ -349,20 +363,17 @@ Update Nginx configuration to enable SSL:
 ### 3. Configure CORS Properly
 
 In production, set specific origins:
+
 ```env
 ALLOWED_ORIGINS=https://yourdomain.com,https://admin.yourdomain.com
 ```
 
-### 4. Enable Rate Limiting
+### 4. Rate Limiting
 
-Uncomment rate limiting in `src/server.js`:
-```javascript
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use('/api/', limiter);
-```
+Rate limiting is enabled by default in `backend/src/server.js`:
+
+- General API: 1000 requests per 15 minutes
+- Auth endpoints: 20 requests per 15 minutes
 
 ### 5. Regular Security Updates
 
@@ -401,17 +412,21 @@ docker-compose logs -f api | grep "401\|403\|500"
 **Problem:** Can't login with super admin credentials
 
 **Solution:**
+
 1. Check logs:
+
    ```bash
    docker-compose logs api | grep -i "admin"
    ```
 
 2. Verify environment variables:
+
    ```bash
    docker-compose exec api env | grep SUPER_ADMIN
    ```
 
 3. Manually check database:
+
    ```bash
    docker-compose exec mongodb mongosh firevision-iptv
    db.users.find({role: 'Admin'}).pretty()
@@ -435,6 +450,7 @@ docker-compose logs -f api | grep "401\|403\|500"
 4. **Password hash mismatch** - Force update password
 
 **Fix:**
+
 ```bash
 # Restart all services
 docker-compose restart
@@ -454,9 +470,10 @@ docker-compose exec mongodb mongosh firevision-iptv --eval "db.users.find().pret
 
 **Solution:**
 
-1. Check session duration in `src/routes/auth.js`:
+1. Check session duration in `backend/src/routes/auth.js`:
+
    ```javascript
-   expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+   expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
    ```
 
 2. Extend session duration by modifying the value
@@ -475,16 +492,19 @@ docker-compose exec mongodb mongosh firevision-iptv --eval "db.users.find().pret
 **Solution:**
 
 1. Verify static files are being served:
+
    ```bash
    ls -la public/admin/
    ```
 
 2. Check server logs:
+
    ```bash
    docker-compose logs api
    ```
 
 3. Access directly via port 8009:
+
    ```
    http://localhost:8009/admin
    ```
@@ -500,16 +520,19 @@ docker-compose exec mongodb mongosh firevision-iptv --eval "db.users.find().pret
 **Solution:**
 
 1. Check MongoDB container status:
+
    ```bash
    docker-compose ps mongodb
    ```
 
 2. Verify MongoDB is healthy:
+
    ```bash
    docker-compose exec mongodb mongosh --eval "db.serverStatus()"
    ```
 
 3. Check MongoDB URI in `.env`:
+
    ```env
    MONGODB_URI=mongodb://mongodb:27017/firevision-iptv
    ```
@@ -528,12 +551,14 @@ docker-compose exec mongodb mongosh firevision-iptv --eval "db.users.find().pret
 **Solution:**
 
 1. Change port in `docker-compose.yml`:
+
    ```yaml
    ports:
-     - "8010:3000"  # Change 8009 to 8010
+     - '8010:3000' # Change 8009 to 8010
    ```
 
 2. Or stop conflicting service:
+
    ```bash
    # Find process using port 8009
    lsof -i :8009
@@ -560,15 +585,16 @@ docker-compose exec mongodb mongosh firevision-iptv --eval "db.users.find().pret
 ## Additional Resources
 
 - [API Documentation](./API_DOCUMENTATION.md)
-- [User Management Guide](./docs/user-management.md)
-- [Channel Management Guide](./docs/channel-management.md)
-- [Deployment Guide](./docs/deployment.md)
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
+- [TV Pairing System](./TV_PAIRING_SYSTEM.md)
+- [Architecture](./ARCHITECTURE.md)
 
 ---
 
 ## Support
 
 For issues and questions:
+
 - Check logs: `docker-compose logs -f`
 - Review API documentation
 - Check MongoDB data directly
@@ -576,5 +602,5 @@ For issues and questions:
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2024-11-19
+**Version:** 2.0.0
+**Last Updated:** 2026-03-16

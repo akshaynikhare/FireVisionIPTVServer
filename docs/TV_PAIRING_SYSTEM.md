@@ -3,6 +3,7 @@
 ## Overview
 
 The FireVision IPTV server implements **two distinct pairing methods** for Android TV devices:
+
 1. **Legacy Code-Based Pairing** - Direct channel list code entry
 2. **PIN-Based Pairing** - Modern PIN-flow for easier pairing
 
@@ -46,15 +47,15 @@ This document explains both systems, their architecture, and how TV device infor
    - `SettingsActivity.java` - Allows manual code entry
    - `MainActivity.java` - Fetches and displays channels
 
-2. **Server Routes** (`FireVisionIPTVServer/src/routes/`)
+2. **Server Routes** (`FireVisionIPTVServer/backend/src/routes/`)
    - `tv.js` - TV-specific endpoints (no auth required)
    - `auth.js` - Web dashboard authentication
    - `channels.js` - Channel management
 
-3. **Database Models** (`FireVisionIPTVServer/src/models/`)
-   - `User.js` - User accounts with channel list codes
-   - `PairingRequest.js` - Temporary PIN-based pairing records
-   - `Channel.js` - IPTV channel definitions
+3. **Database Models** (`FireVisionIPTVServer/backend/src/models/`)
+   - `User.ts` - User accounts with channel list codes
+   - `PairingRequest.ts` - Temporary PIN-based pairing records
+   - `Channel.ts` - IPTV channel definitions
 
 ---
 
@@ -74,7 +75,7 @@ The `User` model is the primary entity for TV pairing. Each user has:
   channelListCode: String,    // 6-character unique code (e.g., "5T6FEP")
   isActive: Boolean,          // Account status
   channels: [ObjectId],       // Assigned channel IDs (User role only)
-  
+
   // TV Device Metadata
   metadata: {
     deviceName: String,       // e.g., "Samsung Smart TV"
@@ -82,7 +83,7 @@ The `User` model is the primary entity for TV pairing. Each user has:
     lastPairedDevice: String, // Last paired device name
     pairedAt: Date            // Timestamp of last pairing
   },
-  
+
   lastLogin: Date,
   createdAt: Date,
   updatedAt: Date
@@ -90,6 +91,7 @@ The `User` model is the primary entity for TV pairing. Each user has:
 ```
 
 **Important Notes:**
+
 - `channelListCode` is **generated automatically** when a user is created
 - This code is used by TV devices to identify the user
 - **No separate TV device records** are stored (see [TV Storage](#tv-storage-in-database))
@@ -115,6 +117,7 @@ Temporary pairing records used for PIN-based flow:
 ```
 
 **Important Notes:**
+
 - PINs are **temporary** and expire after 10 minutes (configurable)
 - MongoDB **TTL index** automatically deletes expired records after 1 hour
 - No permanent TV device records are created
@@ -162,6 +165,7 @@ The TV user manually enters a **6-character channel list code** provided by the 
 **POST** `/api/v1/tv/pair`
 
 **Request Body:**
+
 ```json
 {
   "code": "5T6FEP",
@@ -171,6 +175,7 @@ The TV user manually enters a **6-character channel list code** provided by the 
 ```
 
 **Response (Success):**
+
 ```json
 {
   "success": true,
@@ -184,6 +189,7 @@ The TV user manually enters a **6-character channel list code** provided by the 
 ```
 
 **Response (Error):**
+
 ```json
 {
   "success": false,
@@ -194,6 +200,7 @@ The TV user manually enters a **6-character channel list code** provided by the 
 ### Database Changes
 
 When pairing happens:
+
 ```javascript
 // User document is updated
 {
@@ -298,6 +305,7 @@ Modern pairing flow using a **temporary 6-digit PIN** displayed on TV, entered o
 **POST** `/api/v1/tv/pairing/request`
 
 **Request Body:**
+
 ```json
 {
   "deviceName": "Samsung Smart TV",
@@ -306,6 +314,7 @@ Modern pairing flow using a **temporary 6-digit PIN** displayed on TV, entered o
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -321,11 +330,13 @@ Modern pairing flow using a **temporary 6-digit PIN** displayed on TV, entered o
 **GET** `/api/v1/tv/pairing/status/:pin`
 
 **Request:**
+
 ```
 GET /api/v1/tv/pairing/status/842736
 ```
 
 **Response (Pending):**
+
 ```json
 {
   "success": true,
@@ -337,6 +348,7 @@ GET /api/v1/tv/pairing/status/842736
 ```
 
 **Response (Completed):**
+
 ```json
 {
   "success": true,
@@ -350,6 +362,7 @@ GET /api/v1/tv/pairing/status/842736
 ```
 
 **Response (Expired):**
+
 ```json
 {
   "success": false,
@@ -364,11 +377,13 @@ GET /api/v1/tv/pairing/status/842736
 **POST** `/api/v1/tv/pairing/confirm`
 
 **Headers:**
+
 ```
 X-Session-Id: abc123def456...
 ```
 
 **Request Body:**
+
 ```json
 {
   "pin": "842736",
@@ -377,6 +392,7 @@ X-Session-Id: abc123def456...
 ```
 
 **Response (Success):**
+
 ```json
 {
   "success": true,
@@ -394,6 +410,7 @@ X-Session-Id: abc123def456...
 ```
 
 **Response (Error - Invalid PIN):**
+
 ```json
 {
   "success": false,
@@ -402,6 +419,7 @@ X-Session-Id: abc123def456...
 ```
 
 **Response (Error - Not Logged In):**
+
 ```json
 {
   "success": false,
@@ -414,6 +432,7 @@ X-Session-Id: abc123def456...
 #### PairingRequest Document Lifecycle
 
 **Created (Step 2):**
+
 ```javascript
 {
   _id: ObjectId("..."),
@@ -431,6 +450,7 @@ X-Session-Id: abc123def456...
 ```
 
 **Updated (Step 9 - After Confirmation):**
+
 ```javascript
 {
   _id: ObjectId("..."),
@@ -486,29 +506,34 @@ MongoDB TTL index automatically removes documents 1 hour after `expiresAt`.
 ### Why This Design?
 
 #### Pros:
+
 ✅ **Simple Architecture** - One code per user, stored in User model  
 ✅ **No Device Clutter** - Database doesn't accumulate old TV records  
 ✅ **Easy Revocation** - Changing/resetting code unpairs all devices  
-✅ **Stateless for TVs** - TVs don't need accounts, just use the code  
+✅ **Stateless for TVs** - TVs don't need accounts, just use the code
 
 #### Cons:
+
 ❌ **No Multi-Device Tracking** - Can't see list of all paired TVs per user  
 ❌ **Last Device Only** - Only stores info about most recent pairing  
-❌ **No Device Management** - Can't selectively unpair specific TVs  
+❌ **No Device Management** - Can't selectively unpair specific TVs
 
 ### Example: Multiple TVs, One User
 
 **Scenario:**
+
 - User "john_doe" has code "5T6FEP"
 - Pairs TV #1 (Living Room) → `metadata.lastPairedDevice = "Living Room TV"`
 - Pairs TV #2 (Bedroom) → `metadata.lastPairedDevice = "Bedroom TV"` (overwrites)
 
 **Result:**
+
 - Both TVs can use code "5T6FEP" to access channels
 - User document only shows "Bedroom TV" (last pairing)
 - No record of "Living Room TV" exists
 
 **Database State:**
+
 ```javascript
 // Single User document
 {
@@ -527,10 +552,12 @@ MongoDB TTL index automatically removes documents 1 hour after `expiresAt`.
 ### Checking Active TVs
 
 **Current Limitation:**
+
 - Cannot query "how many TVs are actively using code 5T6FEP"
 - `lastLogin` timestamp shows last access, but not per-device
 
 **Workaround:**
+
 - Check server logs for `/api/v1/tv/playlist/5T6FEP` requests
 - Analyze IP addresses and User-Agent strings
 - Use external analytics tools
@@ -566,11 +593,13 @@ To track multiple devices per user, consider:
 ```
 
 **Benefits:**
+
 - Admin can see all paired devices
 - Can revoke individual devices
 - Better analytics and monitoring
 
 **Implementation Needed:**
+
 - TV app generates unique `deviceId` (UUID)
 - Include `deviceId` in all API requests
 - Server updates `devices[]` array on each login
@@ -581,22 +610,22 @@ To track multiple devices per user, consider:
 
 ### TV Endpoints (No Authentication Required)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/tv/playlist/:code` | Get M3U playlist by code |
-| GET | `/api/v1/tv/playlist/:code/json` | Get JSON playlist by code |
-| POST | `/api/v1/tv/pair` | Pair device with code (legacy) |
-| GET | `/api/v1/tv/verify/:code` | Verify code validity |
-| POST | `/api/v1/tv/pairing/request` | Generate PIN for pairing |
-| GET | `/api/v1/tv/pairing/status/:pin` | Check PIN status (polling) |
-| POST | `/api/v1/tv/pairing/confirm` | Confirm pairing (web dashboard) |
+| Method | Endpoint                         | Description                     |
+| ------ | -------------------------------- | ------------------------------- |
+| GET    | `/api/v1/tv/playlist/:code`      | Get M3U playlist by code        |
+| GET    | `/api/v1/tv/playlist/:code/json` | Get JSON playlist by code       |
+| POST   | `/api/v1/tv/pair`                | Pair device with code (legacy)  |
+| GET    | `/api/v1/tv/verify/:code`        | Verify code validity            |
+| POST   | `/api/v1/tv/pairing/request`     | Generate PIN for pairing        |
+| GET    | `/api/v1/tv/pairing/status/:pin` | Check PIN status (polling)      |
+| POST   | `/api/v1/tv/pairing/confirm`     | Confirm pairing (web dashboard) |
 
 ### Authentication Required
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/auth/login` | None | Login to get session |
-| POST | `/api/v1/tv/pairing/confirm` | Session | Confirm PIN pairing |
+| Method | Endpoint                     | Auth    | Description          |
+| ------ | ---------------------------- | ------- | -------------------- |
+| POST   | `/api/v1/auth/login`         | None    | Login to get session |
+| POST   | `/api/v1/tv/pairing/confirm` | Session | Confirm PIN pairing  |
 
 ---
 
@@ -605,11 +634,13 @@ To track multiple devices per user, consider:
 ### 1. Channel List Code Protection
 
 **Security Measure:**
+
 - Codes are **6 characters** (alphanumeric)
 - Possible combinations: **2.2 billion** (36^6)
 - Brute-force impractical
 
 **Recommendations:**
+
 - Use HTTPS to encrypt code transmission
 - Implement rate limiting on `/api/v1/tv/pair` endpoint
 - Monitor for suspicious code verification attempts
@@ -617,11 +648,13 @@ To track multiple devices per user, consider:
 ### 2. PIN Expiry
 
 **Security Measure:**
+
 - PINs expire after **10 minutes** (configurable)
 - Prevents stale PIN abuse
 - TTL index auto-deletes old records
 
 **Configuration:**
+
 ```env
 PAIRING_PIN_EXPIRY_MINUTES=10
 ```
@@ -629,11 +662,13 @@ PAIRING_PIN_EXPIRY_MINUTES=10
 ### 3. Session Validation
 
 **Security Measure:**
+
 - PIN confirmation requires **valid session ID**
 - Session must belong to active user
 - Prevents unauthorized pairing
 
 **Implementation:**
+
 ```javascript
 // Verify session in pairing confirm
 const session = await Session.findOne({ sessionId }).populate('userId');
@@ -645,11 +680,13 @@ if (!session || !session.isValid()) {
 ### 4. No TV Authentication
 
 **Design Decision:**
+
 - TV endpoints do NOT require authentication
 - TVs use channel list code as "password"
 - Simplifies TV app development
 
 **Trade-offs:**
+
 - ✅ Easier for end users (no login on TV)
 - ❌ Anyone with code can access channels
 - ⚠️ Suitable for household use, not enterprise
@@ -657,11 +694,13 @@ if (!session || !session.isValid()) {
 ### 5. IP Logging
 
 **Security Measure:**
+
 - PairingRequest stores IP address
 - Helps identify suspicious activity
 - Can implement IP-based rate limiting
 
 **Example:**
+
 ```javascript
 {
   pin: "842736",
@@ -673,6 +712,7 @@ if (!session || !session.isValid()) {
 ### 6. HTTPS in Production
 
 **Critical:**
+
 ```nginx
 # Nginx config
 server {
@@ -680,7 +720,7 @@ server {
   server_name tv.cadnative.com;
   ssl_certificate /etc/letsencrypt/live/tv.cadnative.com/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/tv.cadnative.com/privkey.pem;
-  
+
   location /api/ {
     proxy_pass http://localhost:8009;
   }
@@ -694,16 +734,19 @@ server {
 ### Problem: TV Can't Generate PIN
 
 **Symptoms:**
+
 - "Connection error" message on TV
 - PairingActivity shows loading spinner indefinitely
 
 **Possible Causes:**
+
 1. Server not running
 2. Wrong server URL in TV settings
 3. Network connectivity issue
 4. Firewall blocking port
 
 **Solutions:**
+
 ```bash
 # 1. Check if server is running
 docker-compose ps
@@ -725,11 +768,14 @@ sudo ufw status
 ### Problem: PIN Expired Before User Confirmed
 
 **Symptoms:**
+
 - Web dashboard shows "PIN has expired" error
 - TV shows expired status
 
 **Solutions:**
+
 1. **Increase expiry time:**
+
    ```env
    # .env file
    PAIRING_PIN_EXPIRY_MINUTES=30
@@ -749,22 +795,26 @@ sudo ufw status
 ### Problem: Pairing Confirmed But TV Not Updating
 
 **Symptoms:**
+
 - Web dashboard shows success
 - TV still shows "Waiting for confirmation..."
 
 **Possible Causes:**
+
 1. TV polling stopped (app backgrounded)
 2. Network dropped on TV
 3. Database write failed
 
 **Solutions:**
+
 1. **Keep TV app in foreground**
    - Ensure PairingActivity is active
    - Don't press Home button
 
 2. **Check MongoDB:**
+
    ```javascript
-   db.pairingrequests.findOne({ pin: "842736" })
+   db.pairingrequests.findOne({ pin: '842736' });
    // Verify status is "completed" and userId is set
    ```
 
@@ -775,12 +825,15 @@ sudo ufw status
 ### Problem: Invalid Code Error
 
 **Symptoms:**
+
 - TV shows "Invalid or inactive channel list code"
 
 **Solutions:**
+
 1. **Verify code in database:**
+
    ```javascript
-   db.users.findOne({ channelListCode: "5T6FEP" })
+   db.users.findOne({ channelListCode: '5T6FEP' });
    // Check if user exists and isActive: true
    ```
 
@@ -790,24 +843,24 @@ sudo ufw status
 
 3. **Verify user is active:**
    ```javascript
-   db.users.updateOne(
-     { channelListCode: "5T6FEP" },
-     { $set: { isActive: true } }
-   )
+   db.users.updateOne({ channelListCode: '5T6FEP' }, { $set: { isActive: true } });
    ```
 
 ### Problem: Multiple Devices Overwriting Metadata
 
 **Symptoms:**
+
 - User pairs multiple TVs
 - Only last device shows in `metadata`
 
 **Explanation:**
+
 - This is **expected behavior**
 - Current design only stores last paired device
 - See [TV Storage in Database](#tv-storage-in-database)
 
 **Solution:**
+
 - Implement multi-device tracking (see Future Enhancement)
 - Or create separate user accounts per TV
 
@@ -817,28 +870,29 @@ sudo ufw status
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEFAULT_TV_CODE` | `5T6FEP` | Default channel list code for testing |
-| `DEFAULT_SERVER_URL` | `https://tv.cadnative.com` | Server base URL |
-| `PAIRING_PIN_EXPIRY_MINUTES` | `10` | Minutes until PIN expires |
-| `PORT` | `8009` | Server port |
-| `MONGODB_URI` | `mongodb://...` | MongoDB connection string |
+| Variable                     | Default                    | Description                           |
+| ---------------------------- | -------------------------- | ------------------------------------- |
+| `DEFAULT_TV_CODE`            | `5T6FEP`                   | Default channel list code for testing |
+| `DEFAULT_SERVER_URL`         | `https://tv.cadnative.com` | Server base URL                       |
+| `PAIRING_PIN_EXPIRY_MINUTES` | `10`                       | Minutes until PIN expires             |
+| `PORT`                       | `8009`                     | Server port                           |
+| `MONGODB_URI`                | `mongodb://...`            | MongoDB connection string             |
 
 ### Android TV App Settings
 
 **SharedPreferences Keys:**
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `server_url` | String | Server base URL (e.g., "https://tv.cadnative.com") |
-| `tv_code` | String | User's channel list code (e.g., "5T6FEP") |
-| `autoload_channel_id` | String | Auto-play channel ID |
-| `autoload_channel_name` | String | Auto-play channel name |
+| Key                     | Type   | Description                                        |
+| ----------------------- | ------ | -------------------------------------------------- |
+| `server_url`            | String | Server base URL (e.g., "https://tv.cadnative.com") |
+| `tv_code`               | String | User's channel list code (e.g., "5T6FEP")          |
+| `autoload_channel_id`   | String | Auto-play channel ID                               |
+| `autoload_channel_name` | String | Auto-play channel name                             |
 
 ### MongoDB Indexes
 
 **Automatic Indexes:**
+
 ```javascript
 // User model
 channelListCode: { unique: true, index: true }
@@ -884,25 +938,24 @@ expiresAt: { index: true, expireAfterSeconds: 3600 }  // TTL index
 
 ### When to Use Each Method
 
-| Scenario | Recommended Method | Reason |
-|----------|-------------------|--------|
-| New user setup | **PIN-based** | Easier, no manual code sharing |
-| Multiple TVs | **Code-based** | Same code works on all devices |
-| Offline setup | **Code-based** | Doesn't require internet during pairing |
-| Tech-savvy users | Either | Both work equally well |
-| Non-tech users | **PIN-based** | More intuitive UX |
+| Scenario         | Recommended Method | Reason                                  |
+| ---------------- | ------------------ | --------------------------------------- |
+| New user setup   | **PIN-based**      | Easier, no manual code sharing          |
+| Multiple TVs     | **Code-based**     | Same code works on all devices          |
+| Offline setup    | **Code-based**     | Doesn't require internet during pairing |
+| Tech-savvy users | Either             | Both work equally well                  |
+| Non-tech users   | **PIN-based**      | More intuitive UX                       |
 
 ---
 
 ## Further Reading
 
-- [PAIRING_SYSTEM_TESTING.md](./PAIRING_SYSTEM_TESTING.md) - Complete testing guide
 - [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Full API reference
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture overview
 - [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Production deployment steps
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** November 27, 2025  
+**Document Version:** 1.1
+**Last Updated:** March 16, 2026
 **Author:** FireVision IPTV Team

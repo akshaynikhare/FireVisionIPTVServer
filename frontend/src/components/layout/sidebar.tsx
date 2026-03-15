@@ -11,6 +11,8 @@ import {
   Smartphone,
   ChevronLeft,
   ChevronRight,
+  Globe,
+  UserCircle,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -25,8 +27,10 @@ const adminLinks = [
 
 const userLinks = [
   { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/user/channels', label: 'Channels', icon: Tv },
-  { href: '/user/devices', label: 'Devices', icon: Smartphone },
+  { href: '/user/channels', label: 'My Channels', icon: Tv },
+  { href: '/user/import', label: 'Import IPTV', icon: Globe },
+  { href: '/user/devices', label: 'Pair Device', icon: Smartphone },
+  { href: '/user/profile', label: 'My Profile', icon: UserCircle },
 ];
 
 export function Sidebar({ role }: { role: 'admin' | 'user' }) {

@@ -1,28 +1,137 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Tv, Users, Smartphone, ChevronRight, Loader2 } from 'lucide-react';
+import api from '@/lib/api';
 
-const metrics = [
-  { label: 'Channels', value: '128', status: 'active', color: 'bg-signal-green' },
-  { label: 'Users', value: '24', status: 'active', color: 'bg-signal-green' },
-  { label: 'Devices', value: '18', status: 'online', color: 'bg-signal-blue' },
-  { label: 'Requests', value: '3', status: 'pending', color: 'bg-primary' },
-];
-
-const activity = [
-  { time: '12:04', event: 'User john.doe authenticated' },
-  { time: '11:58', event: 'Channel #45 stream URL updated' },
-  { time: '11:52', event: 'Device FV-0042 paired successfully' },
-  { time: '11:30', event: 'Bulk import: 12 channels added' },
-  { time: '10:15', event: 'System backup completed' },
-];
+interface DashboardStats {
+  channels: { total: number; active: number; inactive: number };
+  users: { total: number; active: number };
+  sessions: { total: number; active: number };
+  pairings: { total: number; pending: number; completed: number; today: number };
+  activityFeed: Array<{ type: string; message: string; timestamp: string }>;
+}
 
 const quickActions = [
-  { label: 'Add Channel', href: '/admin/channels' },
-  { label: 'Manage Users', href: '/admin/users' },
-  { label: 'Pair Device', href: '/admin/devices' },
-  { label: 'View Statistics', href: '/admin/stats' },
+  { label: 'Manage Channels', href: '/admin/channels', icon: Tv },
+  { label: 'Manage Users', href: '/admin/users', icon: Users },
+  { label: 'Manage Devices', href: '/admin/devices', icon: Smartphone },
 ];
 
+function formatTime(timestamp: string) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(timestamp: string) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await api.get('/admin/stats/detailed');
+        const data = res.data;
+
+        const activityFeed: DashboardStats['activityFeed'] = [];
+
+        if (data.activityFeed) {
+          for (const item of data.activityFeed) {
+            activityFeed.push({
+              type: item.type || 'event',
+              message: item.message || item.event || String(item),
+              timestamp: item.timestamp || item.createdAt || new Date().toISOString(),
+            });
+          }
+        }
+
+        setStats({
+          channels: {
+            total: data.channels?.total ?? 0,
+            active: data.channels?.active ?? 0,
+            inactive: data.channels?.inactive ?? 0,
+          },
+          users: {
+            total: data.users?.total ?? 0,
+            active: data.users?.active ?? 0,
+          },
+          sessions: {
+            total: data.sessions?.total ?? 0,
+            active: data.sessions?.active ?? 0,
+          },
+          pairings: {
+            total: data.pairings?.total ?? 0,
+            pending: data.pairings?.pending ?? 0,
+            completed: data.pairings?.completed ?? 0,
+            today: data.pairings?.today ?? 0,
+          },
+          activityFeed,
+        });
+      } catch {
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
+  const metrics = [
+    {
+      label: 'Channels',
+      value: stats?.channels.total ?? 0,
+      sub: `${stats?.channels.active ?? 0} active`,
+      color: 'bg-signal-green',
+    },
+    {
+      label: 'Users',
+      value: stats?.users.total ?? 0,
+      sub: `${stats?.users.active ?? 0} active`,
+      color: 'bg-signal-green',
+    },
+    {
+      label: 'Sessions',
+      value: stats?.sessions.active ?? 0,
+      sub: `${stats?.sessions.total ?? 0} total`,
+      color: 'bg-signal-blue',
+    },
+    {
+      label: 'Pairings',
+      value: stats?.pairings.today ?? 0,
+      sub: `${stats?.pairings.pending ?? 0} pending`,
+      color: 'bg-primary',
+    },
+  ];
+
   return (
     <div className="space-y-8">
       <div className="animate-fade-up">
@@ -45,9 +154,7 @@ export default function AdminDashboard() {
               <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">{metric.value}</p>
               <div className="flex items-center gap-1.5 mt-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} />
-                <span className="text-[11px] text-muted-foreground capitalize">
-                  {metric.status}
-                </span>
+                <span className="text-[11px] text-muted-foreground">{metric.sub}</span>
               </div>
             </div>
           ))}
@@ -60,14 +167,25 @@ export default function AdminDashboard() {
             Recent Activity
           </p>
           <div className="border border-border divide-y divide-border">
-            {activity.map((item, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3">
-                <span className="text-[11px] tabular-nums text-muted-foreground font-medium w-10 shrink-0">
-                  {item.time}
-                </span>
-                <span className="text-sm truncate">{item.event}</span>
+            {stats?.activityFeed && stats.activityFeed.length > 0 ? (
+              stats.activityFeed.slice(0, 8).map((item, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <div className="shrink-0 text-right w-20">
+                    <span className="text-[11px] tabular-nums text-muted-foreground font-medium">
+                      {formatTime(item.timestamp)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 ml-1.5">
+                      {formatDate(item.timestamp)}
+                    </span>
+                  </div>
+                  <span className="text-sm truncate">{item.message}</span>
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No recent activity
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -76,15 +194,20 @@ export default function AdminDashboard() {
             Quick Actions
           </p>
           <div className="space-y-2">
-            {quickActions.map((action) => (
-              <Link
-                key={action.label}
-                href={action.href}
-                className="block w-full text-left px-4 py-2.5 text-sm border border-border transition-colors hover:bg-secondary hover:border-foreground/10 active:bg-muted"
-              >
-                {action.label}
-              </Link>
-            ))}
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md active:shadow-none active:bg-muted"
+                >
+                  <Icon className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                  <span className="flex-1">{action.label}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -160,6 +160,10 @@ mongoose.connect(MONGODB_URI, {
     const { initializeSuperAdmin } = require('./utils/initSuperAdmin');
     await initializeSuperAdmin();
 
+    // Initialize optional test user (only if TEST_USER_USERNAME is set)
+    const { initializeTestUser } = require('./utils/initTestUser');
+    await initializeTestUser();
+
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);

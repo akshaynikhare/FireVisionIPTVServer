@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8009';
+
 const nextConfig = {
   output: 'standalone',
 
@@ -7,11 +9,11 @@ const nextConfig = {
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://localhost:3000/api/v1/:path*',
+        destination: `${backendUrl}/api/v1/:path*`,
       },
       {
         source: '/health',
-        destination: 'http://localhost:3000/health',
+        destination: `${backendUrl}/health`,
       },
     ];
   },
