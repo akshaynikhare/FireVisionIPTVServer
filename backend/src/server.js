@@ -176,8 +176,7 @@ mongoose.connect(MONGODB_URI, {
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
   await closeRedis();
-  mongoose.connection.close(() => {
-    console.log('MongoDB and Redis connections closed');
-    process.exit(0);
-  });
+  await mongoose.connection.close();
+  console.log('MongoDB and Redis connections closed');
+  process.exit(0);
 });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ExternalLink, Download } from 'lucide-react';
 
 const capabilities = [
   {
@@ -22,7 +23,7 @@ const capabilities = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-background relative flex flex-col">
-      <div className="absolute inset-0 grid-bg opacity-40" />
+      <div className="absolute inset-0 grid-bg opacity-50 dark:opacity-40" />
 
       <div className="relative z-10 border-b border-border">
         <div className="max-w-6xl mx-auto px-6 lg:px-10 h-10 flex items-center justify-between">
@@ -67,7 +68,7 @@ export default function Home() {
               </p>
 
               <div
-                className="flex items-center gap-3 mt-10 animate-fade-up"
+                className="flex flex-wrap items-center gap-3 mt-10 animate-fade-up"
                 style={{ animationDelay: '200ms' }}
               >
                 <Link
@@ -83,6 +84,18 @@ export default function Home() {
                   Register
                 </Link>
               </div>
+
+              <a
+                href="https://github.com/akshaynikhare/FireVisionIPTVServer/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-6 text-sm text-muted-foreground hover:text-primary transition-colors animate-fade-up"
+                style={{ animationDelay: '250ms' }}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                <span>Download Android TV APK</span>
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
             </div>
 
             <div
@@ -125,13 +138,22 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="relative z-10 border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 lg:px-10 h-10 flex items-center">
+      <footer className="relative z-10 border-t border-border">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span className="text-[11px] text-muted-foreground tracking-[0.15em]">
-            FireVision IPTV Server
+            &copy; 2025 FireVision IPTV &bull; Open Source Project
           </span>
+          <a
+            href="https://github.com/akshaynikhare"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground tracking-[0.1em] hover:text-primary transition-colors"
+          >
+            View Source Code &amp; Creator Profile on GitHub
+            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          </a>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
