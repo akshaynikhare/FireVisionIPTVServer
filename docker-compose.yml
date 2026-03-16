@@ -53,6 +53,17 @@ services:
     networks:
       - firevision-network
 
+  # MailHog (email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: firevision-mailhog
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:1025:1025' # SMTP
+      - '127.0.0.1:8025:8025' # Web UI
+    networks:
+      - firevision-network
+
   # Node.js API Server
   api:
     build:
@@ -67,7 +78,6 @@ services:
       PORT: 3000
       MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
       REDIS_URL: redis://redis:6379
-      API_KEY: ${API_KEY:-change-this-secret-key}
       ALLOWED_ORIGINS: '*'
       UPLOAD_DIR: /app/uploads
       # Super Admin Initial Credentials
@@ -78,6 +88,12 @@ services:
       FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
       # Session Configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
+      # Email
+      MAIL_PROVIDER: mailhog
+      MAILHOG_HOST: mailhog
+      MAILHOG_PORT: 1025
+      MAIL_FROM: noreply@firevision.local
+      APP_URL: http://localhost:8009
     volumes:
       - ./backend/src:/app/backend/src
       - ./packages/shared/src:/app/packages/shared/src

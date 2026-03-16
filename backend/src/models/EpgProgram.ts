@@ -1,4 +1,4 @@
-import mongoose, { Schema, Model } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import { IEpgProgramDocument } from '@firevision/shared';
 
 const epgProgramSchema = new Schema<IEpgProgramDocument>(

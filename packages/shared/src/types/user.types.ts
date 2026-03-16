@@ -20,6 +20,11 @@ export interface IUser {
   };
   googleId?: string;
   githubId?: string;
+  emailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

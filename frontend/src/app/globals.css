@@ -27,6 +27,7 @@
     --signal-green: 142 60% 34%;
     --signal-red: 0 55% 48%;
     --signal-blue: 217 65% 48%;
+    --signal-amber: 38 92% 50%;
     --sidebar-background: 40 8% 94%;
     --sidebar-foreground: 240 10% 15%;
     --sidebar-primary: 38 75% 38%;
@@ -60,6 +61,7 @@
     --signal-green: 142 60% 50%;
     --signal-red: 0 55% 55%;
     --signal-blue: 217 70% 60%;
+    --signal-amber: 38 92% 60%;
     --sidebar-background: 240 6% 8%;
     --sidebar-foreground: 40 6% 85%;
     --sidebar-primary: 40 65% 55%;

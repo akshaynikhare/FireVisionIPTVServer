@@ -18,6 +18,7 @@ import {
   Bug,
   Zap,
   Calendar,
+  Activity,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -32,6 +33,7 @@ const adminLinks = [
   { href: '/admin/epg', label: 'EPG Guide', icon: Calendar },
   { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
+  { href: '/admin/activity', label: 'Activity', icon: Activity },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -51,7 +53,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
 
   return (
     <aside
-      className={`relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-200 ${
+      className={`relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width,padding] duration-200 ${
         sidebarCollapsed ? 'w-14' : 'w-52'
       }`}
     >
@@ -65,37 +67,39 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
         )}
       </div>
 
-      <nav className="flex-1 py-3 px-2">
+      <nav className="flex-1 py-3 px-2" aria-label="Main navigation">
         {!sidebarCollapsed && (
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-2 px-2">
             Navigation
           </p>
         )}
-        <div className="space-y-0.5">
+        <ul className="space-y-0.5">
           {links.map((link) => {
             const isActive = pathname === link.href;
             const Icon = link.icon;
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-2.5 py-2 text-[13px] transition-colors ${
-                  sidebarCollapsed ? 'justify-center px-2' : 'px-2.5'
-                } ${
-                  isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-2 border-sidebar-primary font-medium'
-                    : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 border-l-2 border-transparent'
-                }`}
-                title={sidebarCollapsed ? link.label : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className={sidebarCollapsed ? 'sr-only' : 'uppercase tracking-[0.05em]'}>
-                  {link.label}
-                </span>
-              </Link>
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex items-center gap-2.5 py-2 text-[13px] transition-colors ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'px-2.5'
+                  } ${
+                    isActive
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-2 border-sidebar-primary font-medium'
+                      : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 border-l-2 border-transparent'
+                  }`}
+                  title={sidebarCollapsed ? link.label : undefined}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className={sidebarCollapsed ? 'sr-only' : 'uppercase tracking-[0.05em]'}>
+                    {link.label}
+                  </span>
+                </Link>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </nav>
 
       <div className="border-t border-sidebar-border py-2 px-2 space-y-0.5">
@@ -111,6 +115,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
           <Bug className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className={sidebarCollapsed ? 'sr-only' : 'uppercase tracking-[0.05em]'}>
             Raise Issue
+            <span className="sr-only"> (opens in new tab)</span>
           </span>
         </a>
       </div>
@@ -118,7 +123,8 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
       <button
         onClick={toggleSidebar}
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="absolute -right-3 top-[52px] flex h-6 w-6 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={!sidebarCollapsed}
+        className="absolute -right-3 top-[44px] flex h-9 w-9 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
       >
         {sidebarCollapsed ? (
           <ChevronRight className="h-3 w-3" />

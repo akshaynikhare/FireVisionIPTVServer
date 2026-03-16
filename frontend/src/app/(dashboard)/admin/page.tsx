@@ -147,40 +147,45 @@ export default function AdminDashboard() {
       value: stats?.channels.total ?? 0,
       sub: `${stats?.channels.active ?? 0} active`,
       color: 'bg-signal-green',
+      href: '/admin/channels',
     },
     {
       label: 'Users',
       value: stats?.users.total ?? 0,
       sub: `${stats?.users.active ?? 0} active`,
       color: 'bg-signal-green',
+      href: '/admin/users',
     },
     {
       label: 'Sessions',
       value: stats?.sessions.active ?? 0,
       sub: `${stats?.sessions.total ?? 0} total`,
       color: 'bg-signal-blue',
+      href: '/admin/devices',
     },
     {
       label: 'Pairings',
       value: stats?.pairings.today ?? 0,
       sub: `${stats?.pairings.pending ?? 0} pending`,
       color: 'bg-primary',
+      href: '/admin/devices',
     },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="animate-fade-up">
+      <div className="">
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">System status and recent activity</p>
       </div>
 
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border ">
         <div className="grid grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric, i) => (
-            <div
+            <Link
               key={metric.label}
-              className={`p-4 ${i % 2 !== 0 ? 'border-l border-border' : ''} ${
+              href={metric.href}
+              className={`p-4 transition-colors hover:bg-muted/50 ${i % 2 !== 0 ? 'border-l border-border' : ''} ${
                 i >= 2 ? 'border-t border-border lg:border-t-0' : ''
               } ${i === 2 ? 'lg:border-l' : ''}`}
             >
@@ -192,16 +197,13 @@ export default function AdminDashboard() {
                 <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} />
                 <span className="text-[11px] text-muted-foreground">{metric.sub}</span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
 
       {config?.defaultTvCode && (
-        <div
-          className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between animate-fade-up"
-          style={{ animationDelay: '75ms' }}
-        >
+        <div className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between ">
           <div>
             <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
               Default Channel List Code
@@ -222,7 +224,7 @@ export default function AdminDashboard() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card hover:bg-muted transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               Open M3U
             </a>
             <button
@@ -231,12 +233,12 @@ export default function AdminDashboard() {
             >
               {codeCopied ? (
                 <>
-                  <Check className="h-3.5 w-3.5 text-signal-green" />
+                  <Check className="h-3.5 w-3.5 text-signal-green" aria-hidden="true" />
                   Copied
                 </>
               ) : (
                 <>
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                   Copy
                 </>
               )}
@@ -246,28 +248,36 @@ export default function AdminDashboard() {
       )}
 
       <div className="grid lg:grid-cols-[1fr,300px] gap-6">
-        <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <div className="">
+          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Recent Activity
-          </p>
+          </h2>
           <div className="border border-border divide-y divide-border">
             {stats?.activityFeed && stats.activityFeed.length > 0 ? (
-              stats.activityFeed.slice(0, 8).map((item, i) => (
-                <div
-                  key={`${item.type || 'activity'}-${item.timestamp}-${i}`}
-                  className="flex items-center gap-4 px-4 py-3"
-                >
-                  <div className="shrink-0 text-right w-20">
-                    <span className="text-[11px] tabular-nums text-muted-foreground font-medium">
-                      {formatTime(item.timestamp)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60 ml-1.5">
-                      {formatDate(item.timestamp)}
-                    </span>
-                  </div>
-                  <span className="text-sm truncate">{item.message}</span>
-                </div>
-              ))
+              <ul className="divide-y divide-border">
+                {stats.activityFeed.slice(0, 8).map((item, i) => (
+                  <li
+                    key={`${item.type || 'activity'}-${item.timestamp}-${i}`}
+                    className="flex items-center gap-4 px-4 py-3"
+                  >
+                    <div className="shrink-0 text-right w-20">
+                      <time
+                        dateTime={item.timestamp}
+                        className="text-[11px] tabular-nums text-muted-foreground font-medium"
+                      >
+                        {formatTime(item.timestamp)}
+                      </time>
+                      <time
+                        dateTime={item.timestamp}
+                        className="text-[10px] text-muted-foreground/60 ml-1.5"
+                      >
+                        {formatDate(item.timestamp)}
+                      </time>
+                    </div>
+                    <span className="text-sm truncate">{item.message}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No recent activity
@@ -276,10 +286,10 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="animate-fade-up" style={{ animationDelay: '150ms' }}>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <div className="">
+          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Quick Actions
-          </p>
+          </h2>
           <div className="space-y-2">
             {quickActions.map((action) => {
               const Icon = action.icon;
@@ -287,7 +297,7 @@ export default function AdminDashboard() {
                 <Link
                   key={action.label}
                   href={action.href}
-                  className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md active:shadow-none active:bg-muted"
+                  className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium border border-border bg-card transition-colors hover:border-primary/40 active:bg-muted"
                 >
                   <Icon className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
                   <span className="flex-1">{action.label}</span>

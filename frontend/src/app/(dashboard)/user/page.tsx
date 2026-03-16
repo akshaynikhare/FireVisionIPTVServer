@@ -74,14 +74,14 @@ export default function UserDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
+      <div className="">
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Welcome back{user?.username ? `, ${user.username}` : ''}
         </p>
       </div>
 
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border ">
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <div className="p-4">
             <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -91,8 +91,9 @@ export default function UserDashboard() {
               {channelCount !== null ? channelCount : '\u2014'}
             </p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
               <span className="text-[11px] text-muted-foreground">assigned</span>
+              <span className="sr-only">Channels are assigned</span>
             </div>
           </div>
           <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
@@ -105,13 +106,18 @@ export default function UserDashboard() {
             <div className="flex items-center gap-1.5 mt-2">
               {profile?.metadata?.lastPairedDevice ? (
                 <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
                   <span className="text-[11px] text-muted-foreground">paired</span>
+                  <span className="sr-only">Device is paired</span>
                 </>
               ) : (
                 <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
+                    aria-hidden="true"
+                  />
                   <span className="text-[11px] text-muted-foreground">not paired</span>
+                  <span className="sr-only">No device paired</span>
                 </>
               )}
             </div>
@@ -120,18 +126,19 @@ export default function UserDashboard() {
             <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Account</p>
             <p className="text-2xl font-display font-bold mt-1.5">{user?.role || '\u2014'}</p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
               <span className="text-[11px] text-muted-foreground">active</span>
+              <span className="sr-only">Account is active</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Playlist Link */}
-      <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div className="">
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Playlist Link
-        </p>
+        </h2>
         <div className="border border-border p-4">
           {playlistUrl ? (
             <div className="flex items-center gap-3">
@@ -140,6 +147,7 @@ export default function UserDashboard() {
               </code>
               <button
                 onClick={handleCopy}
+                aria-label="Copy to clipboard"
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors shrink-0 hover:bg-muted"
               >
                 {copied ? (
@@ -162,10 +170,10 @@ export default function UserDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="animate-fade-up" style={{ animationDelay: '150ms' }}>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div className="">
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Quick Actions
-        </p>
+        </h2>
         <div className="grid sm:grid-cols-2 gap-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
@@ -173,7 +181,7 @@ export default function UserDashboard() {
               <button
                 key={action.href}
                 onClick={() => router.push(action.href)}
-                className="flex items-center gap-3 border-2 border-border bg-card p-4 text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md group"
+                className="flex items-center gap-3 border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 group"
               >
                 <div className="flex items-center justify-center h-9 w-9 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                   <Icon className="h-4 w-4" />

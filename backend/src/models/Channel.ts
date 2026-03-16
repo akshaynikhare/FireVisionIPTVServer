@@ -55,6 +55,9 @@ const channelSchema = new Schema<IChannelDocument>(
       country: String,
       language: String,
       resolution: String,
+      network: String,
+      website: String,
+      quality: String,
       tags: [String],
       lastTested: Date,
       isWorking: Boolean,
@@ -72,13 +75,17 @@ channelSchema.index({ channelName: 'text' });
 
 // Method to convert to M3U format entry
 channelSchema.methods.toM3U = function (this: IChannelDocument): string {
+  // Escape double quotes in interpolated values to prevent M3U attribute injection
+  const esc = (s: string) => s.replace(/"/g, "'");
+
   let m3uLine = `#EXTINF:-1`;
 
-  if (this.channelId) m3uLine += ` tvg-id="${this.channelId}"`;
+  if (this.channelId) m3uLine += ` tvg-id="${esc(this.channelId)}"`;
   if (this.tvgName || this.channelName)
-    m3uLine += ` tvg-name="${this.tvgName || this.channelName}"`;
-  if (this.tvgLogo || this.channelImg) m3uLine += ` tvg-logo="${this.tvgLogo || this.channelImg}"`;
-  if (this.channelGroup) m3uLine += ` group-title="${this.channelGroup}"`;
+    m3uLine += ` tvg-name="${esc(this.tvgName || this.channelName)}"`;
+  if (this.tvgLogo || this.channelImg)
+    m3uLine += ` tvg-logo="${esc(this.tvgLogo || this.channelImg)}"`;
+  if (this.channelGroup) m3uLine += ` group-title="${esc(this.channelGroup)}"`;
 
   m3uLine += `,${this.channelName}\n${this.channelUrl}`;
 

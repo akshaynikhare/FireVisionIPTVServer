@@ -174,7 +174,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between animate-fade-up">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Users</h1>
           <p className="text-sm text-muted-foreground mt-1">{totalCount} registered users</p>
@@ -197,119 +197,165 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="relative animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search by username, email, or channel code..."
+          aria-label="Search users"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
         />
       </div>
 
-      <div
-        className="border border-border divide-y divide-border animate-fade-up"
-        style={{ animationDelay: '100ms' }}
-      >
-        <div className="hidden lg:grid grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-4 px-4 py-2 bg-muted/50">
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Username
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Email
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Channel Code
-          </span>
-          <ColumnFilter
-            label="Role"
-            options={filterOptions.role}
-            selected={selectedRoles}
-            onChange={setSelectedRoles}
-          />
-          <ColumnFilter
-            label="Status"
-            options={filterOptions.status}
-            selected={selectedStatuses}
-            onChange={setSelectedStatuses}
-          />
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
-            Actions
-          </span>
-        </div>
-        {paginated.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {search ? 'No users match your search' : 'No users yet'}
-          </div>
-        ) : (
-          paginated.map((user) => (
-            <div
-              key={user._id}
-              onClick={() => router.push(`/admin/users/${user._id}`)}
-              className="grid lg:grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-2 lg:gap-4 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50"
+      <div className="overflow-x-auto">
+        <div
+          role="table"
+          aria-label="Users table"
+          className="border border-border divide-y divide-border"
+        >
+          <div
+            role="rowgroup"
+            className="hidden lg:grid grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-4 px-4 py-2 bg-muted/50"
+          >
+            <span
+              role="columnheader"
+              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                {user.role === 'Admin' ? (
-                  <Shield className="h-4 w-4 text-primary shrink-0" />
-                ) : (
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-                <span className="text-sm font-medium truncate">{user.username}</span>
+              Username
+            </span>
+            <span
+              role="columnheader"
+              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+            >
+              Email
+            </span>
+            <span
+              role="columnheader"
+              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+            >
+              Channel Code
+            </span>
+            <span role="columnheader">
+              <ColumnFilter
+                label="Role"
+                options={filterOptions.role}
+                selected={selectedRoles}
+                onChange={setSelectedRoles}
+              />
+            </span>
+            <span role="columnheader">
+              <ColumnFilter
+                label="Status"
+                options={filterOptions.status}
+                selected={selectedStatuses}
+                onChange={setSelectedStatuses}
+              />
+            </span>
+            <span
+              role="columnheader"
+              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+            >
+              Actions
+            </span>
+          </div>
+          <div role="rowgroup">
+            {paginated.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                {search ? 'No users match your search' : 'No users yet'}
               </div>
-              <span className="text-sm text-muted-foreground truncate">{user.email}</span>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <code className="text-xs font-mono bg-muted px-1.5 py-0.5 truncate">
-                  {user.channelListCode || '—'}
-                </code>
-                {user.channelListCode && (
-                  <button
-                    onClick={(e) => handleCopyCode(e, user.channelListCode!)}
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Copy channel code"
-                  >
-                    {copiedCode === user.channelListCode ? (
-                      <Check className="h-3 w-3 text-signal-green" />
+            ) : (
+              paginated.map((user) => (
+                <div
+                  key={user._id}
+                  role="row"
+                  onClick={() => router.push(`/admin/users/${user._id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') router.push(`/admin/users/${user._id}`);
+                  }}
+                  tabIndex={0}
+                  className="grid lg:grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-2 lg:gap-4 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div role="cell" className="flex items-center gap-2.5 min-w-0">
+                    {user.role === 'Admin' ? (
+                      <>
+                        <Shield className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                        <span className="sr-only">Admin</span>
+                      </>
                     ) : (
-                      <Copy className="h-3 w-3" />
+                      <>
+                        <User
+                          className="h-4 w-4 text-muted-foreground shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">User</span>
+                      </>
                     )}
-                  </button>
-                )}
-              </div>
-              <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-                {user.role}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
-                />
-                <span className="text-[11px] text-muted-foreground">
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex items-center justify-end gap-1">
-                <button
-                  onClick={(e) => handleToggleActive(e, user)}
-                  className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={user.isActive ? 'Deactivate user' : 'Activate user'}
-                >
-                  {user.isActive ? (
-                    <ToggleRight className="h-4 w-4 text-signal-green" />
-                  ) : (
-                    <ToggleLeft className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  onClick={(e) => handleDelete(e, user._id, user.username)}
-                  className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label={`Delete ${user.username}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+                    <span className="text-sm font-medium truncate">{user.username}</span>
+                  </div>
+                  <span role="cell" className="text-sm text-muted-foreground truncate">
+                    {user.email}
+                  </span>
+                  <div role="cell" className="flex items-center gap-1.5 min-w-0">
+                    <code className="text-xs font-mono bg-muted px-1.5 py-0.5 truncate">
+                      {user.channelListCode || '—'}
+                    </code>
+                    {user.channelListCode && (
+                      <button
+                        onClick={(e) => handleCopyCode(e, user.channelListCode!)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Copy to clipboard"
+                      >
+                        {copiedCode === user.channelListCode ? (
+                          <Check className="h-3 w-3 text-signal-green" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <span
+                    role="cell"
+                    className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground"
+                  >
+                    {user.role}
+                  </span>
+                  <div role="cell" className="flex items-center gap-1.5">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
+                      aria-hidden="true"
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <span className="sr-only">{user.isActive ? 'Active' : 'Inactive'}</span>
+                  </div>
+                  <div role="cell" className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={(e) => handleToggleActive(e, user)}
+                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={user.isActive ? 'Deactivate user' : 'Activate user'}
+                    >
+                      {user.isActive ? (
+                        <ToggleRight className="h-4 w-4 text-signal-green" />
+                      ) : (
+                        <ToggleLeft className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, user._id, user.username)}
+                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={`Delete ${user.username}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
@@ -344,7 +390,7 @@ export default function UsersPage() {
                 minLength={3}
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 placeholder="username"
               />
             </div>
@@ -361,7 +407,7 @@ export default function UsersPage() {
                 required
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 placeholder="user@example.com"
               />
             </div>
@@ -379,7 +425,7 @@ export default function UsersPage() {
                 minLength={8}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 placeholder="Min. 8 characters"
               />
             </div>
@@ -394,7 +440,7 @@ export default function UsersPage() {
                 id="new-role"
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
-                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
               >
                 <option value="User">User</option>
                 <option value="Admin">Admin</option>
@@ -405,6 +451,7 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={addLoading}
+              aria-busy={addLoading}
               className="inline-flex items-center px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
             >
               {addLoading ? 'Creating...' : 'Create User'}

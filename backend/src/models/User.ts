@@ -76,6 +76,26 @@ const userSchema = new Schema<IUserDocument>(
       sparse: true,
       trim: true,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+    emailVerificationExpires: {
+      type: Date,
+    },
+    passwordResetToken: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+    passwordResetExpires: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

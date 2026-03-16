@@ -2,7 +2,7 @@
 # Usage: make help
 
 APP_NAME    := firevision-iptv
-IMAGE       := cadnative/firevision-iptv-server
+IMAGE       := ghcr.io/akshaynikhare/firevisioniptvserver
 TAG         := latest
 COMPOSE     := docker compose
 COMPOSE_PROD:= docker compose -f docker-compose.production.yml

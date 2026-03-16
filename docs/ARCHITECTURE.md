@@ -94,8 +94,7 @@ FireVisionIPTVServer/
 ├── e2e/                     Playwright E2E tests
 ├── .github/workflows/       CI/CD pipelines
 │   ├── ci.yml                   Lint, typecheck, test, docker-build
-│   ├── docker-publish.yml       Build & push image on tag
-│   └── deploy-portainer.yml     Manual deploy trigger
+│   └── docker-publish.yml       Build, Publish & Deploy
 ├── docker-compose.yml              Dev environment
 ├── docker-compose.production.yml   Production environment
 └── Makefile                 Docker & dev shortcuts
@@ -480,8 +479,7 @@ Cloud Server (Linux)
 ├── Portainer (container management)
 ├── GitHub Actions (CI/CD)
 │   ├── ci.yml                # lint, typecheck, test, docker-build
-│   ├── docker-publish.yml    # build & push image on tag
-│   └── deploy-portainer.yml  # manual deploy trigger
+│   └── docker-publish.yml    # build, publish & deploy
 └── Nginx (reverse proxy, SSL termination)
     ├── TLS via Let's Encrypt
     ├── Proxy pass to API container

@@ -12,7 +12,7 @@ The deployment process consists of two stages:
 ## Prerequisites
 
 - Portainer instance running and accessible
-- Docker Hub account for image storage
+- GHCR (GitHub Container Registry) for image storage
 - GitHub repository with Actions enabled
 - Production server with Docker installed
 
@@ -48,12 +48,9 @@ Go to your GitHub repository → **Settings** → **Secrets and variables** → 
 
 Add the following secrets:
 
-#### Docker Hub Secrets
+#### Container Registry
 
-| Secret Name          | Description             | Example          |
-| -------------------- | ----------------------- | ---------------- |
-| `DOCKERHUB_USERNAME` | Docker Hub username     | `myusername`     |
-| `DOCKERHUB_TOKEN`    | Docker Hub access token | `dckr_pat_xxxxx` |
+Images are published to GHCR (`ghcr.io/akshaynikhare/firevisioniptvserver`). No extra secrets are needed -- the workflow uses `GITHUB_TOKEN` automatically.
 
 #### Portainer Secrets
 
@@ -80,10 +77,10 @@ Add the following secrets:
 | `OAUTH_GOOGLE_CLIENT_SECRET` | Google OAuth secret          | From Google Cloud Console                                          |
 | `OAUTH_GITHUB_CLIENT_ID`     | GitHub OAuth client ID       | From GitHub OAuth Apps                                             |
 | `OAUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth secret          | From GitHub OAuth Apps                                             |
-| `SMTP_HOST`                  | Email server host            | `smtp.gmail.com`                                                   |
-| `SMTP_PORT`                  | Email server port            | `587`                                                              |
-| `SMTP_USER`                  | Email username               | `noreply@example.com`                                              |
-| `SMTP_PASSWORD`              | Email password               | App-specific password                                              |
+| `BREVO_HOST`                 | Brevo SMTP host              | `smtp-relay.brevo.com`                                             |
+| `BREVO_PORT`                 | Brevo SMTP port              | `587`                                                              |
+| `BREVO_USER`                 | Brevo SMTP key               | From Brevo dashboard                                               |
+| `BREVO_PASSWORD`             | Brevo SMTP password          | From Brevo dashboard                                               |
 
 ### 3. Test the Deployment Workflow
 
@@ -98,7 +95,7 @@ git push origin v1.0.0-test
 This will trigger the **Build and Publish** workflow, which will:
 
 - Build the Docker image
-- Push to Docker Hub
+- Push to GHCR (`ghcr.io/akshaynikhare/firevisioniptvserver`)
 - Create a GitHub release
 
 #### Deploy to Portainer
@@ -160,7 +157,7 @@ Expected response:
 
 ### Workflow File
 
-`.github/workflows/deploy-portainer.yml`
+`.github/workflows/docker-publish.yml`
 
 ### Trigger
 
@@ -254,13 +251,13 @@ docker logs firevision-api
 
 ### Image Not Found
 
-**Verify image exists on Docker Hub:**
+**Verify image exists on GHCR:**
 
 ```bash
-docker pull username/firevision-iptv-server:1.0.0
+docker pull ghcr.io/akshaynikhare/firevisioniptvserver:1.0.0
 ```
 
-**Check Docker Hub credentials in GitHub Secrets**
+**GHCR authentication uses GITHUB_TOKEN automatically -- no extra secrets needed.**
 
 ### Environment Variables Not Set
 

@@ -184,7 +184,7 @@ export default function EpgPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between animate-fade-up">
+      <div className="flex items-center justify-between ">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">EPG Guide</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -194,6 +194,7 @@ export default function EpgPage() {
         <button
           onClick={handleRefresh}
           disabled={!!isRefreshing}
+          aria-label="Refresh EPG data"
           className="flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-[0.1em] font-medium border border-border hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -203,7 +204,7 @@ export default function EpgPage() {
 
       {/* Status Banner */}
       {isRefreshing && (
-        <div className="border border-signal-blue/30 bg-signal-blue/5 px-4 py-3 flex items-center gap-3 animate-fade-up">
+        <div className="border border-signal-blue/30 bg-signal-blue/5 px-4 py-3 flex items-center gap-3 ">
           <Loader2 className="h-4 w-4 animate-spin text-signal-blue" />
           <p className="text-sm">
             EPG refresh in progress. Fetching program data from discovered sources...
@@ -212,7 +213,7 @@ export default function EpgPage() {
       )}
 
       {/* Metrics Grid */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border ">
         <div className="grid grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric, i) => {
             const Icon = metric.icon;
@@ -224,7 +225,7 @@ export default function EpgPage() {
                 } ${i === 2 ? 'lg:border-l' : ''}`}
               >
                 <div className="flex items-center gap-1.5">
-                  <Icon className="h-3 w-3 text-muted-foreground" />
+                  <Icon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                   <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
                     {metric.label}
                   </p>
@@ -233,7 +234,7 @@ export default function EpgPage() {
                   {metric.value}
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} aria-hidden="true" />
                   <span className="text-[11px] text-muted-foreground">{metric.sub}</span>
                 </div>
               </div>
@@ -243,7 +244,7 @@ export default function EpgPage() {
       </div>
 
       {/* How it works */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border ">
         <div className="border-b border-border px-4 py-2.5">
           <h2 className="text-xs font-bold uppercase tracking-[0.15em]">How EPG Works</h2>
         </div>
@@ -279,7 +280,7 @@ export default function EpgPage() {
       </div>
 
       {/* Discovered Sources */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+      <div className="border border-border ">
         <div className="border-b border-border px-4 py-2.5 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-[0.15em]">Discovered EPG Sources</h2>
           <button
@@ -314,6 +315,7 @@ export default function EpgPage() {
                     }`}
                   >
                     {source.source}
+                    <span className="sr-only"> source</span>
                   </span>
                   <span className="text-xs font-mono text-muted-foreground truncate">
                     {source.url}

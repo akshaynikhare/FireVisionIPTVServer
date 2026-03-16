@@ -75,7 +75,7 @@ export default function VersionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">App Versions</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage Fire TV application releases</p>
       </div>
@@ -88,10 +88,7 @@ export default function VersionsPage() {
 
       {/* Latest Version Card */}
       {latest && (
-        <div
-          className="border-2 border-primary/30 bg-card animate-fade-up"
-          style={{ animationDelay: '50ms' }}
-        >
+        <div className="border-2 border-primary/30 bg-card">
           <div className="px-5 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium">
               Latest Release
@@ -122,7 +119,7 @@ export default function VersionsPage() {
               <div className="flex items-center gap-2">
                 {latest.isActive !== false && (
                   <span className="flex items-center gap-1.5 text-xs text-signal-green">
-                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
                     Active
                   </span>
                 )}
@@ -174,6 +171,7 @@ export default function VersionsPage() {
                 href={downloadUrl || latest.downloadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`Download APK version ${latest.versionName}`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
               >
                 <Download className="h-4 w-4" />
@@ -185,8 +183,8 @@ export default function VersionsPage() {
       )}
 
       {!latest && !error && (
-        <div className="border border-border bg-card px-6 py-10 text-center animate-fade-up">
-          <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+        <div className="border border-border bg-card px-6 py-10 text-center">
+          <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">No app versions found</p>
           <p className="text-xs text-muted-foreground mt-1">
             Upload an APK or configure GitHub releases to manage versions
@@ -196,11 +194,11 @@ export default function VersionsPage() {
 
       {/* Version History */}
       {versions.length > 1 && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+        <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Version History ({versions.length})
-            </p>
+            </h2>
           </div>
           <div className="divide-y divide-border">
             {versions.map((v) => (

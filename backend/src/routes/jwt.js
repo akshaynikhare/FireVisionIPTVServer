@@ -3,7 +3,12 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
-const { signAccessToken, signRefreshToken, persistRefreshToken, hashToken } = require('../utils/jwtUtil');
+const {
+  signAccessToken,
+  signRefreshToken,
+  persistRefreshToken,
+  hashToken,
+} = require('../utils/jwtUtil');
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 if (!REFRESH_SECRET && process.env.NODE_ENV === 'production') {
@@ -42,8 +47,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        channelListCode: user.channelListCode
-      }
+        channelListCode: user.channelListCode,
+      },
     });
   } catch (e) {
     console.error('JWT login error', e);
@@ -58,10 +63,10 @@ router.post('/refresh', async (req, res) => {
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'refreshToken required' });
     }
-    let payload;
+    let decoded;
     try {
-      payload = jwt.verify(refreshToken, effectiveRefreshSecret);
-    } catch (err) {
+      decoded = jwt.verify(refreshToken, effectiveRefreshSecret);
+    } catch {
       return res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
     const tokenHash = hashToken(refreshToken);
@@ -69,7 +74,7 @@ router.post('/refresh', async (req, res) => {
     if (!tokenDoc || !tokenDoc.isActive()) {
       return res.status(401).json({ success: false, error: 'Refresh token inactive' });
     }
-    const user = await User.findById(payload.sub);
+    const user = await User.findById(decoded.sub);
     if (!user || !user.isActive) {
       return res.status(401).json({ success: false, error: 'User inactive' });
     }
@@ -88,10 +93,9 @@ router.post('/logout', async (req, res) => {
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'refreshToken required' });
     }
-    let payload;
     try {
-      payload = jwt.verify(refreshToken, effectiveRefreshSecret);
-    } catch (err) {
+      jwt.verify(refreshToken, effectiveRefreshSecret);
+    } catch {
       return res.status(200).json({ success: true, message: 'Already invalid' });
     }
     const tokenHash = hashToken(refreshToken);
@@ -130,7 +134,8 @@ router.get('/playlist.m3u', requireJwtAuth, async (req, res) => {
     }
     const m3u = await user.generateUserPlaylist();
     res.setHeader('Content-Type', 'audio/x-mpegurl');
-    res.setHeader('Content-Disposition', `attachment; filename="${user.username}-channels.m3u"`);
+    const safeUsername = user.username.replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeUsername}-channels.m3u"`);
     return res.send(m3u);
   } catch (e) {
     console.error('Channel list m3u error', e);

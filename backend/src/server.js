@@ -10,14 +10,21 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 // Validate required environment variables
 {
-  const required = ['MONGODB_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'SUPER_ADMIN_PASSWORD'];
-  const missing = required.filter(key => !process.env[key]);
+  const required = [
+    'MONGODB_URI',
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'SUPER_ADMIN_PASSWORD',
+  ];
+  const missing = required.filter((key) => !process.env[key]);
   if (missing.length > 0) {
     if (process.env.NODE_ENV === 'production') {
       console.error(`Missing required environment variables: ${missing.join(', ')}`);
       process.exit(1);
     } else {
-      console.warn(`WARNING: Missing environment variables: ${missing.join(', ')} — some features may not work`);
+      console.warn(
+        `WARNING: Missing environment variables: ${missing.join(', ')} — some features may not work`,
+      );
     }
   }
 }
@@ -28,29 +35,35 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const app = express();
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://vjs.zencdn.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://vjs.zencdn.net"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      connectSrc: ["'self'", "https:", "wss:", "blob:", "data:"],
-      fontSrc: ["'self'", "data:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "blob:", "data:", "https:", "http:"],
-      frameSrc: ["'none'"],
-      workerSrc: ["'self'", "blob:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://vjs.zencdn.net'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://vjs.zencdn.net'],
+        imgSrc: ["'self'", 'data:', 'https:', 'http:'],
+        connectSrc: ["'self'", 'https:', 'wss:', 'blob:', 'data:'],
+        fontSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'", 'blob:', 'data:', 'https:', 'http:'],
+        frameSrc: ["'none'"],
+        workerSrc: ["'self'", 'blob:'],
+      },
     },
-  },
-}));
+  }),
+);
 app.use(compression());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-    : (process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000', 'http://localhost:3001']),
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false
+        : ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+  }),
+);
 
 // Cookie parser (needed for OAuth state cookies)
 const cookieParser = require('cookie-parser');
@@ -81,7 +94,19 @@ const authLimiter = rateLimit({
 });
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/register', authLimiter);
+app.use('/api/v1/auth/verify-email', authLimiter);
+app.use('/api/v1/auth/reset-password', authLimiter);
 app.use('/api/v1/jwt/login', authLimiter);
+
+// Stricter rate limit for forgot-password and resend-verification
+const emailActionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/v1/auth/forgot-password', emailActionLimiter);
+app.use('/api/v1/auth/resend-verification', emailActionLimiter);
 
 // Strict rate limiting for TV pairing endpoints (prevent PIN brute-force)
 const pairingLimiter = rateLimit({
@@ -98,14 +123,22 @@ app.use('/api/v1/tv/verify', pairingLimiter);
 
 // Static files for specific vendor packages only (not the entire node_modules tree)
 const vendorAllowList = ['adminlte', 'bootstrap', 'jquery', '@fortawesome'];
-app.use('/vendor', (req, res, next) => {
-  const reqPath = decodeURIComponent(req.path).replace(/\\/g, '/');
-  const topDir = reqPath.split('/').filter(Boolean)[0] || '';
-  if (vendorAllowList.some(pkg => topDir === pkg || (topDir.startsWith('@') && vendorAllowList.includes(topDir)))) {
-    return next();
-  }
-  res.status(404).send('Not found');
-}, express.static(path.join(PROJECT_ROOT, 'node_modules')));
+app.use(
+  '/vendor',
+  (req, res, next) => {
+    const reqPath = decodeURIComponent(req.path).replace(/\\/g, '/');
+    const topDir = reqPath.split('/').filter(Boolean)[0] || '';
+    if (
+      vendorAllowList.some(
+        (pkg) => topDir === pkg || (topDir.startsWith('@') && vendorAllowList.includes(topDir)),
+      )
+    ) {
+      return next();
+    }
+    res.status(404).send('Not found');
+  },
+  express.static(path.join(PROJECT_ROOT, 'node_modules')),
+);
 
 // Static files for admin UI
 app.use('/admin', express.static(path.join(PROJECT_ROOT, 'public/admin')));
@@ -137,23 +170,20 @@ app.use('/api/v1/users', require('./routes/users'));
 app.use('/api/v1/tv', require('./routes/tv'));
 app.use('/api/v1/epg', require('./routes/epg'));
 app.use('/api/v1/config', require('./routes/config'));
+app.use('/api/v1/activity', require('./routes/activity'));
 
 // Initialize Redis (optional - app works without it)
 const { getRedisClient, isRedisReady, closeRedis } = require('./services/redis');
 getRedisClient();
 
-// Health check (minimal info in production to avoid reconnaissance)
+// Health check
 app.get('/health', (req, res) => {
   const healthy = mongoose.connection.readyState === 1;
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'degraded' });
-  }
-  res.json({
+  res.status(healthy ? 200 : 503).json({
     status: healthy ? 'ok' : 'degraded',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+    version: process.env.APP_VERSION || '0.0.0',
     mongodb: healthy ? 'connected' : 'disconnected',
-    redis: isRedisReady() ? 'connected' : 'disconnected'
+    redis: isRedisReady() ? 'connected' : 'disconnected',
   });
 });
 
@@ -161,14 +191,14 @@ app.get('/health', (req, res) => {
 // The static middleware above will handle serving the homepage
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error(err.stack);
   const status = err.status || 500;
   res.status(status).json({
     error: {
       message: status === 500 ? 'Internal Server Error' : err.message,
-      status
-    }
+      status,
+    },
   });
 });
 
@@ -177,8 +207,8 @@ app.use((req, res) => {
   res.status(404).json({
     error: {
       message: 'Route not found',
-      status: 404
-    }
+      status: 404,
+    },
   });
 });
 
@@ -186,12 +216,13 @@ app.use((req, res) => {
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
 const PORT = process.env.PORT || 3000;
 
-mongoose.connect(MONGODB_URI, {
-  maxPoolSize: 10,
-  minPoolSize: 2,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
+mongoose
+  .connect(MONGODB_URI, {
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  })
   .then(async () => {
     console.log('✅ Connected to MongoDB');
 
@@ -220,6 +251,7 @@ mongoose.connect(MONGODB_URI, {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📺 FireVision IPTV Server v1.0.0`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📧 Email provider: ${process.env.MAIL_PROVIDER || 'mailhog'}`);
     });
   })
   .catch((err) => {
@@ -233,7 +265,9 @@ process.on('SIGTERM', async () => {
   try {
     const { epgService } = require('./services/epg-service');
     epgService.stopBackgroundUpdates();
-  } catch (e) { /* ignore if not loaded */ }
+  } catch {
+    /* ignore if not loaded */
+  }
   await closeRedis();
   await mongoose.connection.close();
   console.log('MongoDB and Redis connections closed');

@@ -1,5 +1,8 @@
 # FireVision IPTV Server
 
+[![Build & Deploy](https://github.com/akshaynikhare/FireVisionIPTVServer/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/akshaynikhare/FireVisionIPTVServer/actions/workflows/docker-publish.yml)
+[![Release](https://img.shields.io/github/v/release/akshaynikhare/FireVisionIPTVServer)](https://github.com/akshaynikhare/FireVisionIPTVServer/releases/latest)
+
 Server for FireVision IPTV — manages channel lists, user accounts, device pairing, and Android app updates.
 
 ## Live Deployment
@@ -167,24 +170,46 @@ See [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for full request/resp
 
 ## Deployment
 
-### Automated (GitHub Actions + Portainer)
+### Automated (Tag Push → GHCR → Portainer)
 
-1. Push a git tag to build & publish Docker image:
-   ```bash
-   git tag v1.2.3
-   git push origin v1.2.3
-   ```
-2. Trigger **Deploy to Portainer** workflow from GitHub Actions tab.
+Push a git tag to auto build, publish to GHCR, and deploy to Portainer:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The version tag becomes the app version — no version is stored in the codebase.
 
 ### Required GitHub Secrets
 
-| Category   | Secrets                                                                               |
-| ---------- | ------------------------------------------------------------------------------------- |
-| Docker Hub | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`                                               |
-| Portainer  | `PORTAINER_URL`, `PORTAINER_API_TOKEN`, `PORTAINER_STACK_ID`, `PORTAINER_ENDPOINT_ID` |
-| App        | `MONGODB_URI`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `API_KEY`             |
+| Category  | Secrets                                                    |
+| --------- | ---------------------------------------------------------- |
+| Portainer | `PORTAINER_API_TOKEN`                                      |
+| App       | `JWT_SECRET`, `JWT_REFRESH_SECRET`                         |
+| OAuth     | `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GITHUB_CLIENT_SECRET` |
+| Brevo     | `BREVO_PASSWORD`                                           |
 
-### Manual
+### Required GitHub Variables
+
+| Variable                 | Description             | Default                    |
+| ------------------------ | ----------------------- | -------------------------- |
+| `PORTAINER_URL`          | Portainer instance URL  |                            |
+| `OAUTH_GOOGLE_CLIENT_ID` | Google OAuth client ID  |                            |
+| `OAUTH_GITHUB_CLIENT_ID` | GitHub OAuth client ID  |                            |
+| `BREVO_HOST`             | Brevo SMTP host         | `smtp-relay.brevo.com`     |
+| `BREVO_PORT`             | Brevo SMTP port         | `587`                      |
+| `BREVO_USER`             | Brevo SMTP login        |                            |
+| `MAIL_FROM`              | Sender email address    | `noreply@firevision.local` |
+| `APP_URL`                | Frontend URL for emails | `https://tv.cadnative.com` |
+
+MongoDB and Redis URIs are hardcoded in the compose file (same stack).
+
+### Manual CI
+
+Run the **CI** workflow manually from the GitHub Actions tab (lint, typecheck, tests, Docker build).
+
+### Manual Local Deploy
 
 ```bash
 make build-prod

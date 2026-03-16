@@ -28,7 +28,9 @@ export function StepIndicator({ currentStep, onGoToStep }: StepIndicatorProps) {
                 type="button"
                 disabled={!canNavigate}
                 onClick={() => canNavigate && onGoToStep(i)}
-                className={`h-8 w-8 flex items-center justify-center text-xs font-medium border-2 transition-colors ${
+                aria-label={`Step ${i + 1}: ${step.label}`}
+                aria-current={i === currentStep ? 'step' : undefined}
+                className={`h-10 w-10 flex items-center justify-center text-xs font-medium border-2 transition-colors ${
                   i < currentStep
                     ? 'border-primary bg-primary/10 text-primary'
                     : i === currentStep
@@ -48,6 +50,7 @@ export function StepIndicator({ currentStep, onGoToStep }: StepIndicatorProps) {
             </div>
             {i < STEPS.length - 1 && (
               <div
+                aria-hidden="true"
                 className={`h-0.5 flex-1 mx-2 transition-colors ${
                   i < currentStep ? 'bg-primary' : 'bg-border'
                 }`}

@@ -41,43 +41,39 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-11 items-center justify-between border-b border-border bg-background px-4">
-      <div className="flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse-dot" />
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-          Online
-        </span>
-      </div>
-
+    <header className="flex h-11 items-center justify-end border-b border-border bg-background px-4">
       <div className="flex items-center gap-1">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="relative flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Toggle theme"
+          className="relative flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          aria-pressed={theme === 'dark'}
         >
-          <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-3.5 w-3.5 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+          <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
         </button>
 
         {user && (
           <div className="flex items-center gap-2 px-2 border-l border-border ml-1">
             {profilePic ? (
-              <img src={profilePic} alt="" className="h-6 w-6 rounded-full object-cover" />
+              <img
+                src={profilePic}
+                alt={`${user.username}'s profile picture`}
+                className="h-6 w-6 rounded-full object-cover"
+              />
             ) : (
               <UserCircle className="h-4 w-4 text-muted-foreground" />
             )}
-            <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-              {user.username}
-            </span>
+            <span className="text-xs text-muted-foreground">{user.username}</span>
           </div>
         )}
 
         <button
           onClick={handleLogout}
-          className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Sign out"
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     </header>

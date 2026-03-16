@@ -29,9 +29,18 @@ export default function ConfirmDialog({
       : 'bg-primary text-primary-foreground hover:bg-primary/90';
 
   return (
-    <Modal open={open} onClose={onCancel} title={title}>
+    <Modal
+      open={open}
+      onClose={onCancel}
+      title={title}
+      role="alertdialog"
+      ariaLabelledBy="confirm-dialog-title"
+      ariaDescribedBy="confirm-dialog-desc"
+    >
       <div className="p-5 space-y-5">
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p id="confirm-dialog-desc" className="text-sm text-muted-foreground">
+          {message}
+        </p>
         <div className="flex items-center gap-3">
           <button
             onClick={onConfirm}

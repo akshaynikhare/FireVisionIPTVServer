@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
 
 export interface ColumnFilterProps {
@@ -29,6 +29,7 @@ export default function ColumnFilter({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive = selected.length > 0 && selected.length < options.length;
+  const dropdownId = `filter-dropdown-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
   // Close on outside click
   useEffect(() => {
@@ -60,9 +61,27 @@ export default function ColumnFilter({
     }
   }, [open]);
 
-  const filteredOptions = filterSearch
-    ? options.filter((o) => o.toLowerCase().includes(filterSearch.toLowerCase()))
-    : options;
+  // Close on Escape key
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setFilterSearch('');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleKeyDown]);
+
+  const filteredOptions = useMemo(
+    () =>
+      filterSearch
+        ? options.filter((o) => o.toLowerCase().includes(filterSearch.toLowerCase()))
+        : options,
+    [options, filterSearch],
+  );
 
   function toggleOption(opt: string) {
     if (selected.includes(opt)) {
@@ -92,12 +111,14 @@ export default function ColumnFilter({
           setOpen((prev) => !prev);
           setFilterSearch('');
         }}
-        className={`flex items-center justify-center h-5 w-5 rounded-sm transition-colors ${
+        className={`flex items-center justify-center h-8 w-8 rounded-sm transition-colors ${
           isActive
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground/50 hover:text-muted-foreground'
         }`}
         aria-label={`Filter by ${label}`}
+        aria-expanded={open}
+        aria-controls={dropdownId}
         title={
           isActive ? `Filtered: ${selected.length} of ${options.length}` : `Filter by ${label}`
         }
@@ -108,6 +129,9 @@ export default function ColumnFilter({
       {open && (
         <div
           ref={dropdownRef}
+          id={dropdownId}
+          role="listbox"
+          aria-label={`${label} filter options`}
           className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-w-[280px] bg-card border-2 border-border shadow-lg animate-fade-up"
           style={{ animationDuration: '100ms' }}
         >
@@ -137,7 +161,8 @@ export default function ColumnFilter({
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
                   placeholder="Search..."
-                  className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary"
+                  aria-label={`Search ${label} options`}
+                  className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary"
                   autoFocus
                 />
               </div>
@@ -176,13 +201,15 @@ export default function ColumnFilter({
                 return (
                   <label
                     key={opt}
+                    role="option"
+                    aria-selected={isChecked}
                     className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleOption(opt)}
-                      className="accent-primary h-3.5 w-3.5 shrink-0"
+                      className="accent-primary h-4 w-4 shrink-0"
                     />
                     <span className="text-xs truncate" title={opt}>
                       {opt || '(empty)'}

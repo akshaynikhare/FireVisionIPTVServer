@@ -92,7 +92,7 @@ class IptvOrgCacheService {
 
   async isCacheStale(): Promise<boolean> {
     const meta = await IptvOrgCacheMeta.findOne({ cacheKey: 'iptv-org-main' });
-    if (!meta) return true;
+    if (!meta || !meta.lastRefreshedAt) return true;
     return Date.now() - meta.lastRefreshedAt.getTime() > CACHE_TTL;
   }
 
@@ -137,10 +137,12 @@ class IptvOrgCacheService {
         .split(',')
         .map((c) => c.trim())
         .filter(Boolean);
-      if (cats.length === 1) {
-        query.categories = { $regex: new RegExp(cats[0], 'i') };
-      } else if (cats.length > 1) {
-        query.categories = { $regex: new RegExp(cats.join('|'), 'i') };
+      // Escape each category to prevent ReDoS via user-controlled regex
+      const escaped = cats.map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      if (escaped.length === 1) {
+        query.categories = { $regex: new RegExp(escaped[0], 'i') };
+      } else if (escaped.length > 1) {
+        query.categories = { $regex: new RegExp(escaped.join('|'), 'i') };
       }
     }
 

@@ -277,10 +277,18 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
       <div
         className={
           mini
-            ? 'fixed z-[60] shadow-2xl border border-border bg-card flex flex-col overflow-hidden rounded-lg transition-all duration-300'
+            ? 'fixed z-[60] shadow-2xl border border-border bg-card flex flex-col overflow-hidden rounded-lg transition-[transform,box-shadow] duration-300'
             : 'fixed z-50 inset-0 flex items-center justify-center p-4 pointer-events-none'
         }
-        style={mini ? { width: 360, right: position.right, bottom: position.bottom } : undefined}
+        style={
+          mini
+            ? {
+                width: Math.min(360, typeof window !== 'undefined' ? window.innerWidth - 32 : 360),
+                right: position.right,
+                bottom: position.bottom,
+              }
+            : undefined
+        }
       >
         <div
           className={
@@ -312,7 +320,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 onClick={() => setMini(!mini)}
                 className={
                   mini
-                    ? 'flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
+                    ? 'flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
                     : 'flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
                 }
                 aria-label={mini ? 'Expand' : 'Mini player'}
@@ -329,7 +337,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
               </button>
               <button
                 onClick={onClose}
-                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-6 w-6' : 'h-7 w-7'}`}
+                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-8 w-8' : 'h-9 w-9'}`}
                 aria-label="Close"
                 title="Close"
               >
@@ -373,7 +381,11 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 </span>
               )}
             </div>
-            <span className={`font-medium ${mini ? 'text-[10px]' : 'text-xs'} ${statusColor}`}>
+            <span
+              className={`font-medium ${mini ? 'text-[10px]' : 'text-xs'} ${statusColor}`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {playerError || status}
             </span>
           </div>

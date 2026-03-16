@@ -1,5 +1,7 @@
 FROM node:18-alpine AS builder
 
+ARG APP_VERSION=0.0.0
+
 # Set working directory
 WORKDIR /app
 
@@ -23,6 +25,9 @@ RUN npx tsc --project packages/shared/tsconfig.json && \
 
 # --- Production stage ---
 FROM node:18-alpine
+
+ARG APP_VERSION=0.0.0
+ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 

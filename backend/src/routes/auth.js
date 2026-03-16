@@ -6,6 +6,12 @@ const fs = require('fs').promises;
 const router = express.Router();
 const User = require('../models/User');
 const Session = require('../models/Session');
+const { audit } = require('../services/audit-log');
+const {
+  sendWelcomeEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} = require('../services/email');
 
 // Configure multer for profile picture uploads
 const storage = multer.diskStorage({
@@ -19,15 +25,15 @@ const storage = multer.diskStorage({
     }
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, 'profile-' + req.user.id + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+  },
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
@@ -39,7 +45,7 @@ const upload = multer({
     } else {
       cb(new Error('Only image files (JPEG, PNG, GIF) are allowed'));
     }
-  }
+  },
 });
 
 /**
@@ -53,7 +59,7 @@ const requireAuth = async (req, res, next) => {
     if (!sessionId) {
       return res.status(401).json({
         success: false,
-        error: 'No session ID provided'
+        error: 'No session ID provided',
       });
     }
 
@@ -63,7 +69,7 @@ const requireAuth = async (req, res, next) => {
     if (!session) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid session'
+        error: 'Invalid session',
       });
     }
 
@@ -72,7 +78,7 @@ const requireAuth = async (req, res, next) => {
       await Session.deleteOne({ sessionId });
       return res.status(401).json({
         success: false,
-        error: 'Session expired'
+        error: 'Session expired',
       });
     }
 
@@ -81,7 +87,7 @@ const requireAuth = async (req, res, next) => {
       await Session.deleteOne({ sessionId });
       return res.status(401).json({
         success: false,
-        error: 'User account is inactive'
+        error: 'User account is inactive',
       });
     }
 
@@ -95,7 +101,7 @@ const requireAuth = async (req, res, next) => {
       email: session.userId.email,
       role: session.userId.role,
       channelListCode: session.userId.channelListCode,
-      isActive: session.userId.isActive
+      isActive: session.userId.isActive,
     };
 
     req.sessionId = sessionId;
@@ -105,7 +111,7 @@ const requireAuth = async (req, res, next) => {
     console.error('Auth middleware error:', error);
     return res.status(500).json({
       success: false,
-      error: 'Authentication error'
+      error: 'Authentication error',
     });
   }
 };
@@ -117,14 +123,14 @@ const requireAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Unauthorized',
     });
   }
 
   if (req.user.role !== 'Admin') {
     return res.status(403).json({
       success: false,
-      error: 'Forbidden - Admin access required'
+      error: 'Forbidden - Admin access required',
     });
   }
 
@@ -143,23 +149,20 @@ router.post('/login', async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Username and password are required'
+        error: 'Username and password are required',
       });
     }
 
     // Find user by username or email
     const user = await User.findOne({
-      $or: [
-        { username: username },
-        { email: username }
-      ]
+      $or: [{ username: username }, { email: username }],
     });
 
     if (!user) {
       console.warn(`Failed login attempt: user not found (input: ${username}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials'
+        error: 'Invalid credentials',
       });
     }
 
@@ -168,7 +171,7 @@ router.post('/login', async (req, res) => {
       console.warn(`Failed login attempt: inactive account (${username}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
-        error: 'Account is inactive. Please contact administrator.'
+        error: 'Account is inactive. Please contact administrator.',
       });
     }
 
@@ -179,7 +182,7 @@ router.post('/login', async (req, res) => {
       console.warn(`Failed login attempt: bad password for ${username}, IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials'
+        error: 'Invalid credentials',
       });
     }
 
@@ -199,7 +202,7 @@ router.post('/login', async (req, res) => {
       role: user.role,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       ipAddress,
-      userAgent
+      userAgent,
     });
 
     await session.save();
@@ -207,6 +210,15 @@ router.post('/login', async (req, res) => {
     // Update user's last login
     user.lastLogin = new Date();
     await user.save();
+
+    audit({
+      userId: user._id,
+      action: 'login',
+      resource: 'session',
+      resourceId: sessionId,
+      ipAddress: ipAddress,
+      userAgent,
+    });
 
     res.json({
       success: true,
@@ -218,14 +230,14 @@ router.post('/login', async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         isActive: user.isActive,
-        lastLogin: user.lastLogin
-      }
+        lastLogin: user.lastLogin,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      error: 'Login failed'
+      error: 'Login failed',
     });
   }
 });
@@ -240,15 +252,23 @@ router.post('/logout', requireAuth, async (req, res) => {
     // already validated the session belongs to req.user)
     await Session.deleteOne({ sessionId: req.sessionId, userId: req.user.id });
 
+    audit({
+      userId: req.user.id,
+      action: 'logout',
+      resource: 'session',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
-      message: 'Logged out successfully'
+      message: 'Logged out successfully',
     });
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
       success: false,
-      error: 'Logout failed'
+      error: 'Logout failed',
     });
   }
 });
@@ -264,7 +284,7 @@ router.get('/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -282,14 +302,14 @@ router.get('/me', requireAuth, async (req, res) => {
         channels: user.channels,
         metadata: user.metadata,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }
+        updatedAt: user.updatedAt,
+      },
     });
   } catch (error) {
     console.error('Get user info error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get user information'
+      error: 'Failed to get user information',
     });
   }
 });
@@ -306,21 +326,21 @@ router.post('/change-password', requireAuth, async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        error: 'Current password and new password are required'
+        error: 'Current password and new password are required',
       });
     }
 
     if (newPassword.length < 8) {
       return res.status(400).json({
         success: false,
-        error: 'New password must be at least 8 characters long'
+        error: 'New password must be at least 8 characters long',
       });
     }
 
     if (newPassword.length > 128) {
       return res.status(400).json({
         success: false,
-        error: 'Password must not exceed 128 characters'
+        error: 'Password must not exceed 128 characters',
       });
     }
 
@@ -330,7 +350,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -340,7 +360,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        error: 'Current password is incorrect'
+        error: 'Current password is incorrect',
       });
     }
 
@@ -351,18 +371,27 @@ router.post('/change-password', requireAuth, async (req, res) => {
     // Invalidate all other sessions for this user (force re-login)
     await Session.deleteMany({
       userId: user._id,
-      sessionId: { $ne: req.sessionId }
+      sessionId: { $ne: req.sessionId },
+    });
+
+    audit({
+      userId: req.user.id,
+      action: 'change_password',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: 'Password changed successfully. Other sessions have been logged out.'
+      message: 'Password changed successfully. Other sessions have been logged out.',
     });
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to change password'
+      error: 'Failed to change password',
     });
   }
 });
@@ -381,7 +410,7 @@ router.put('/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -391,7 +420,7 @@ router.put('/me', requireAuth, async (req, res) => {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          error: 'Username already taken'
+          error: 'Username already taken',
         });
       }
       user.username = username;
@@ -403,7 +432,7 @@ router.put('/me', requireAuth, async (req, res) => {
       if (existingEmail) {
         return res.status(400).json({
           success: false,
-          error: 'Email already in use'
+          error: 'Email already in use',
         });
       }
       user.email = email;
@@ -414,13 +443,21 @@ router.put('/me', requireAuth, async (req, res) => {
       if (profilePicture && (profilePicture.includes('..') || path.isAbsolute(profilePicture))) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid profile picture path'
+          error: 'Invalid profile picture path',
         });
       }
       user.profilePicture = profilePicture || null;
     }
 
     await user.save();
+    audit({
+      userId: req.user.id,
+      action: 'update_profile',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
@@ -430,14 +467,14 @@ router.put('/me', requireAuth, async (req, res) => {
         username: user.username,
         email: user.email,
         profilePicture: user.profilePicture,
-        channelListCode: user.channelListCode
-      }
+        channelListCode: user.channelListCode,
+      },
     });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update profile'
+      error: 'Failed to update profile',
     });
   }
 });
@@ -453,7 +490,7 @@ router.post('/regenerate-channel-code', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -461,17 +498,25 @@ router.post('/regenerate-channel-code', requireAuth, async (req, res) => {
     const newCode = await User.generateChannelListCode();
     user.channelListCode = newCode;
     await user.save();
+    audit({
+      userId: req.user.id,
+      action: 'regenerate_channel_code',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
       message: 'Channel list code regenerated successfully',
-      channelListCode: newCode
+      channelListCode: newCode,
     });
   } catch (error) {
     console.error('Regenerate code error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to regenerate channel list code'
+      error: 'Failed to regenerate channel list code',
     });
   }
 });
@@ -483,12 +528,14 @@ router.get('/sessions', requireAuth, async (req, res) => {
   try {
     const sessions = await Session.find({
       userId: req.user.id,
-      expiresAt: { $gt: new Date() }
-    }).select('-__v').sort('-createdAt');
+      expiresAt: { $gt: new Date() },
+    })
+      .select('-__v')
+      .sort('-createdAt');
 
     res.json({
       success: true,
-      sessions: sessions.map(session => ({
+      sessions: sessions.map((session) => ({
         id: session._id,
         sessionId: session.sessionId,
         ipAddress: session.ipAddress,
@@ -496,14 +543,14 @@ router.get('/sessions', requireAuth, async (req, res) => {
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
         lastActivity: session.lastActivity,
-        isCurrent: session.sessionId === req.sessionId
-      }))
+        isCurrent: session.sessionId === req.sessionId,
+      })),
     });
   } catch (error) {
     console.error('Get sessions error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get sessions'
+      error: 'Failed to get sessions',
     });
   }
 });
@@ -518,27 +565,35 @@ router.delete('/sessions/:sessionId', requireAuth, async (req, res) => {
     // Only allow users to revoke their own sessions
     const session = await Session.findOne({
       sessionId,
-      userId: req.user.id
+      userId: req.user.id,
     });
 
     if (!session) {
       return res.status(404).json({
         success: false,
-        error: 'Session not found'
+        error: 'Session not found',
       });
     }
 
     await Session.deleteOne({ sessionId });
+    audit({
+      userId: req.user.id,
+      action: 'revoke_session',
+      resource: 'session',
+      resourceId: sessionId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
-      message: 'Session revoked successfully'
+      message: 'Session revoked successfully',
     });
   } catch (error) {
     console.error('Revoke session error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to revoke session'
+      error: 'Failed to revoke session',
     });
   }
 });
@@ -549,18 +604,26 @@ router.delete('/sessions/:sessionId', requireAuth, async (req, res) => {
 router.post('/cleanup-sessions', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await Session.deleteMany({
-      expiresAt: { $lt: new Date() }
+      expiresAt: { $lt: new Date() },
+    });
+    audit({
+      userId: req.user.id,
+      action: 'cleanup_sessions',
+      resource: 'session',
+      resourceId: `${result.deletedCount} expired`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: `Cleaned up ${result.deletedCount} expired sessions`
+      message: `Cleaned up ${result.deletedCount} expired sessions`,
     });
   } catch (error) {
     console.error('Cleanup sessions error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to cleanup sessions'
+      error: 'Failed to cleanup sessions',
     });
   }
 });
@@ -579,7 +642,7 @@ router.put('/profile', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -589,7 +652,7 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          error: 'Username already taken'
+          error: 'Username already taken',
         });
       }
       user.username = username;
@@ -601,13 +664,21 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          error: 'Email already taken'
+          error: 'Email already taken',
         });
       }
       user.email = email;
     }
 
     await user.save();
+    audit({
+      userId: req.user.id,
+      action: 'update_profile',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
@@ -619,14 +690,14 @@ router.put('/profile', requireAuth, async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         profilePicture: user.profilePicture,
-        isActive: user.isActive
-      }
+        isActive: user.isActive,
+      },
     });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update profile'
+      error: 'Failed to update profile',
     });
   }
 });
@@ -640,7 +711,7 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        error: 'No file uploaded'
+        error: 'No file uploaded',
       });
     }
 
@@ -650,7 +721,7 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
@@ -671,17 +742,25 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
     // Update user with new profile picture path
     user.profilePicture = `/uploads/profiles/${req.file.filename}`;
     await user.save();
+    audit({
+      userId: req.user.id,
+      action: 'upload_profile_picture',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
       message: 'Profile picture uploaded successfully',
-      profilePicture: user.profilePicture
+      profilePicture: user.profilePicture,
     });
   } catch (error) {
     console.error('Upload profile picture error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to upload profile picture'
+      error: 'Failed to upload profile picture',
     });
   }
 });
@@ -697,14 +776,14 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
       });
     }
 
     if (!user.profilePicture) {
       return res.status(400).json({
         success: false,
-        error: 'No profile picture to delete'
+        error: 'No profile picture to delete',
       });
     }
 
@@ -722,16 +801,24 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
     // Remove from user record
     user.profilePicture = null;
     await user.save();
+    audit({
+      userId: req.user.id,
+      action: 'delete_profile_picture',
+      resource: 'user',
+      resourceId: String(req.user.id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
-      message: 'Profile picture deleted successfully'
+      message: 'Profile picture deleted successfully',
     });
   } catch (error) {
     console.error('Delete profile picture error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete profile picture'
+      error: 'Failed to delete profile picture',
     });
   }
 });
@@ -748,7 +835,7 @@ router.post('/register', async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Username, email, and password are required'
+        error: 'Username, email, and password are required',
       });
     }
 
@@ -756,32 +843,23 @@ router.post('/register', async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        error: 'Password must be at least 8 characters long'
+        error: 'Password must be at least 8 characters long',
       });
     }
 
     if (password.length > 128) {
       return res.status(400).json({
         success: false,
-        error: 'Password must not exceed 128 characters'
+        error: 'Password must not exceed 128 characters',
       });
     }
 
-    // Check if username already exists
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
+    // Check if username or email already exists (generic message to prevent enumeration)
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
       return res.status(400).json({
         success: false,
-        error: 'Username already exists'
-      });
-    }
-
-    // Check if email already exists
-    const existingEmail = await User.findOne({ email });
-    if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email already exists'
+        error: 'Username or email already in use',
       });
     }
 
@@ -796,28 +874,53 @@ router.post('/register', async (req, res) => {
       role: 'User',
       channelListCode,
       isActive: true,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
 
     await user.save();
 
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await user.save();
+
+    // Fire-and-forget emails
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+    sendVerificationEmail(email, { username, verificationUrl });
+    sendWelcomeEmail(email, { username });
+
     console.log('New user registered:', username);
+
+    audit({
+      userId: user._id,
+      action: 'register',
+      resource: 'user',
+      resourceId: String(user._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: 'Registration successful. Please check your email to verify your account.',
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
-        channelListCode: user.channelListCode
-      }
+        channelListCode: user.channelListCode,
+        emailVerified: false,
+      },
     });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({
       success: false,
-      error: 'Registration failed'
+      error: 'Registration failed',
     });
   }
 });
@@ -827,16 +930,27 @@ router.post('/register', async (req, res) => {
  */
 router.get('/google', (req, res) => {
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI ||
+    `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
 
   if (!googleClientId || googleClientId === 'your-google-client-id') {
-    return res.status(500).send('Google OAuth is not configured. Please set GOOGLE_CLIENT_ID in environment variables.');
+    return res
+      .status(500)
+      .send(
+        'Google OAuth is not configured. Please set GOOGLE_CLIENT_ID in environment variables.',
+      );
   }
 
   // Generate CSRF state parameter
   const state = crypto.randomBytes(16).toString('hex');
   // Store state in a secure httpOnly cookie for validation in callback
-  res.cookie('oauth_state', state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 10 * 60 * 1000 });
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+  });
 
   const scope = 'openid profile email';
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${state}`;
@@ -864,7 +978,9 @@ router.get('/google/callback', async (req, res) => {
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
     const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
+    const redirectUri =
+      process.env.GOOGLE_REDIRECT_URI ||
+      `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
 
     // Exchange code for tokens
     const axios = require('axios');
@@ -873,20 +989,24 @@ router.get('/google/callback', async (req, res) => {
       client_id: googleClientId,
       client_secret: googleClientSecret,
       redirect_uri: redirectUri,
-      grant_type: 'authorization_code'
+      grant_type: 'authorization_code',
     });
 
     const { access_token } = tokenResponse.data;
 
     // Get user info
     const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${access_token}` }
+      headers: { Authorization: `Bearer ${access_token}` },
     });
 
-    const { email, name, picture } = userInfoResponse.data;
+    const { email, picture } = userInfoResponse.data;
 
     // Find or create user
     let user = await User.findOne({ email });
+
+    if (user && !user.isActive) {
+      return res.redirect('/login?error=account_inactive');
+    }
 
     if (!user) {
       // Generate username from email
@@ -901,7 +1021,8 @@ router.get('/google/callback', async (req, res) => {
         channelListCode,
         profilePicture: picture,
         isActive: true,
-        createdAt: new Date()
+        emailVerified: true,
+        createdAt: new Date(),
       });
 
       await user.save();
@@ -918,7 +1039,7 @@ router.get('/google/callback', async (req, res) => {
       role: user.role,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       ipAddress: req.ip || req.socket?.remoteAddress,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     await session.save();
@@ -932,9 +1053,20 @@ router.get('/google/callback', async (req, res) => {
     const oauthCode = crypto.randomBytes(16).toString('hex');
     // Store mapping: oauthCode -> sessionId (expires in 60 seconds)
     if (!global._oauthCodes) global._oauthCodes = new Map();
-    global._oauthCodes.set(oauthCode, { sessionId, userId: user._id, expiresAt: Date.now() + 60000 });
-    // Clean up expired codes
-    for (const [k, v] of global._oauthCodes) { if (v.expiresAt < Date.now()) global._oauthCodes.delete(k); }
+    // Clean up expired codes and enforce memory cap
+    for (const [k, v] of global._oauthCodes) {
+      if (v.expiresAt < Date.now()) global._oauthCodes.delete(k);
+    }
+    if (global._oauthCodes.size >= 1000) {
+      // Evict oldest entry to prevent unbounded memory growth
+      const firstKey = global._oauthCodes.keys().next().value;
+      if (firstKey) global._oauthCodes.delete(firstKey);
+    }
+    global._oauthCodes.set(oauthCode, {
+      sessionId,
+      userId: user._id,
+      expiresAt: Date.now() + 60000,
+    });
 
     res.redirect(`/login?oauth_code=${oauthCode}`);
   } catch (error) {
@@ -948,15 +1080,26 @@ router.get('/google/callback', async (req, res) => {
  */
 router.get('/github', (req, res) => {
   const githubClientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
-  
+  const redirectUri =
+    process.env.GITHUB_REDIRECT_URI ||
+    `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
+
   if (!githubClientId || githubClientId === 'your-github-client-id') {
-    return res.status(500).send('GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID in environment variables.');
+    return res
+      .status(500)
+      .send(
+        'GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID in environment variables.',
+      );
   }
 
   // Generate CSRF state parameter
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('oauth_state', state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 10 * 60 * 1000 });
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+  });
 
   const scope = 'read:user user:email';
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
@@ -984,37 +1127,48 @@ router.get('/github/callback', async (req, res) => {
 
     const githubClientId = process.env.GITHUB_CLIENT_ID;
     const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
-    const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
+    const redirectUri =
+      process.env.GITHUB_REDIRECT_URI ||
+      `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
 
     // Exchange code for access token
     const axios = require('axios');
-    const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', {
-      client_id: githubClientId,
-      client_secret: githubClientSecret,
-      code,
-      redirect_uri: redirectUri
-    }, {
-      headers: { Accept: 'application/json' }
-    });
+    const tokenResponse = await axios.post(
+      'https://github.com/login/oauth/access_token',
+      {
+        client_id: githubClientId,
+        client_secret: githubClientSecret,
+        code,
+        redirect_uri: redirectUri,
+      },
+      {
+        headers: { Accept: 'application/json' },
+      },
+    );
 
     const { access_token } = tokenResponse.data;
 
     // Get user info
     const userResponse = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${access_token}` }
+      headers: { Authorization: `Bearer ${access_token}` },
     });
 
     const githubUser = userResponse.data;
 
     // Get user emails
     const emailsResponse = await axios.get('https://api.github.com/user/emails', {
-      headers: { Authorization: `Bearer ${access_token}` }
+      headers: { Authorization: `Bearer ${access_token}` },
     });
 
-    const primaryEmail = emailsResponse.data.find(e => e.primary)?.email || emailsResponse.data[0]?.email;
+    const primaryEmail =
+      emailsResponse.data.find((e) => e.primary)?.email || emailsResponse.data[0]?.email;
 
     // Find or create user
     let user = await User.findOne({ email: primaryEmail });
+
+    if (user && !user.isActive) {
+      return res.redirect('/login?error=account_inactive');
+    }
 
     if (!user) {
       const username = githubUser.login + '_' + crypto.randomBytes(2).toString('hex');
@@ -1028,7 +1182,8 @@ router.get('/github/callback', async (req, res) => {
         channelListCode,
         profilePicture: githubUser.avatar_url,
         isActive: true,
-        createdAt: new Date()
+        emailVerified: true,
+        createdAt: new Date(),
       });
 
       await user.save();
@@ -1045,7 +1200,7 @@ router.get('/github/callback', async (req, res) => {
       role: user.role,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       ipAddress: req.ip || req.socket?.remoteAddress,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     await session.save();
@@ -1057,8 +1212,19 @@ router.get('/github/callback', async (req, res) => {
     // Redirect to frontend OAuth callback page with a short-lived one-time code
     const oauthCode = crypto.randomBytes(16).toString('hex');
     if (!global._oauthCodes) global._oauthCodes = new Map();
-    global._oauthCodes.set(oauthCode, { sessionId, userId: user._id, expiresAt: Date.now() + 60000 });
-    for (const [k, v] of global._oauthCodes) { if (v.expiresAt < Date.now()) global._oauthCodes.delete(k); }
+    // Clean up expired codes and enforce memory cap
+    for (const [k, v] of global._oauthCodes) {
+      if (v.expiresAt < Date.now()) global._oauthCodes.delete(k);
+    }
+    if (global._oauthCodes.size >= 1000) {
+      const firstKey = global._oauthCodes.keys().next().value;
+      if (firstKey) global._oauthCodes.delete(firstKey);
+    }
+    global._oauthCodes.set(oauthCode, {
+      sessionId,
+      userId: user._id,
+      expiresAt: Date.now() + 60000,
+    });
 
     res.redirect(`/login?oauth_code=${oauthCode}`);
   } catch (error) {
@@ -1117,6 +1283,196 @@ router.post('/oauth-exchange', async (req, res) => {
   } catch (error) {
     console.error('OAuth exchange error:', error);
     res.status(500).json({ success: false, error: 'Exchange failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Email Verification
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify email address using token from email link
+ */
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, error: 'Token is required' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid or expired verification token' });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    audit({
+      userId: user._id,
+      action: 'verify_email',
+      resource: 'user',
+      resourceId: String(user._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Email verified successfully' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ success: false, error: 'Email verification failed' });
+  }
+});
+
+/**
+ * Resend verification email (requires authentication)
+ */
+router.post('/resend-verification', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ success: false, error: 'Email is already verified' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+    sendVerificationEmail(user.email, { username: user.username, verificationUrl });
+
+    res.json({ success: true, message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ success: false, error: 'Failed to resend verification email' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Password Reset
+// ---------------------------------------------------------------------------
+
+/**
+ * Request a password reset (public, always returns success to prevent enumeration)
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
+
+    // Always respond with success to prevent email enumeration
+    const successResponse = {
+      success: true,
+      message: 'If that email is registered, a password reset link has been sent.',
+    };
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.json(successResponse);
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
+    sendPasswordResetEmail(user.email, { username: user.username, resetUrl });
+
+    res.json(successResponse);
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process password reset request' });
+  }
+});
+
+/**
+ * Reset password using token from email link
+ */
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, error: 'Token is required' });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({ success: false, error: 'New password is required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Password must be at least 8 characters long' });
+    }
+
+    if (newPassword.length > 128) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Password must not exceed 128 characters' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+    }
+
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    // Invalidate all sessions for this user
+    await Session.deleteMany({ userId: user._id });
+
+    audit({
+      userId: user._id,
+      action: 'reset_password',
+      resource: 'user',
+      resourceId: String(user._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully. Please log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, error: 'Password reset failed' });
   }
 });
 
