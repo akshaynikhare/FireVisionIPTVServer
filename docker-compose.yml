@@ -13,7 +13,7 @@ services:
       - mongodb_config:/data/configdb
     # Expose MongoDB to host for local scripts (bind to localhost only for security)
     ports:
-      - "127.0.0.1:27017:27017"
+      - '127.0.0.1:27017:27017'
     networks:
       - firevision-network
     healthcheck:
@@ -22,43 +22,82 @@ services:
       timeout: 5s
       retries: 5
 
-  # Node.js API Server
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: firevision-api
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: firevision-redis
     restart: unless-stopped
     ports:
-      - "8009:3000"
+      - '127.0.0.1:6379:6379'
+    networks:
+      - firevision-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MongoDB Admin UI (mongo-express)
+  mongo-express:
+    image: mongo-express:1.0
+    container_name: firevision-mongo-express
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8081:8081'
     environment:
-      NODE_ENV: production
-      PORT: 3000
-      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
-      API_KEY: ${API_KEY:-change-this-secret-key}
-      ALLOWED_ORIGINS: "*"
-      APK_STORAGE_PATH: /app/apks
-      UPLOAD_DIR: /app/uploads
-      # Super Admin Initial Credentials
-      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-superadmin}
-      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMeNow123!}
-      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
-      FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
-      # Session Configuration
-      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
-    volumes:
-      - ./apks:/app/apks
-      - ./uploads:/app/uploads
-      - ./versions.json:/app/versions.json:ro
-      - ./public:/app/public
-      - ./src:/app/src
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/firevision-iptv
+      ME_CONFIG_BASICAUTH: 'false'
     depends_on:
       mongodb:
         condition: service_healthy
     networks:
       - firevision-network
+
+  # Node.js API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: firevision-api
+    restart: unless-stopped
+    ports:
+      - '8009:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      REDIS_URL: redis://redis:6379
+      API_KEY: ${API_KEY:-change-this-secret-key}
+      ALLOWED_ORIGINS: '*'
+      UPLOAD_DIR: /app/uploads
+      # Super Admin Initial Credentials
+      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-superadmin}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMeNow123!}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
+      SUPER_ADMIN_CHANNEL_LIST_CODE: ${SUPER_ADMIN_CHANNEL_LIST_CODE:-5T6FEP}
+      FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
+      # Session Configuration
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
+    volumes:
+      - ./backend/src:/app/backend/src
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./public:/app/public
+      - ./uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - firevision-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8009/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

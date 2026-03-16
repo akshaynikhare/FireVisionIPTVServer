@@ -254,6 +254,11 @@ function renderChannelsTable(channelsToRender) {
 
             // Load images sequentially
             loadImagesSequentially('#channelsTable');
+
+            // Reload images when page changes (pagination, search, length change)
+            channelsDataTable.on('draw.dt', function() {
+                loadImagesSequentially('#channelsTable');
+            });
         }
     });
 }

@@ -1,27 +1,43 @@
 # FireVision IPTV Server - API Documentation
 
 ## Table of Contents
+
 - [Authentication](#authentication)
+- [JWT Authentication](#jwt-authentication)
+- [Public Signup](#public-signup)
 - [User Management](#user-management)
+- [User Playlist](#user-playlist)
 - [Channel Management](#channel-management)
 - [Admin Operations](#admin-operations)
 - [TV/Playlist](#tvplaylist)
+- [PIN-Based TV Pairing](#pin-based-tv-pairing)
 - [App Version Management](#app-version-management)
+- [Config Endpoints](#config-endpoints)
+- [Proxy Endpoints](#proxy-endpoints)
 
 ---
 
 ## Base URL
+
 ```
 http://localhost:8009/api/v1
 ```
 
 ## Authentication
 
-All authenticated endpoints require the `X-Session-Id` header with a valid session ID obtained from login.
+All authenticated endpoints require either the `X-Session-Id` header with a valid session ID obtained from login, or an `Authorization: Bearer <token>` header with a valid JWT access token.
 
 ### Headers
+
 ```
 X-Session-Id: <session_id>
+Content-Type: application/json
+```
+
+or
+
+```
+Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
@@ -30,11 +46,13 @@ Content-Type: application/json
 ## Authentication Endpoints
 
 ### 1. Login
+
 **POST** `/auth/login`
 
 Authenticate user and create a session.
 
 **Request Body:**
+
 ```json
 {
   "username": "superadmin",
@@ -43,6 +61,7 @@ Authenticate user and create a session.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -52,7 +71,7 @@ Authenticate user and create a session.
     "username": "superadmin",
     "email": "admin@firevision.local",
     "role": "Admin",
-    "playlistCode": "ABC123",
+    "channelListCode": "ABC123",
     "isActive": true,
     "lastLogin": "2024-11-19T10:30:00.000Z"
   }
@@ -60,6 +79,7 @@ Authenticate user and create a session.
 ```
 
 **Error Response (401 Unauthorized):**
+
 ```json
 {
   "success": false,
@@ -70,11 +90,13 @@ Authenticate user and create a session.
 ---
 
 ### 2. Logout
+
 **POST** `/auth/logout`
 
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -85,11 +107,13 @@ Authenticate user and create a session.
 ---
 
 ### 3. Get Current User
+
 **GET** `/auth/me`
 
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -98,7 +122,7 @@ Authenticate user and create a session.
     "username": "superadmin",
     "email": "admin@firevision.local",
     "role": "Admin",
-    "playlistCode": "ABC123",
+    "channelListCode": "ABC123",
     "isActive": true,
     "lastLogin": "2024-11-19T10:30:00.000Z",
     "channels": [],
@@ -112,11 +136,13 @@ Authenticate user and create a session.
 ---
 
 ### 4. Change Password
+
 **POST** `/auth/change-password`
 
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "currentPassword": "OldPassword123!",
@@ -125,6 +151,7 @@ Authenticate user and create a session.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -135,6 +162,7 @@ Authenticate user and create a session.
 ---
 
 ### 5. Get All Sessions
+
 **GET** `/auth/sessions`
 
 Get all active sessions for the current user.
@@ -142,6 +170,7 @@ Get all active sessions for the current user.
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -163,11 +192,13 @@ Get all active sessions for the current user.
 ---
 
 ### 6. Revoke Session
+
 **DELETE** `/auth/sessions/:sessionId`
 
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -177,15 +208,183 @@ Get all active sessions for the current user.
 
 ---
 
+## JWT Authentication
+
+### 1. JWT Login
+
+**POST** `/jwt/login`
+
+Authenticate user and receive JWT access and refresh tokens.
+
+**Request Body:**
+
+```json
+{
+  "username": "user",
+  "password": "pass"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "id": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "username": "user",
+    "role": "User",
+    "channelListCode": "ABC123"
+  }
+}
+```
+
+---
+
+### 2. Refresh Access Token
+
+**POST** `/jwt/refresh`
+
+Exchange a refresh token for a new access token.
+
+**Request Body:**
+
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+---
+
+### 3. JWT Logout
+
+**POST** `/jwt/logout`
+
+Invalidate a refresh token.
+
+**Request Body:**
+
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### 4. Get Current User (JWT)
+
+**GET** `/jwt/me`
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "user": {
+    "id": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "username": "user",
+    "email": "user@example.com",
+    "role": "User",
+    "channelListCode": "ABC123",
+    "isActive": true
+  }
+}
+```
+
+---
+
+### 5. Get Playlist (JWT)
+
+**GET** `/jwt/playlist.m3u`
+
+Returns the authenticated user's M3U playlist.
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Response (200 OK):**
+
+```m3u
+#EXTM3U
+#EXTINF:-1 tvg-id="hbo-hd" tvg-name="HBO HD" tvg-logo="http://example.com/logos/hbo.png" group-title="Movies",HBO HD
+http://example.com/stream/hbo.m3u8
+```
+
+---
+
+## Public Signup
+
+### 1. Register New Account
+
+**POST** `/public/signup`
+
+Create a new user account. Rate limited to 10 requests per hour.
+
+**Auth:** Not required
+
+**Request Body:**
+
+```json
+{
+  "username": "new_user",
+  "email": "newuser@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "success": true,
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "id": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "username": "new_user",
+    "email": "newuser@example.com",
+    "role": "User",
+    "channelListCode": "XYZ789"
+  }
+}
+```
+
+---
+
 ## User Management Endpoints
 
 ### 1. Get All Users
+
 **GET** `/users`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -196,7 +395,7 @@ Get all active sessions for the current user.
       "username": "john_doe",
       "email": "john@example.com",
       "role": "User",
-      "playlistCode": "XYZ789",
+      "channelListCode": "XYZ789",
       "isActive": true,
       "lastLogin": "2024-11-19T09:00:00.000Z",
       "channels": [
@@ -215,12 +414,14 @@ Get all active sessions for the current user.
 ---
 
 ### 2. Create User
+
 **POST** `/users`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "username": "jane_doe",
@@ -232,6 +433,7 @@ Get all active sessions for the current user.
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "success": true,
@@ -241,7 +443,7 @@ Get all active sessions for the current user.
     "username": "jane_doe",
     "email": "jane@example.com",
     "role": "User",
-    "playlistCode": "DEF456",
+    "channelListCode": "DEF456",
     "isActive": true
   }
 }
@@ -250,12 +452,14 @@ Get all active sessions for the current user.
 ---
 
 ### 3. Get User by ID
+
 **GET** `/users/:id`
 
 **Auth Required:** Admin or own profile
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -264,7 +468,7 @@ Get all active sessions for the current user.
     "username": "jane_doe",
     "email": "jane@example.com",
     "role": "User",
-    "playlistCode": "DEF456",
+    "channelListCode": "DEF456",
     "isActive": true,
     "channels": [],
     "lastLogin": null,
@@ -276,12 +480,14 @@ Get all active sessions for the current user.
 ---
 
 ### 4. Update User
+
 **PUT** `/users/:id`
 
 **Auth Required:** Admin or own profile
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "username": "jane_smith",
@@ -295,6 +501,7 @@ Get all active sessions for the current user.
 **Note:** Only admins can change `role` and `isActive` fields.
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -312,12 +519,14 @@ Get all active sessions for the current user.
 ---
 
 ### 5. Delete User
+
 **DELETE** `/users/:id`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -328,6 +537,7 @@ Get all active sessions for the current user.
 ---
 
 ### 6. Assign Channels to User
+
 **POST** `/users/:id/channels`
 
 Replace all user channels with the provided list.
@@ -336,16 +546,15 @@ Replace all user channels with the provided list.
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
-  "channelIds": [
-    "64f7a8b9c1d2e3f4a5b6c7d8",
-    "64f7a8b9c1d2e3f4a5b6c7d9"
-  ]
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8", "64f7a8b9c1d2e3f4a5b6c7d9"]
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -360,6 +569,7 @@ Replace all user channels with the provided list.
 ---
 
 ### 7. Add Channels to User
+
 **POST** `/users/:id/channels/add`
 
 Add channels to user without removing existing ones.
@@ -368,15 +578,15 @@ Add channels to user without removing existing ones.
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
-  "channelIds": [
-    "64f7a8b9c1d2e3f4a5b6c7da"
-  ]
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7da"]
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -392,21 +602,22 @@ Add channels to user without removing existing ones.
 ---
 
 ### 8. Remove Channels from User
+
 **POST** `/users/:id/channels/remove`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
-  "channelIds": [
-    "64f7a8b9c1d2e3f4a5b6c7d8"
-  ]
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8"]
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -422,20 +633,160 @@ Add channels to user without removing existing ones.
 ---
 
 ### 9. Regenerate Playlist Code
+
 **PUT** `/users/:id/regenerate-code`
 
 **Auth Required:** Admin or own profile
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
   "message": "Playlist code regenerated successfully",
   "data": {
-    "playlistCode": "GHI789"
+    "channelListCode": "GHI789"
   }
 }
+```
+
+---
+
+## User Playlist
+
+Endpoints for users to manage their own channel playlists.
+
+### 1. Get My Channels
+
+**GET** `/user-playlist/me/channels`
+
+**Auth Required:** Yes (Session or JWT)
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "count": 5,
+  "data": [
+    {
+      "id": "64f7a8b9c1d2e3f4a5b6c7d8",
+      "channelName": "HBO HD",
+      "channelUrl": "http://example.com/stream/hbo.m3u8",
+      "channelImg": "http://example.com/logos/hbo.png",
+      "channelGroup": "Movies"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Replace My Channels
+
+**PUT** `/user-playlist/me/channels`
+
+Replace all channels in the user's playlist.
+
+**Auth Required:** Yes (Session or JWT)
+
+**Request Body:**
+
+```json
+{
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8", "64f7a8b9c1d2e3f4a5b6c7d9"]
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Channels updated successfully",
+  "data": {
+    "channelsCount": 2
+  }
+}
+```
+
+---
+
+### 3. Add Channels to My Playlist
+
+**POST** `/user-playlist/me/channels/add`
+
+Add channels without removing existing ones.
+
+**Auth Required:** Yes (Session or JWT)
+
+**Request Body:**
+
+```json
+{
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7da"]
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Added 1 channels",
+  "data": {
+    "channelsCount": 6,
+    "addedCount": 1
+  }
+}
+```
+
+---
+
+### 4. Remove Channels from My Playlist
+
+**POST** `/user-playlist/me/channels/remove`
+
+**Auth Required:** Yes (Session or JWT)
+
+**Request Body:**
+
+```json
+{
+  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8"]
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Removed 1 channels",
+  "data": {
+    "channelsCount": 5,
+    "removedCount": 1
+  }
+}
+```
+
+---
+
+### 5. Get My M3U Playlist
+
+**GET** `/user-playlist/me/playlist.m3u`
+
+Returns the authenticated user's channels as an M3U playlist file.
+
+**Auth Required:** Yes (Session or JWT)
+
+**Response (200 OK):**
+
+```m3u
+#EXTM3U
+#EXTINF:-1 tvg-id="hbo-hd" tvg-name="HBO HD" tvg-logo="http://example.com/logos/hbo.png" group-title="Movies",HBO HD
+http://example.com/stream/hbo.m3u8
 ```
 
 ---
@@ -443,11 +794,13 @@ Add channels to user without removing existing ones.
 ## Channel Management Endpoints
 
 ### 1. Get All Channels
+
 **GET** `/channels`
 
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -470,11 +823,13 @@ Add channels to user without removing existing ones.
 ---
 
 ### 2. Get Channels Grouped by Category
+
 **GET** `/channels/grouped`
 
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -494,14 +849,17 @@ Add channels to user without removing existing ones.
 ---
 
 ### 3. Search Channels
+
 **GET** `/channels/search?q=hbo`
 
 **Auth:** Not required
 
 **Query Parameters:**
+
 - `q` (required): Search query
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -521,12 +879,14 @@ Add channels to user without removing existing ones.
 ## Admin Channel Endpoints
 
 ### 1. Get All Channels (Including Inactive)
+
 **GET** `/admin/channels`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -538,12 +898,14 @@ Add channels to user without removing existing ones.
 ---
 
 ### 2. Create Channel
+
 **POST** `/admin/channels`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "channelId": "espn-hd",
@@ -557,6 +919,7 @@ Add channels to user without removing existing ones.
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "success": true,
@@ -571,12 +934,14 @@ Add channels to user without removing existing ones.
 ---
 
 ### 3. Update Channel
+
 **PUT** `/admin/channels/:id`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "channelName": "ESPN HD Updated",
@@ -585,6 +950,7 @@ Add channels to user without removing existing ones.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -599,12 +965,14 @@ Add channels to user without removing existing ones.
 ---
 
 ### 4. Delete Channel
+
 **DELETE** `/admin/channels/:id`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -615,12 +983,14 @@ Add channels to user without removing existing ones.
 ---
 
 ### 5. Import M3U Playlist
+
 **POST** `/admin/channels/import-m3u`
 
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
 **Request Body:**
+
 ```json
 {
   "m3uUrl": "http://example.com/playlist.m3u",
@@ -629,6 +999,7 @@ Add channels to user without removing existing ones.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -644,6 +1015,7 @@ Add channels to user without removing existing ones.
 ## TV/Playlist Endpoints
 
 ### 1. Get Playlist by Code
+
 **GET** `/tv/playlist/:code`
 
 Get M3U playlist for a user by their 6-character playlist code.
@@ -651,6 +1023,7 @@ Get M3U playlist for a user by their 6-character playlist code.
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```m3u
 #EXTM3U
 #EXTINF:-1 tvg-id="hbo-hd" tvg-name="HBO HD" tvg-logo="http://example.com/logos/hbo.png" group-title="Movies",HBO HD
@@ -660,17 +1033,19 @@ http://example.com/stream/hbo.m3u8
 ---
 
 ### 2. Get Playlist as JSON
+
 **GET** `/tv/playlist/:code/json`
 
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
   "user": {
     "username": "john_doe",
-    "playlistCode": "XYZ789"
+    "channelListCode": "XYZ789"
   },
   "channels": [
     {
@@ -685,11 +1060,13 @@ http://example.com/stream/hbo.m3u8
 ---
 
 ### 3. Verify Playlist Code
+
 **GET** `/tv/verify/:code`
 
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -704,27 +1081,147 @@ http://example.com/stream/hbo.m3u8
 ---
 
 ### 4. Pair Device
+
 **POST** `/tv/pair`
 
 **Auth:** Not required
 
 **Request Body:**
+
 ```json
 {
-  "playlistCode": "XYZ789",
+  "code": "XYZ789",
   "deviceName": "Samsung Smart TV",
   "deviceModel": "QN65Q80TAFXZA"
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
   "message": "Device paired successfully",
   "user": {
     "username": "john_doe",
-    "playlistCode": "XYZ789"
+    "channelListCode": "XYZ789"
+  }
+}
+```
+
+---
+
+## PIN-Based TV Pairing
+
+A secure pairing flow where the TV displays a PIN that the user enters on the web dashboard.
+
+### 1. Request Pairing PIN
+
+**POST** `/tv/pairing/request`
+
+TV generates a PIN to display on screen. The user then enters this PIN on the web dashboard.
+
+**Auth:** Not required
+
+**Request Body:**
+
+```json
+{
+  "deviceName": "Samsung TV",
+  "deviceModel": "QN65"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "pin": "842736",
+  "expiresAt": "2026-03-16T10:10:00.000Z",
+  "expiryMinutes": 10,
+  "message": "Enter this PIN on the web dashboard to pair your device"
+}
+```
+
+---
+
+### 2. Check Pairing Status
+
+**GET** `/tv/pairing/status/:pin`
+
+TV polls this endpoint to check whether the user has confirmed pairing.
+
+**Auth:** Not required
+
+**Response (200 OK) - Pending:**
+
+```json
+{
+  "success": true,
+  "status": "pending",
+  "message": "Waiting for user to confirm pairing"
+}
+```
+
+**Response (200 OK) - Completed:**
+
+```json
+{
+  "success": true,
+  "status": "completed",
+  "user": {
+    "username": "john_doe",
+    "channelListCode": "5T6FEP",
+    "role": "User"
+  }
+}
+```
+
+**Response (410 Gone) - Expired:**
+
+```json
+{
+  "success": false,
+  "status": "expired",
+  "message": "Pairing PIN has expired"
+}
+```
+
+---
+
+### 3. Confirm Pairing
+
+**POST** `/tv/pairing/confirm`
+
+Web dashboard confirms the pairing by submitting the PIN.
+
+**Auth Required:** Yes
+**Headers:** `X-Session-Id: <session_id>`
+
+**Request Body:**
+
+```json
+{
+  "pin": "842736",
+  "sessionId": "abc123..."
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Device paired successfully",
+  "device": {
+    "name": "Samsung TV",
+    "model": "QN65"
+  },
+  "user": {
+    "username": "john_doe",
+    "channelListCode": "5T6FEP",
+    "role": "User"
   }
 }
 ```
@@ -734,45 +1231,53 @@ http://example.com/stream/hbo.m3u8
 ## App Version Management
 
 ### 1. Check for Updates
+
 **GET** `/app/version?currentVersion=100`
 
 **Auth:** Not required
 
 **Query Parameters:**
+
 - `currentVersion` (required): Current app version code
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
   "updateAvailable": true,
-  "latestVersion": {
-    "versionName": "1.2.0",
-    "versionCode": 120,
-    "downloadUrl": "http://localhost:8009/apks/firevision-v1.2.0.apk",
-    "releaseNotes": "Bug fixes and improvements",
-    "isMandatory": false,
-    "apkFileSize": 25600000
-  }
+  "latestVersion": "v1.5",
+  "latestVersionCode": 5,
+  "currentVersion": 100,
+  "isMandatory": false,
+  "releaseNotes": "Bug fixes and improvements",
+  "downloadUrl": "https://github.com/akshaynikhare/FireVisionIPTV/releases/download/v1.5/app-release.apk",
+  "minCompatibleVersion": 1
 }
 ```
 
 ---
 
 ### 2. Get Latest Version
+
 **GET** `/app/latest`
 
 **Auth:** Not required
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
-  "version": {
-    "versionName": "1.2.0",
-    "versionCode": 120,
-    "downloadUrl": "http://localhost:8009/apks/firevision-v1.2.0.apk",
-    "releaseNotes": "Bug fixes and improvements"
+  "data": {
+    "versionName": "v1.5",
+    "versionCode": 5,
+    "releaseNotes": "Bug fixes and improvements",
+    "apkFileName": "app-release.apk",
+    "apkFileSize": 25600000,
+    "downloadUrl": "https://github.com/.../app-release.apk",
+    "isMandatory": false,
+    "releasedAt": "2026-01-15T10:00:00.000Z"
   }
 }
 ```
@@ -780,41 +1285,147 @@ http://example.com/stream/hbo.m3u8
 ---
 
 ### 3. Download Latest APK
+
 **GET** `/app/apk`
 
 **Auth:** Not required
 
-Downloads the latest APK file.
+Redirects to the latest APK download URL on GitHub Releases.
 
 ---
 
-### 4. Upload New APK (Admin)
-**POST** `/admin/app/upload`
+### 4. Get Download URL
 
-**Auth Required:** Admin only
-**Headers:** `X-Session-Id: <session_id>`
+**GET** `/app/download-url`
 
-**Content-Type:** `multipart/form-data`
+Returns the download URL as JSON instead of redirecting.
 
-**Form Data:**
-- `apk`: APK file
-- `versionName`: Version name (e.g., "1.2.0")
-- `versionCode`: Version code (e.g., 120)
-- `releaseNotes`: Release notes
-- `isMandatory`: Boolean (optional)
+**Auth:** Not required
 
-**Response (201 Created):**
+**Response (200 OK):**
+
 ```json
 {
   "success": true,
-  "message": "APK uploaded successfully",
-  "version": {
-    "versionName": "1.2.0",
-    "versionCode": 120,
-    "downloadUrl": "http://localhost:8009/apks/firevision-v1.2.0.apk"
+  "downloadUrl": "https://github.com/akshaynikhare/FireVisionIPTV/releases/download/v1.5/app-release.apk"
+}
+```
+
+---
+
+### 5. Get Version History
+
+**GET** `/app/versions`
+
+Returns version history. Versions are managed via GitHub Releases.
+
+**Auth:** Not required
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "versionName": "v1.5",
+      "versionCode": 5,
+      "releaseNotes": "Bug fixes and improvements",
+      "downloadUrl": "https://github.com/.../app-release.apk",
+      "releasedAt": "2026-01-15T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## Config Endpoints
+
+### 1. Get Default Configuration
+
+**GET** `/config/defaults`
+
+Returns default configuration values for client applications.
+
+**Auth:** Not required
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "defaultTvCode": "5T6FEP",
+    "defaultServerUrl": "https://tv.cadnative.com",
+    "pairingPinExpiryMinutes": 10,
+    "appName": "FireVision IPTV",
+    "version": "1.0.0"
   }
 }
 ```
+
+---
+
+### 2. Get Server Info
+
+**GET** `/config/info`
+
+Returns server name, version, and available features.
+
+**Auth:** Not required
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "name": "FireVision IPTV Server",
+    "version": "1.0.0",
+    "features": {
+      "publicSignup": true,
+      "pinPairing": true,
+      "jwtAuth": true
+    }
+  }
+}
+```
+
+---
+
+## Proxy Endpoints
+
+### 1. Image Proxy
+
+**GET** `/image-proxy?url=<encoded_url>`
+
+Proxies and caches channel logo images. Cached with a 24-hour TTL.
+
+**Auth:** Not required
+
+**Query Parameters:**
+
+- `url` (required): URL-encoded image URL
+
+**Response:** Proxied image with appropriate content-type headers.
+
+---
+
+### 2. Stream Proxy
+
+**GET** `/stream-proxy?url=<encoded_url>`
+
+Proxies HLS and other media streams with CORS headers.
+
+**Auth Required:** Yes
+**Headers:** `X-Session-Id: <session_id>`
+
+**Query Parameters:**
+
+- `url` (required): URL-encoded stream URL
+
+**Response:** Proxied stream content with CORS headers.
 
 ---
 
@@ -830,19 +1441,22 @@ All error responses follow this format:
 ```
 
 **Common HTTP Status Codes:**
+
 - `200 OK`: Successful request
 - `201 Created`: Resource created successfully
 - `400 Bad Request`: Invalid request data
 - `401 Unauthorized`: Authentication required or failed
 - `403 Forbidden`: Insufficient permissions
 - `404 Not Found`: Resource not found
+- `410 Gone`: Resource expired (e.g., pairing PIN)
+- `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
 
 ---
 
 ## Rate Limiting
 
-Currently disabled. Can be enabled in production by uncommenting rate limiting middleware in `server.js`.
+Rate limiting is enabled: 1000 requests per 15 minutes for general API endpoints, 20 requests per 15 minutes for auth endpoints (`/auth/login`, `/auth/register`, `/jwt/login`).
 
 ---
 
@@ -860,11 +1474,11 @@ Currently disabled. Can be enabled in production by uncommenting rate limiting m
 
 1. Always use HTTPS in production
 2. Change default super admin credentials before deployment
-3. Use strong, unique values for `API_KEY` and `SESSION_SECRET`
+3. Use strong, unique values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `SUPER_ADMIN_PASSWORD`
 4. Enable rate limiting in production
 5. Configure CORS `ALLOWED_ORIGINS` properly
 6. Never commit `.env` file to version control
-7. Regularly rotate session secrets and API keys
+7. Regularly rotate JWT secrets and credentials
 
 ---
 
@@ -879,5 +1493,5 @@ Currently disabled. Can be enabled in production by uncommenting rate limiting m
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2024-11-19
+**Version:** 2.0.0
+**Last Updated:** 2026-03-16

@@ -1,0 +1,339 @@
+const express = require('express');
+const router = express.Router();
+const Channel = require('../models/Channel');
+const { requireAuth, requireAdmin } = require('./auth');
+const {
+  externalSourceCacheService,
+} = require('../services/external-source-cache');
+
+router.use(requireAuth);
+
+// Middleware: admin-only for destructive/administrative operations
+const adminOnly = requireAdmin;
+
+// ─── Helper: map DB doc to frontend shape ────────────────────
+function mapToFrontendShape(ch, source) {
+  return {
+    _uid: String(ch._id),
+    channelId: ch.channelId,
+    channelName: ch.channelName,
+    channelUrl: ch.streamUrl,
+    tvgLogo: ch.tvgLogo || '',
+    groupTitle: ch.groupTitle || 'Uncategorized',
+    country: ch.country || '',
+    source,
+    summary: ch.summary || '',
+    codec: ch.codec || undefined,
+    bitrate: ch.bitrate || undefined,
+    language: ch.language || undefined,
+    votes: ch.votes != null ? ch.votes : undefined,
+    homepage: ch.homepage || undefined,
+    liveness: ch.liveness
+      ? {
+          status: ch.liveness.status,
+          lastCheckedAt: ch.liveness.lastCheckedAt,
+          responseTimeMs: ch.liveness.responseTimeMs,
+          error: ch.liveness.error,
+        }
+      : undefined,
+  };
+}
+
+// ─── Pluto TV ──────────────────────────────────────────────
+
+router.get('/pluto-tv/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getPlutoRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('Pluto TV regions error:', error.message);
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to fetch Pluto TV regions' });
+  }
+});
+
+router.get('/pluto-tv/channels', async (req, res) => {
+  try {
+    const country = (req.query.country || 'us').toLowerCase();
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels(
+      'pluto-tv',
+      country,
+      { status },
+    );
+    const data = channels.map((ch) => mapToFrontendShape(ch, 'pluto-tv'));
+    res.json({ success: true, data, fromCache: true });
+  } catch (error) {
+    console.error('Pluto TV fetch error:', error.message);
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to fetch Pluto TV channels' });
+  }
+});
+
+// ─── Samsung TV Plus ───────────────────────────────────────
+
+router.get('/samsung-tv-plus/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getSamsungRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('Samsung TV Plus regions error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Samsung TV Plus regions',
+    });
+  }
+});
+
+router.get('/samsung-tv-plus/channels', async (req, res) => {
+  try {
+    const country = (req.query.country || 'us').toLowerCase();
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels(
+      'samsung-tv-plus',
+      country,
+      { status },
+    );
+    const data = channels.map((ch) =>
+      mapToFrontendShape(ch, 'samsung-tv-plus'),
+    );
+    res.json({ success: true, data, fromCache: true });
+  } catch (error) {
+    console.error('Samsung TV Plus fetch error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Samsung TV Plus channels',
+    });
+  }
+});
+
+// ─── Liveness Endpoints ────────────────────────────────────
+
+router.post('/check-liveness', adminOnly, async (req, res) => {
+  try {
+    const { source, region } = req.body;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
+
+    // Fire and forget
+    externalSourceCacheService
+      .runBatchLivenessCheck(source, region)
+      .catch((err) =>
+        console.error('[ext-cache] Batch liveness error:', err.message),
+      );
+
+    res.json({
+      success: true,
+      message: `Batch liveness check started for ${source}:${region}`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+router.post('/check-liveness/:docId', adminOnly, async (req, res) => {
+  try {
+    const result = await externalSourceCacheService.checkSingleStream(
+      req.params.docId,
+    );
+    if (!result)
+      return res
+        .status(404)
+        .json({ success: false, error: 'Channel not found' });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+router.get('/liveness-status', async (req, res) => {
+  try {
+    const { source, region } = req.query;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
+    const meta = await externalSourceCacheService.getCacheMeta(source, region);
+    res.json({
+      success: true,
+      data: {
+        livenessStats: meta?.livenessStats || { alive: 0, dead: 0, unknown: 0 },
+        livenessCheckInProgress: meta?.livenessCheckInProgress || false,
+        lastLivenessCheckAt: meta?.lastLivenessCheckAt || null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+router.post('/refresh-cache', adminOnly, async (req, res) => {
+  try {
+    const { source, region } = req.body;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
+    const result = await externalSourceCacheService.refreshRegion(
+      source,
+      region,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// ─── Import to System ──────────────────────────────────────
+router.post('/import', adminOnly, async (req, res) => {
+  try {
+    const { channels, replaceExisting } = req.body;
+    if (!channels || !Array.isArray(channels) || channels.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'No channels provided' });
+    }
+
+    if (replaceExisting) {
+      await Channel.deleteMany({});
+    }
+
+    const docs = channels.map((ch) => ({
+      channelName: ch.channelName,
+      channelUrl: ch.channelUrl,
+      tvgLogo: ch.tvgLogo || '',
+      tvgName: ch.tvgName || ch.channelName || '',
+      channelGroup: ch.groupTitle || ch.channelGroup || 'Imported',
+      channelId: ch.channelId || '',
+      metadata: {
+        country: (ch.country || '').toLowerCase(),
+        source: ch.source || '',
+      },
+    }));
+
+    const result = await Channel.insertMany(docs, { ordered: false }).catch(
+      (err) => {
+        if (err.insertedDocs) return err.insertedDocs;
+        throw err;
+      },
+    );
+
+    const count = Array.isArray(result) ? result.length : 0;
+    res.json({
+      success: true,
+      message: `Imported ${count} channels to system`,
+      importedCount: count,
+    });
+  } catch (error) {
+    console.error('External sources import error:', error.message);
+    res
+      .status(500)
+      .json({ success: false, error: 'Import failed' });
+  }
+});
+
+// ─── Import to User Playlist ─────────────────────────────
+router.post('/import-user', async (req, res) => {
+  try {
+    const { channels } = req.body;
+    const userId = req.user.id;
+
+    if (!channels || !Array.isArray(channels) || channels.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Channels array is required' });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, error: 'User not found' });
+    }
+
+    const existingChannelIds = new Set(
+      user.channels.map((id) => id.toString()),
+    );
+    const channelIdsToAdd = [];
+
+    for (const ch of channels) {
+      try {
+        let existingChannel = await Channel.findOne({
+          channelUrl: ch.channelUrl,
+        });
+
+        if (existingChannel) {
+          const channelIdStr = existingChannel._id.toString();
+          if (!existingChannelIds.has(channelIdStr)) {
+            channelIdsToAdd.push(existingChannel._id);
+            existingChannelIds.add(channelIdStr);
+          }
+        } else {
+          const newChannel = new Channel({
+            channelId:
+              ch.channelId ||
+              `ext_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            channelName: ch.channelName,
+            channelUrl: ch.channelUrl,
+            channelImg: ch.tvgLogo || '',
+            tvgLogo: ch.tvgLogo || '',
+            channelGroup: ch.groupTitle || 'Imported',
+            tvgName: ch.channelName || '',
+            metadata: {
+              country: ch.country || '',
+              language: ch.language || '',
+            },
+          });
+
+          await newChannel.save();
+          channelIdsToAdd.push(newChannel._id);
+          existingChannelIds.add(newChannel._id.toString());
+        }
+      } catch (error) {
+        console.error(
+          'Error processing channel:',
+          ch.channelName,
+          error.message,
+        );
+      }
+    }
+
+    if (channelIdsToAdd.length > 0) {
+      user.channels.push(...channelIdsToAdd);
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      addedCount: channelIdsToAdd.length,
+      totalChannels: user.channels.length,
+      message: `Added ${channelIdsToAdd.length} channels to your list`,
+    });
+  } catch (error) {
+    console.error('Error importing external channels for user:', error);
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to import channels' });
+  }
+});
+
+// ─── Clear Cache ───────────────────────────────────────────
+router.post('/clear-cache', adminOnly, async (req, res) => {
+  try {
+    const { source, region } = req.body || {};
+    await externalSourceCacheService.clearCache(source, region);
+    res.json({ success: true, message: 'Cache cleared' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+module.exports = router;

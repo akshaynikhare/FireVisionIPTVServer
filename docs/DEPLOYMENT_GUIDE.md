@@ -20,12 +20,14 @@ This guide covers the complete deployment process for the FireVision IPTV server
 ### Step 1: Provision a Linux Cloud Server
 
 **Recommended Specs:**
+
 - **OS**: Ubuntu 22.04 LTS
 - **RAM**: 2GB minimum, 4GB recommended
-- **Storage**: 20GB minimum, 50GB+ for APK storage
+- **Storage**: 20GB minimum
 - **CPU**: 2 vCPUs minimum
 
 **Popular Cloud Providers:**
+
 - DigitalOcean: $12/month (2GB RAM, 2 vCPUs)
 - AWS EC2: t3.small instance
 - Google Cloud: e2-small instance
@@ -69,6 +71,7 @@ exit
 ### Step 3: Upload Server Files
 
 **Option A: Using Git**
+
 ```bash
 cd /opt
 sudo mkdir firevision-iptv
@@ -79,6 +82,7 @@ cd FireVisionIPTVServer
 ```
 
 **Option B: Using SCP**
+
 ```bash
 # From your local machine
 cd /path/to/FireVision__IPTV
@@ -103,6 +107,7 @@ scp -r FireVisionIPTVServer firevision@YOUR_SERVER_IP:/opt/firevision-iptv/
 4. Wait 5-15 minutes for DNS propagation
 
 Verify:
+
 ```bash
 dig tv.cadnative.com
 # or
@@ -141,6 +146,7 @@ nano nginx/nginx.conf
 ```
 
 Uncomment the SSL section (around line 30-40):
+
 ```nginx
 # Uncomment this block:
 server {
@@ -175,26 +181,27 @@ cd /opt/firevision-iptv/FireVisionIPTVServer
 # Create environment file
 cp .env.example .env
 
-# Generate a secure API key
-openssl rand -hex 32
-
 # Edit .env file
 nano .env
 ```
 
 Configure the following:
+
 ```env
 PORT=3000
 NODE_ENV=production
 MONGODB_URI=mongodb://mongodb:27017/firevision-iptv
 
-# IMPORTANT: Use the generated secure key
-API_KEY=<paste-your-generated-secure-key-here>
+# IMPORTANT: Generate secure secrets
+JWT_ACCESS_SECRET=<generate-with-openssl-rand-hex-32>
+JWT_REFRESH_SECRET=<generate-with-openssl-rand-hex-32>
+SUPER_ADMIN_PASSWORD=YourSecurePassword123!
 
-ALLOWED_ORIGINS=*
-APK_STORAGE_PATH=./apks
-UPLOAD_DIR=./uploads
-MAX_FILE_SIZE=104857600
+ALLOWED_ORIGINS=https://tv.cadnative.com
+
+# App updates (GitHub Releases)
+APP_GITHUB_OWNER=akshaynikhare
+APP_GITHUB_REPO=FireVisionIPTV
 ```
 
 Save with `Ctrl+X`, then `Y`, then `Enter`.
@@ -223,9 +230,6 @@ sudo ufw status
 
 ```bash
 cd /opt/firevision-iptv/FireVisionIPTVServer
-
-# Create necessary directories
-mkdir -p apks uploads
 
 # Start services
 docker-compose up -d
@@ -271,6 +275,7 @@ sudo nano /etc/systemd/system/firevision-iptv.service
 ```
 
 Paste:
+
 ```ini
 [Unit]
 Description=FireVision IPTV Server
@@ -292,6 +297,7 @@ WantedBy=multi-user.target
 ```
 
 Enable service:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable firevision-iptv
@@ -327,7 +333,7 @@ M3U_CONTENT=$(cat /path/to/playlist.m3u)
 # Send to server
 curl -X POST https://tv.cadnative.com/api/v1/admin/channels/import-m3u \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-Session-Id: YOUR_SESSION_ID" \
   -d "{\"m3uContent\": $(jq -Rs . /path/to/playlist.m3u), \"clearExisting\": false}"
 ```
 
@@ -337,7 +343,7 @@ curl -X POST https://tv.cadnative.com/api/v1/admin/channels/import-m3u \
 # Add a single channel
 curl -X POST https://tv.cadnative.com/api/v1/admin/channels \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-Session-Id: YOUR_SESSION_ID" \
   -d '{
     "channelId": "cnn_news",
     "channelName": "CNN International",
@@ -365,10 +371,11 @@ curl https://tv.cadnative.com/api/v1/channels | jq '.data[0:5]'
 ### Managing Channels
 
 **Add New Channel:**
+
 ```bash
 curl -X POST https://tv.cadnative.com/api/v1/admin/channels \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-Session-Id: YOUR_SESSION_ID" \
   -d '{
     "channelId": "new_channel",
     "channelName": "New Channel",
@@ -378,10 +385,11 @@ curl -X POST https://tv.cadnative.com/api/v1/admin/channels \
 ```
 
 **Update Channel:**
+
 ```bash
 curl -X PUT https://tv.cadnative.com/api/v1/admin/channels/CHANNEL_ID \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-Session-Id: YOUR_SESSION_ID" \
   -d '{
     "channelName": "Updated Name",
     "channelUrl": "https://new-url..."
@@ -389,21 +397,17 @@ curl -X PUT https://tv.cadnative.com/api/v1/admin/channels/CHANNEL_ID \
 ```
 
 **Delete Channel:**
+
 ```bash
 curl -X DELETE https://tv.cadnative.com/api/v1/admin/channels/CHANNEL_ID \
-  -H "X-API-Key: YOUR_API_KEY"
+  -H "X-Session-Id: YOUR_SESSION_ID"
 ```
 
-### Uploading App Updates
+### App Updates
 
-```bash
-curl -X POST https://tv.cadnative.com/api/v1/admin/app/upload \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -F "apk=@app-release.apk" \
-  -F "versionName=1.4" \
-  -F "versionCode=2" \
-  -F "releaseNotes=What's new in this version"
-```
+App updates are managed via GitHub Releases. When you publish a new release with an APK asset on the `FireVisionIPTV` GitHub repository, the server automatically serves it to Android apps via `GET /api/v1/app/version`.
+
+See [PORTAINER_DEPLOYMENT.md](./PORTAINER_DEPLOYMENT.md) for the full CI/CD deployment guide using GitHub Actions + Portainer.
 
 ### Monitoring
 
@@ -415,6 +419,7 @@ sudo nano /usr/local/bin/firevision-health-check.sh
 ```
 
 Add:
+
 ```bash
 #!/bin/bash
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://tv.cadnative.com/health)
@@ -428,6 +433,7 @@ fi
 ```
 
 Make executable and add to cron:
+
 ```bash
 sudo chmod +x /usr/local/bin/firevision-health-check.sh
 sudo crontab -e
@@ -444,6 +450,7 @@ nano /home/firevision/backup-firevision.sh
 ```
 
 Add:
+
 ```bash
 #!/bin/bash
 BACKUP_DIR="/home/firevision/backups"
@@ -455,9 +462,6 @@ mkdir -p $BACKUP_DIR
 docker-compose -f /opt/firevision-iptv/FireVisionIPTVServer/docker-compose.yml \
     exec -T mongodb mongodump --db=firevision-iptv --archive > $BACKUP_DIR/mongodb-$DATE.archive
 
-# Backup APKs
-tar -czf $BACKUP_DIR/apks-$DATE.tar.gz -C /opt/firevision-iptv/FireVisionIPTVServer apks/
-
 # Delete old backups (keep 7 days)
 find $BACKUP_DIR -type f -mtime +7 -delete
 
@@ -465,6 +469,7 @@ echo "Backup completed: $DATE"
 ```
 
 Make executable and schedule:
+
 ```bash
 chmod +x /home/firevision/backup-firevision.sh
 crontab -e
@@ -502,10 +507,12 @@ docker-compose exec api env | grep MONGODB
 
 ### APK Download Failing
 
-1. Check APK file exists: `ls -lh apks/`
-2. Verify file permissions: `chmod 644 apks/*.apk`
-3. Check nginx configuration for `/apks/` route
-4. Verify disk space: `df -h`
+APK downloads are served from GitHub Releases. If downloads fail:
+
+1. Check GitHub release has an APK asset: visit the GitHub Releases page
+2. Verify `APP_GITHUB_OWNER` and `APP_GITHUB_REPO` env vars are set correctly
+3. Check server logs for GitHub API errors: `docker-compose logs -f api`
+4. If using `APP_GITHUB_TOKEN`, verify the token is still valid
 
 ---
 
@@ -517,7 +524,7 @@ docker-compose exec api env | grep MONGODB
 - [ ] Auto-restart service is enabled
 - [ ] SSL auto-renewal is configured
 - [ ] Channels are imported and visible via API
-- [ ] APK is uploaded and download works
+- [ ] GitHub Release has APK asset and app update endpoint works
 - [ ] Health endpoint responds correctly
 - [ ] Monitoring is set up
 - [ ] Backups are configured
@@ -527,6 +534,7 @@ docker-compose exec api env | grep MONGODB
 ## Support
 
 For issues:
+
 - Check logs: `docker-compose logs -f`
 - Restart services: `docker-compose restart`
 - Contact: support@cadnative.com

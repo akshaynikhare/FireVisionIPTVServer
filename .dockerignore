@@ -1,0 +1,25 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Build outputs
+backend/dist
+frontend/.next
+frontend/out
+coverage
+
+# Development
+.husky
+.vscode
+.kiro
+e2e
+playwright-report
+test-results
+
+# OS
+.DS_Store
+Thumbs.db

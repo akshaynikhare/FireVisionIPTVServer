@@ -96,13 +96,31 @@ window.AdminCore = (function() {
                 return;
             }
 
+            // Timeout to prevent stalling if image never loads or errors
+            let settled = false;
+            const timeout = setTimeout(function() {
+                if (!settled) {
+                    settled = true;
+                    img.src = window.DEFAULT_LOGO || '';
+                    container.classList.add('loaded');
+                    currentIndex++;
+                    loadNextImage();
+                }
+            }, 8000);
+
             img.onload = function() {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
                 container.classList.add('loaded');
                 currentIndex++;
                 setTimeout(loadNextImage, 50);
             };
 
             img.onerror = function() {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
                 img.src = window.DEFAULT_LOGO || '';
                 container.classList.add('loaded');
                 currentIndex++;
