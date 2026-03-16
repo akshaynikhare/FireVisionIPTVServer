@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Globe, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
+import { proxyImageUrl } from '@/lib/image-proxy';
 
 interface Playlist {
   id: string;
@@ -15,11 +16,12 @@ interface Playlist {
 interface EnrichedChannel {
   channelId: string;
   channelName: string;
-  streamUrl: string;
+  channelUrl: string;
   channelCategories?: string[];
-  channelLanguageNames?: string[];
+  languages?: string[];
   tvgLogo?: string;
   groupTitle?: string;
+  country?: string;
 }
 
 export default function ImportPage() {
@@ -81,7 +83,7 @@ export default function ImportPage() {
       .filter((c) => selectedIds.has(c.channelId || c.channelName))
       .map((c) => ({
         channelName: c.channelName,
-        channelUrl: c.streamUrl,
+        channelUrl: c.channelUrl,
         tvgLogo: c.tvgLogo || '',
         channelGroup: c.groupTitle || c.channelCategories?.[0] || 'Imported',
       }));
@@ -223,7 +225,7 @@ export default function ImportPage() {
                   />
                   {ch.tvgLogo ? (
                     <img
-                      src={ch.tvgLogo}
+                      src={proxyImageUrl(ch.tvgLogo)}
                       alt=""
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                     />

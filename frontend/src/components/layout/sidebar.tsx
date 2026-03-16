@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Globe,
   UserCircle,
+  Package,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -21,6 +22,8 @@ const adminLinks = [
   { href: '/admin/channels', label: 'Channels', icon: Tv },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/devices', label: 'Devices', icon: Smartphone },
+  { href: '/admin/import', label: 'Import IPTV', icon: Globe },
+  { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];

@@ -1,7 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Copy, Check, RefreshCw, Shield, LogOut, Monitor } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Loader2,
+  Copy,
+  Check,
+  RefreshCw,
+  Shield,
+  LogOut,
+  Monitor,
+  Upload,
+  Trash2,
+  UserCircle,
+} from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -43,6 +54,11 @@ export default function ProfilePage() {
   const [editEmail, setEditEmail] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Profile picture
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPic, setUploadingPic] = useState(false);
+  const [picMsg, setPicMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Change password
   const [showPwForm, setShowPwForm] = useState(false);
@@ -166,6 +182,41 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleUploadPicture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPic(true);
+    setPicMsg(null);
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+      const res = await api.post('/auth/profile-picture', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const picUrl = res.data.profilePicture || res.data.data?.profilePicture;
+      if (picUrl) {
+        setProfile((prev) => (prev ? { ...prev, profilePicture: picUrl } : prev));
+      }
+      setPicMsg({ type: 'success', text: 'Profile picture updated' });
+    } catch {
+      setPicMsg({ type: 'error', text: 'Failed to upload picture' });
+    } finally {
+      setUploadingPic(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  async function handleDeletePicture() {
+    if (!confirm('Remove your profile picture?')) return;
+    try {
+      await api.delete('/auth/profile-picture');
+      setProfile((prev) => (prev ? { ...prev, profilePicture: undefined } : prev));
+      setPicMsg({ type: 'success', text: 'Profile picture removed' });
+    } catch {
+      setPicMsg({ type: 'error', text: 'Failed to remove picture' });
+    }
+  }
+
   function handleCopyCode() {
     if (!profile?.channelListCode) return;
     navigator.clipboard.writeText(profile.channelListCode);
@@ -205,8 +256,70 @@ export default function ProfilePage() {
         <p className="text-sm text-muted-foreground mt-1">Manage your account and security</p>
       </div>
 
-      {/* Profile Info */}
+      {/* Profile Picture */}
       <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+        <div className="px-4 py-2 bg-muted/50 border-b border-border">
+          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            Profile Picture
+          </p>
+        </div>
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-4">
+            {profile.profilePicture ? (
+              <img
+                src={
+                  profile.profilePicture.startsWith('/')
+                    ? `/api/v1${profile.profilePicture}`
+                    : profile.profilePicture
+                }
+                alt="Profile"
+                className="h-16 w-16 rounded-full object-cover border-2 border-border"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center border-2 border-border">
+                <UserCircle className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif"
+                onChange={handleUploadPicture}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPic}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors disabled:opacity-50"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {uploadingPic ? 'Uploading...' : 'Upload'}
+              </button>
+              {profile.profilePicture && (
+                <button
+                  onClick={handleDeletePicture}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-destructive hover:border-destructive/20 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, or GIF. Max 5 MB.</p>
+          {picMsg && (
+            <div
+              className={`mt-3 px-4 py-2.5 text-sm border ${picMsg.type === 'success' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
+            >
+              {picMsg.text}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Profile Info */}
+      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Account Details
@@ -331,7 +444,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Channel List Code */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
           <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel List Code
@@ -373,7 +486,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Change Password */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+      <div className="border border-border animate-fade-up" style={{ animationDelay: '200ms' }}>
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Password
@@ -468,7 +581,7 @@ export default function ProfilePage() {
 
       {/* Active Sessions */}
       {sessions.length > 0 && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '200ms' }}>
+        <div className="border border-border animate-fade-up" style={{ animationDelay: '250ms' }}>
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
             <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Active Sessions ({sessions.length})

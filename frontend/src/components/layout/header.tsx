@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LogOut, Moon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LogOut, Moon, Sun, UserCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/store/auth-store';
 import api from '@/lib/api';
@@ -10,6 +11,24 @@ export function Header() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuthStore();
+  const [profilePic, setProfilePic] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .get('/auth/me')
+      .then((res) => {
+        const data = res.data.user || res.data.data || res.data;
+        if (data.profilePicture) {
+          setProfilePic(
+            data.profilePicture.startsWith('/')
+              ? `/api/v1${data.profilePicture}`
+              : data.profilePicture,
+          );
+        }
+      })
+      .catch(() => {});
+  }, [user]);
 
   async function handleLogout() {
     try {
@@ -41,9 +60,16 @@ export function Header() {
         </button>
 
         {user && (
-          <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground px-2 border-l border-border ml-1">
-            {user.username}
-          </span>
+          <div className="flex items-center gap-2 px-2 border-l border-border ml-1">
+            {profilePic ? (
+              <img src={profilePic} alt="" className="h-6 w-6 rounded-full object-cover" />
+            ) : (
+              <UserCircle className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+              {user.username}
+            </span>
+          </div>
         )}
 
         <button

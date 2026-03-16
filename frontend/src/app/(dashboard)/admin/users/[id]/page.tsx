@@ -244,11 +244,28 @@ export default function UserDetailPage() {
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">Status</span>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
-                />
-                <span className="text-sm font-medium">{user.isActive ? 'Active' : 'Inactive'}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
+                  />
+                  <span className="text-sm font-medium">
+                    {user.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.put(`/users/${params.id}`, { isActive: !user.isActive });
+                      setUser((prev) => (prev ? { ...prev, isActive: !prev.isActive } : prev));
+                    } catch {
+                      alert('Failed to update status');
+                    }
+                  }}
+                  className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+                >
+                  {user.isActive ? 'Deactivate' : 'Activate'}
+                </button>
               </div>
             </div>
             {user.lastLogin && (

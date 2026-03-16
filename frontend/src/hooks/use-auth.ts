@@ -7,9 +7,21 @@ import { useAuthStore } from '@/store/auth-store';
 export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const router = useRouter();
   const { user, sessionId } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(() =>
+    typeof window !== 'undefined' ? (useAuthStore.persist?.hasHydrated?.() ?? false) : false,
+  );
 
   useEffect(() => {
+    if (hydrated) return;
+    const unsub = useAuthStore.persist?.onFinishHydration?.(() => {
+      setHydrated(true);
+    });
+    return () => unsub?.();
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
     if (!user || !sessionId) {
       router.replace('/login');
       return;
@@ -19,9 +31,7 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
       router.replace(user.role === 'Admin' ? '/admin' : '/user');
       return;
     }
+  }, [user, sessionId, requiredRole, router, hydrated]);
 
-    setIsLoading(false);
-  }, [user, sessionId, requiredRole, router]);
-
-  return { user, isAuthenticated: !!user && !!sessionId, isLoading };
+  return { user, isAuthenticated: !!user && !!sessionId, isLoading: !hydrated };
 }
