@@ -102,7 +102,7 @@ export default function ColumnFilter({
   return (
     <div ref={containerRef} className="relative inline-flex items-center gap-1">
       {label && (
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+        <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
           {label}
         </span>
       )}
@@ -111,7 +111,7 @@ export default function ColumnFilter({
           setOpen((prev) => !prev);
           setFilterSearch('');
         }}
-        className={`flex items-center justify-center h-8 w-8 rounded-sm transition-colors ${
+        className={`flex items-center justify-center h-10 w-10 rounded-sm transition-colors ${
           isActive
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground/50 hover:text-muted-foreground'
@@ -137,7 +137,7 @@ export default function ColumnFilter({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Filter: {label}
             </span>
             <button
@@ -173,19 +173,19 @@ export default function ColumnFilter({
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
             <button
               onClick={selectAll}
-              className="text-[10px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Select All
             </button>
             <span className="text-muted-foreground/30">|</span>
             <button
               onClick={clearAll}
-              className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+              className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
             >
               Clear
             </button>
             {isActive && (
-              <span className="ml-auto text-[10px] text-muted-foreground">
+              <span className="ml-auto text-xs text-muted-foreground">
                 {selected.length}/{options.length}
               </span>
             )}

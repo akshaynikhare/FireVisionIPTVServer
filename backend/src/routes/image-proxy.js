@@ -9,8 +9,10 @@ const { audit } = require('../services/audit-log');
 // In-memory cache for images with size limit
 const imageCache = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-const MAX_CACHE_ENTRIES = 1000;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB per image
+const MAX_CACHE_ENTRIES = 500;
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB per image
+const MAX_CACHE_BYTES = 256 * 1024 * 1024; // 256MB total cache memory cap
+let cacheBytes = 0;
 
 // Cache cleanup interval
 setInterval(
@@ -18,6 +20,7 @@ setInterval(
     const now = Date.now();
     for (const [key, value] of imageCache.entries()) {
       if (now - value.timestamp > CACHE_TTL) {
+        cacheBytes -= value.data.length;
         imageCache.delete(key);
       }
     }
@@ -99,13 +102,18 @@ router.get('/', async (req, res) => {
       : 'application/octet-stream';
     const imageData = Buffer.from(response.data);
 
-    // Only cache if within size limits
-    if (imageData.length <= MAX_IMAGE_SIZE && imageCache.size < MAX_CACHE_ENTRIES) {
+    // Only cache if within size limits (entry size, count, and total memory)
+    if (
+      imageData.length <= MAX_IMAGE_SIZE &&
+      imageCache.size < MAX_CACHE_ENTRIES &&
+      cacheBytes + imageData.length <= MAX_CACHE_BYTES
+    ) {
       imageCache.set(cacheKey, {
         data: imageData,
         contentType: contentType,
         timestamp: Date.now(),
       });
+      cacheBytes += imageData.length;
     }
 
     // Send response
@@ -157,6 +165,7 @@ router.get('/stats', requireAuth, requireAdmin, (req, res) => {
 router.delete('/cache', requireAuth, requireAdmin, (req, res) => {
   const sizeBefore = imageCache.size;
   imageCache.clear();
+  cacheBytes = 0;
   audit({
     userId: req.user.id,
     action: 'clear_image_cache',

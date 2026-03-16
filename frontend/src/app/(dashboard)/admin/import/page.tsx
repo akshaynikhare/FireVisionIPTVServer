@@ -499,7 +499,7 @@ export default function AdminImportPage() {
       {/* Liveness Stats */}
       {livenessStats && (
         <div className="flex items-center gap-4 px-4 py-2.5 border border-border bg-card">
-          <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Stream Health
           </span>
           <div className="flex items-center gap-3">
@@ -520,7 +520,7 @@ export default function AdminImportPage() {
             </span>
           </div>
           {batchTesting && (
-            <span className="text-[11px] text-muted-foreground animate-pulse">
+            <span className="text-xs text-muted-foreground animate-pulse">
               Batch check in progress...
             </span>
           )}
@@ -529,7 +529,7 @@ export default function AdminImportPage() {
 
       {/* Playlist buttons */}
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
         </p>
         <div className="flex flex-wrap gap-2">
@@ -600,7 +600,7 @@ export default function AdminImportPage() {
 
           {/* Selection bar */}
           <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {filtered.length} channels
               {search && ` (filtered from ${channels.length})`} &middot;{' '}
               <span className="text-foreground font-medium">{selectedIds.size} selected</span>
@@ -608,26 +608,26 @@ export default function AdminImportPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={selectPage}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Select Page
               </button>
               <button
                 onClick={unselectPage}
-                className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
               >
                 Unselect Page
               </button>
               <span className="w-px h-4 bg-border" />
               <button
                 onClick={selectAllFiltered}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Select All ({filtered.length})
               </button>
               <button
                 onClick={unselectAll}
-                className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
               >
                 Unselect All
               </button>
@@ -669,7 +669,7 @@ export default function AdminImportPage() {
                   }
                   aria-label="Sort by name"
                   onClick={() => handleSort('name')}
-                  className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                 >
                   Name <SortIcon field="name" />
                 </button>
@@ -687,7 +687,7 @@ export default function AdminImportPage() {
                   <button
                     onClick={() => handleSort('category')}
                     aria-label="Sort by category"
-                    className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                   >
                     Category <SortIcon field="category" />
                   </button>
@@ -728,7 +728,7 @@ export default function AdminImportPage() {
                   <button
                     onClick={() => handleSort('language')}
                     aria-label="Sort by language"
-                    className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                   >
                     Language <SortIcon field="language" />
                   </button>
@@ -756,7 +756,7 @@ export default function AdminImportPage() {
                 </span>
                 <span
                   role="columnheader"
-                  className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+                  className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
                 >
                   Actions
                 </span>
@@ -800,7 +800,8 @@ export default function AdminImportPage() {
                           {ch.tvgLogo ? (
                             <img
                               src={proxyImageUrl(ch.tvgLogo)}
-                              alt=""
+                              alt={`${ch.channelName} logo`}
+                              loading="lazy"
                               className="h-7 w-7 rounded-sm object-contain bg-muted"
                               onError={(e) => {
                                 const img = e.currentTarget;
@@ -823,7 +824,7 @@ export default function AdminImportPage() {
                           <span className="text-sm font-medium truncate block">
                             {ch.channelName}
                           </span>
-                          <span className="text-[11px] text-muted-foreground font-mono truncate block lg:hidden">
+                          <span className="text-xs text-muted-foreground font-mono truncate block lg:hidden">
                             {ch.channelId}
                           </span>
                         </div>
@@ -856,7 +857,7 @@ export default function AdminImportPage() {
                                 }`}
                                 aria-hidden="true"
                               />
-                              <span className="text-[11px] text-muted-foreground capitalize">
+                              <span className="text-xs text-muted-foreground capitalize">
                                 {ch.liveness?.status || 'unknown'}
                               </span>
                               <span className="sr-only">
@@ -933,7 +934,8 @@ export default function AdminImportPage() {
               {detailChannel.tvgLogo ? (
                 <img
                   src={proxyImageUrl(detailChannel.tvgLogo)}
-                  alt=""
+                  alt={`${detailChannel.channelName} logo`}
+                  loading="lazy"
                   className="h-16 w-16 rounded object-contain bg-muted shrink-0"
                   onError={(e) => {
                     const img = e.currentTarget;
@@ -991,7 +993,7 @@ export default function AdminImportPage() {
 
             {/* Raw Data */}
             <details className="group">
-              <summary className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+              <summary className="text-xs uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
                 Raw Data
               </summary>
               <pre className="mt-2 text-xs font-mono bg-muted border border-border p-3 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">

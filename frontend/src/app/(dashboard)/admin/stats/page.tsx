@@ -114,7 +114,7 @@ export default function StatsPage() {
         {sections.map((section) => (
           <div key={section.title} className="border border-border">
             <div className="px-4 py-2 bg-muted/50 border-b border-border">
-              <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
                 {section.title}
               </h2>
             </div>
@@ -132,7 +132,7 @@ export default function StatsPage() {
 
       {channelGroups.length > 0 && (
         <div>
-          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Channels by Group
           </h2>
           <dl className="border border-border divide-y divide-border">

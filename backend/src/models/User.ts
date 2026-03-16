@@ -125,9 +125,10 @@ userSchema.methods.comparePassword = async function (
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Static method to generate unique channel list code
+// Static method to generate unique channel list code.
 // Uses crypto for better randomness; the unique index on channelListCode
 // guarantees uniqueness even under concurrent requests.
+// Callers must handle E11000 duplicate-key errors by retrying.
 userSchema.statics.generateChannelListCode = async function (): Promise<string> {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxAttempts = 10;
@@ -138,6 +139,8 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
       code += characters.charAt(crypto.randomInt(characters.length));
     }
 
+    // Use findOne to avoid obvious collisions (optimistic check),
+    // but the unique index is the real safety net.
     const existing = await this.findOne({ channelListCode: code });
     if (!existing) {
       return code;
@@ -145,6 +148,27 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
   }
 
   throw new Error('Failed to generate unique channel list code after maximum attempts');
+};
+
+// Helper: generate a channelListCode and save the user, retrying on duplicate-key race.
+userSchema.statics.generateAndSaveWithCode = async function (
+  this: any,
+  userData: Record<string, unknown>,
+  maxRetries = 3,
+): Promise<IUserDocument> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const code = await this.generateChannelListCode();
+      const user = new this({ ...userData, channelListCode: code });
+      await user.save();
+      return user;
+    } catch (err: any) {
+      const isDuplicateCode = err.code === 11000 && err.keyPattern?.channelListCode;
+      if (!isDuplicateCode || attempt === maxRetries - 1) throw err;
+      // Retry with a new code
+    }
+  }
+  throw new Error('Failed to save user with unique channel list code');
 };
 
 // Method to generate M3U playlist for this user's channel list

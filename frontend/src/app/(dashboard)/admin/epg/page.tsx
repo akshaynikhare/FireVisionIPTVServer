@@ -226,7 +226,7 @@ export default function EpgPage() {
               >
                 <div className="flex items-center gap-1.5">
                   <Icon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                  <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                     {metric.label}
                   </p>
                 </div>
@@ -235,7 +235,7 @@ export default function EpgPage() {
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
                   <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} aria-hidden="true" />
-                  <span className="text-[11px] text-muted-foreground">{metric.sub}</span>
+                  <span className="text-xs text-muted-foreground">{metric.sub}</span>
                 </div>
               </div>
             );
@@ -286,7 +286,7 @@ export default function EpgPage() {
           <button
             onClick={fetchSources}
             disabled={sourcesLoading}
-            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {sourcesLoading ? 'Loading...' : 'Reload'}
           </button>
@@ -306,7 +306,7 @@ export default function EpgPage() {
               <div key={i} className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 border ${
+                    className={`text-xs uppercase tracking-wider font-bold px-1.5 py-0.5 border ${
                       source.source === 'iptv-org'
                         ? 'border-signal-blue/40 text-signal-blue bg-signal-blue/5'
                         : source.source === 'pluto-tv'
@@ -324,7 +324,7 @@ export default function EpgPage() {
                 <div className="flex items-center gap-1.5 shrink-0 ml-4">
                   <Tv className="h-3 w-3 text-muted-foreground" />
                   <span className="text-xs tabular-nums">{source.coveredChannels}</span>
-                  <span className="text-[10px] text-muted-foreground">channels</span>
+                  <span className="text-xs text-muted-foreground">channels</span>
                 </div>
               </div>
             ))}

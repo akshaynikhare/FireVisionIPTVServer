@@ -293,9 +293,15 @@ router.post('/import-user', async (req, res) => {
       }
     }
 
+    let totalChannels = user.channels.length;
     if (channelIdsToAdd.length > 0) {
-      user.channels.push(...channelIdsToAdd);
-      await user.save();
+      // Use atomic $addToSet to prevent lost updates under concurrent requests
+      const updated = await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { channels: { $each: channelIdsToAdd } } },
+        { new: true },
+      );
+      totalChannels = updated ? updated.channels.length : totalChannels;
     }
 
     audit({
@@ -309,7 +315,7 @@ router.post('/import-user', async (req, res) => {
     res.json({
       success: true,
       addedCount: channelIdsToAdd.length,
-      totalChannels: user.channels.length,
+      totalChannels,
       message: `Added ${channelIdsToAdd.length} channels to your list`,
     });
   } catch (error) {

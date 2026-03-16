@@ -283,7 +283,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
         style={
           mini
             ? {
-                width: Math.min(360, typeof window !== 'undefined' ? window.innerWidth - 32 : 360),
+                maxWidth: 'calc(100vw - 32px)',
+                width: 360,
                 right: position.right,
                 bottom: position.bottom,
               }
@@ -309,8 +310,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             <h2
               className={
                 mini
-                  ? 'text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground truncate mr-2'
-                  : 'text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground'
+                  ? 'text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground truncate mr-2'
+                  : 'text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground'
               }
             >
               {channel.name}
@@ -331,13 +332,13 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 ) : (
                   <>
                     <Minimize2 className="h-3.5 w-3.5" />
-                    <span className="uppercase tracking-[0.1em] text-[10px] font-medium">Mini</span>
+                    <span className="uppercase tracking-[0.1em] text-xs font-medium">Mini</span>
                   </>
                 )}
               </button>
               <button
                 onClick={onClose}
-                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-8 w-8' : 'h-9 w-9'}`}
+                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-8 w-8' : 'h-10 w-10'}`}
                 aria-label="Close"
                 title="Close"
               >
@@ -369,20 +370,20 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             >
               {!mini && (
                 <span
-                  className={`truncate ${mini ? 'text-[10px]' : 'text-xs'} text-muted-foreground`}
+                  className={`truncate ${mini ? 'text-xs' : 'text-xs'} text-muted-foreground`}
                   title={channel.url}
                 >
                   {channel.url}
                 </span>
               )}
               {!mini && (
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 border border-border text-muted-foreground shrink-0">
+                <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 border border-border text-muted-foreground shrink-0">
                   {sourceBadge}
                 </span>
               )}
             </div>
             <span
-              className={`font-medium ${mini ? 'text-[10px]' : 'text-xs'} ${statusColor}`}
+              className={`font-medium ${mini ? 'text-xs' : 'text-xs'} ${statusColor}`}
               aria-live="polite"
               aria-atomic="true"
             >

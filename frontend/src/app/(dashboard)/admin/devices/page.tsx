@@ -79,7 +79,7 @@ export default function DevicesPage() {
             ].map((m, i) => (
               <div key={m.label} className={`p-4 ${i > 0 ? 'border-l border-border' : ''}`}>
                 <dl>
-                  <dt className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                  <dt className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                     {m.label}
                   </dt>
                   <dd className="text-2xl font-display font-bold mt-1.5 tabular-nums">{m.value}</dd>
@@ -89,7 +89,7 @@ export default function DevicesPage() {
           </div>
 
           <div>
-            <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+            <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
               Recent Pairing Requests
             </h2>
             <div className="border border-border divide-y divide-border">
@@ -120,9 +120,7 @@ export default function DevicesPage() {
                         }`}
                         aria-hidden="true"
                       />
-                      <span className="text-[11px] text-muted-foreground capitalize">
-                        {req.status}
-                      </span>
+                      <span className="text-xs text-muted-foreground capitalize">{req.status}</span>
                       <span className="sr-only">
                         {req.status === 'completed'
                           ? 'Completed'

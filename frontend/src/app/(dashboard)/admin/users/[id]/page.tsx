@@ -136,13 +136,13 @@ export default function UserDetailPage() {
       {/* User Info */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             User Details
           </h2>
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Edit
             </button>
@@ -160,7 +160,7 @@ export default function UserDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-username"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Username
                 </label>
@@ -176,7 +176,7 @@ export default function UserDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-email"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Email
                 </label>
@@ -192,7 +192,7 @@ export default function UserDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-role"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Role
                 </label>
@@ -264,7 +264,7 @@ export default function UserDetailPage() {
                       toast('Failed to update status', 'error');
                     }
                   }}
-                  className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+                  className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
                 >
                   {user.isActive ? 'Deactivate' : 'Activate'}
                 </button>
@@ -289,7 +289,7 @@ export default function UserDetailPage() {
       {/* Channel List Code */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel List Code
           </h2>
         </div>
@@ -332,7 +332,7 @@ export default function UserDetailPage() {
       {user.channels && user.channels.length > 0 && (
         <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Assigned Channels ({user.channels.length})
             </h2>
           </div>

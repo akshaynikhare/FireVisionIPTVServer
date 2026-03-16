@@ -394,7 +394,7 @@ export function RecommendationsStep({
   return (
     <div className="space-y-4 ">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 5</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 5</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Select Your Channels
         </h2>
@@ -426,7 +426,7 @@ export function RecommendationsStep({
           <button
             onClick={checkPageLiveness}
             disabled={bulkChecking || pageChannels.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-[0.1em] font-medium border border-border bg-card hover:border-primary/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-[0.1em] font-medium border border-border bg-card hover:border-primary/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
             title="Check liveness of channels on this page"
             aria-label="Check liveness of channels on this page"
           >
@@ -440,14 +440,14 @@ export function RecommendationsStep({
           <span className="text-muted-foreground/40">|</span>
           <button
             onClick={onSelectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
           >
             Select All
           </button>
           <span className="text-muted-foreground">|</span>
           <button
             onClick={onDeselectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
           >
             Deselect All
           </button>
@@ -478,7 +478,7 @@ export function RecommendationsStep({
 
       {/* Liveness filter */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground mr-1">
+        <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground mr-1">
           Status:
         </span>
         {(['all', 'alive', 'dead', 'unknown'] as const).map((status) => (
@@ -516,15 +516,15 @@ export function RecommendationsStep({
             title={allPageSelected ? 'Deselect all on page' : 'Select all on page'}
           />
           <div className="h-7 w-7 shrink-0" /> {/* spacer for logo column */}
-          <span className="flex-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <span className="flex-1 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-2 text-center"></span>
-          <span className="hidden sm:inline text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0">
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-2 text-center"></span>
+          <span className="hidden sm:inline text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0">
             Source
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
         </div>
         <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
           {pageChannels.length === 0 && (
@@ -550,6 +550,7 @@ export function RecommendationsStep({
                   <img
                     src={proxyImageUrl(ch.tvgLogo)}
                     alt={ch.channelName}
+                    loading="lazy"
                     className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -560,7 +561,7 @@ export function RecommendationsStep({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{ch.channelName}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {ch.groupTitle}
                     {ch.country ? ` · ${ch.country}` : ''}
                   </p>
@@ -578,7 +579,7 @@ export function RecommendationsStep({
                 >
                   <span className="sr-only">Status: {lv.status}</span>
                 </span>
-                <span className="hidden sm:inline text-[10px] uppercase tracking-[0.1em] text-muted-foreground bg-muted px-1.5 py-0.5 shrink-0">
+                <span className="hidden sm:inline text-xs uppercase tracking-[0.1em] text-muted-foreground bg-muted px-1.5 py-0.5 shrink-0">
                   {SOURCE_LABELS[ch.source] || ch.source}
                 </span>
                 {/* Check liveness button */}

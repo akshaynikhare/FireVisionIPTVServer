@@ -201,7 +201,7 @@ export function WizardShell({ mode }: WizardShellProps) {
       </div>
 
       {/* Step Content */}
-      <div ref={stepContentRef} tabIndex={-1} className="min-h-[300px] outline-none">
+      <div ref={stepContentRef} tabIndex={-1} className="min-h-[300px] focus:outline-none">
         {currentStep === 0 && (
           <SourceStep selectedSources={selectedSources} onToggleSource={toggleSource} />
         )}

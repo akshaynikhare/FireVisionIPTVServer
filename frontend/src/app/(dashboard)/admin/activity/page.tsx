@@ -153,19 +153,19 @@ export default function ActivityPage() {
         >
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
           >
             Time
           </span>
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
           >
             User
           </span>
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
           >
             Action
             <ColumnFilter
@@ -182,7 +182,7 @@ export default function ActivityPage() {
           </span>
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
           >
             Resource
             <ColumnFilter
@@ -194,7 +194,7 @@ export default function ActivityPage() {
           </span>
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
           >
             Status
             <ColumnFilter
@@ -206,7 +206,7 @@ export default function ActivityPage() {
           </span>
           <span
             role="columnheader"
-            className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
           >
             IP
           </span>
@@ -229,7 +229,7 @@ export default function ActivityPage() {
                 role="row"
                 className="grid lg:grid-cols-[100px,140px,120px,1fr,80px,120px] gap-2 lg:gap-4 items-center px-4 py-3"
               >
-                <div role="cell" className="text-[11px] tabular-nums text-muted-foreground">
+                <div role="cell" className="text-xs tabular-nums text-muted-foreground">
                   <time dateTime={log.timestamp}>
                     <span className="font-medium">{formatTime(log.timestamp)}</span>
                   </time>
@@ -257,15 +257,12 @@ export default function ActivityPage() {
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] text-muted-foreground">{log.status}</span>
+                  <span className="text-xs text-muted-foreground">{log.status}</span>
                   <span className="sr-only">
                     {log.status === 'success' ? 'Success' : 'Failure'}
                   </span>
                 </span>
-                <span
-                  role="cell"
-                  className="text-[11px] tabular-nums text-muted-foreground truncate"
-                >
+                <span role="cell" className="text-xs tabular-nums text-muted-foreground truncate">
                   {log.ipAddress || '—'}
                 </span>
               </div>

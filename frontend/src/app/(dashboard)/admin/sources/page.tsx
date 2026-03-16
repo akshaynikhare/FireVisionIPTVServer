@@ -222,9 +222,7 @@ function PlutoTVTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Select Region
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Select Region</p>
       </div>
       {regionsLoading ? (
         <Spinner />
@@ -306,9 +304,7 @@ function SamsungTVPlusTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Select Region
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Select Region</p>
       </div>
       {regionsLoading ? (
         <Spinner />
@@ -700,7 +696,7 @@ function ChannelDataTable({
 
       {/* Selection bar */}
       <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {filtered.length} channels
           {filtered.length !== channels.length &&
             ` (filtered from ${channels.length})`} &middot;{' '}
@@ -709,26 +705,26 @@ function ChannelDataTable({
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={selectPage}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Select Page
           </button>
           <button
             onClick={unselectPage}
-            className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
           >
             Unselect Page
           </button>
           <span className="w-px h-4 bg-border" />
           <button
             onClick={selectAllFiltered}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Select All ({filtered.length})
           </button>
           <button
             onClick={unselectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
           >
             Unselect All
           </button>
@@ -770,7 +766,7 @@ function ChannelDataTable({
               aria-sort={
                 sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
               }
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
             >
               Name <SortIcon field="name" />
             </button>
@@ -784,7 +780,7 @@ function ChannelDataTable({
               <button
                 onClick={() => handleSort('category')}
                 aria-label="Sort by category"
-                className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
               >
                 Category <SortIcon field="category" />
               </button>
@@ -809,7 +805,7 @@ function ChannelDataTable({
               <button
                 onClick={() => handleSort('country')}
                 aria-label="Sort by country"
-                className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
               >
                 Country <SortIcon field="country" />
               </button>
@@ -839,7 +835,7 @@ function ChannelDataTable({
             )}
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
             >
               Actions
             </span>
@@ -884,7 +880,8 @@ function ChannelDataTable({
                       {ch.tvgLogo ? (
                         <img
                           src={proxyImageUrl(ch.tvgLogo)}
-                          alt=""
+                          alt={`${ch.channelName} logo`}
+                          loading="lazy"
                           className="h-7 w-7 rounded-sm object-contain bg-muted"
                           onError={(e) => {
                             const img = e.currentTarget;
@@ -902,7 +899,7 @@ function ChannelDataTable({
                     <div role="cell" className="min-w-0">
                       <span className="text-sm font-medium truncate block">{ch.channelName}</span>
                       {ch.summary && (
-                        <span className="text-[11px] text-muted-foreground truncate block">
+                        <span className="text-xs text-muted-foreground truncate block">
                           {ch.summary}
                         </span>
                       )}
@@ -920,7 +917,7 @@ function ChannelDataTable({
                     {!disableLiveness && (
                       <div role="cell" className="flex items-center gap-1.5">
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 ${
+                          className={`inline-flex items-center gap-1 text-xs uppercase tracking-wider font-medium px-1.5 py-0.5 ${
                             status === 'alive'
                               ? 'text-signal-green bg-signal-green/10'
                               : status === 'dead'
@@ -1014,7 +1011,8 @@ function DetailModal({
           {channel.tvgLogo ? (
             <img
               src={proxyImageUrl(channel.tvgLogo)}
-              alt=""
+              alt={`${channel.channelName} logo`}
+              loading="lazy"
               className="h-16 w-16 rounded object-contain bg-muted shrink-0"
               onError={(e) => {
                 const img = e.currentTarget;

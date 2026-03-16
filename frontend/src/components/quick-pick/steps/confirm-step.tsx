@@ -148,7 +148,7 @@ export function ConfirmStep({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 6</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 6</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Confirm Selection
         </h2>
@@ -182,6 +182,7 @@ export function ConfirmStep({
                     <img
                       src={proxyImageUrl(ch.tvgLogo)}
                       alt={ch.channelName}
+                      loading="lazy"
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
@@ -191,7 +192,7 @@ export function ConfirmStep({
                     <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
                   )}
                   <span className="text-sm truncate flex-1">{ch.channelName}</span>
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
+                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
                     {ch.groupTitle}
                   </span>
                 </div>

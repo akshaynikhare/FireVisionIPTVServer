@@ -41,7 +41,7 @@ export function StepIndicator({ currentStep, onGoToStep }: StepIndicatorProps) {
                 {i < currentStep ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </button>
               <span
-                className={`hidden sm:block text-[10px] uppercase tracking-[0.15em] ${
+                className={`hidden sm:block text-xs uppercase tracking-[0.15em] ${
                   i <= currentStep ? 'text-foreground font-medium' : 'text-muted-foreground'
                 }`}
               >

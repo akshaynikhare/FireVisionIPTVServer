@@ -110,7 +110,7 @@ export default function PairDevicePage() {
       {/* PIN Confirmation */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Enter TV PIN
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function PairDevicePage() {
             <div className="space-y-1.5 flex-1 max-w-xs">
               <label
                 htmlFor="pairing-pin"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 PIN Code
               </label>
@@ -175,7 +175,7 @@ export default function PairDevicePage() {
       {/* Channel List Code */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Your Channel List Code
           </p>
         </div>
@@ -208,7 +208,7 @@ export default function PairDevicePage() {
 
           {user?.channelListCode && origin && (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium mb-2">
+              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium mb-2">
                 M3U Playlist URL
               </p>
               <div className="flex items-center gap-3">
@@ -239,7 +239,7 @@ export default function PairDevicePage() {
       {/* Last Paired Device */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Last Paired Device
           </p>
         </div>

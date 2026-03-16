@@ -90,11 +90,11 @@ export default function VersionsPage() {
       {latest && (
         <div className="border-2 border-primary/30 bg-card">
           <div className="px-5 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium">
               Latest Release
             </p>
             {latest.isMandatory && (
-              <span className="text-[10px] uppercase tracking-[0.1em] bg-signal-red/10 text-signal-red px-2 py-0.5 font-medium border border-signal-red/20">
+              <span className="text-xs uppercase tracking-[0.1em] bg-signal-red/10 text-signal-red px-2 py-0.5 font-medium border border-signal-red/20">
                 Mandatory Update
               </span>
             )}
@@ -128,7 +128,7 @@ export default function VersionsPage() {
 
             {latest.releaseNotes && (
               <div className="space-y-1.5">
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
                   Release Notes
                 </p>
                 <div className="bg-muted/50 border border-border px-4 py-3 text-sm whitespace-pre-wrap">
@@ -139,27 +139,21 @@ export default function VersionsPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                  File
-                </p>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">File</p>
                 <p className="text-sm font-medium mt-0.5 truncate">{latest.apkFileName || '—'}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                  Size
-                </p>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Size</p>
                 <p className="text-sm font-medium mt-0.5">{formatBytes(latest.apkFileSize)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                   Min Compatible
                 </p>
                 <p className="text-sm font-medium mt-0.5">{latest.minCompatibleVersion || '—'}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                  Status
-                </p>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Status</p>
                 <p className="text-sm font-medium mt-0.5">
                   {latest.isActive !== false ? 'Active' : 'Inactive'}
                 </p>
@@ -196,7 +190,7 @@ export default function VersionsPage() {
       {versions.length > 1 && (
         <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Version History ({versions.length})
             </h2>
           </div>
@@ -211,12 +205,12 @@ export default function VersionsPage() {
                       v{v.versionCode}
                     </span>
                     {v.isMandatory && (
-                      <span className="text-[10px] uppercase tracking-[0.1em] bg-signal-red/10 text-signal-red px-1.5 py-0.5 font-medium">
+                      <span className="text-xs uppercase tracking-[0.1em] bg-signal-red/10 text-signal-red px-1.5 py-0.5 font-medium">
                         Mandatory
                       </span>
                     )}
                     {v.isActive === false && (
-                      <span className="text-[10px] uppercase tracking-[0.1em] bg-muted text-muted-foreground px-1.5 py-0.5">
+                      <span className="text-xs uppercase tracking-[0.1em] bg-muted text-muted-foreground px-1.5 py-0.5">
                         Inactive
                       </span>
                     )}

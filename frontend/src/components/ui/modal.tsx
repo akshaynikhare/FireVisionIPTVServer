@@ -101,7 +101,7 @@ export default function Modal({
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
             <h2
               id={titleId}
-              className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+              className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground"
             >
               {title}
             </h2>

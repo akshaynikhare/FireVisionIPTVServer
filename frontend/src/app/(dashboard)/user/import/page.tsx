@@ -146,7 +146,7 @@ export default function ImportPage() {
       </div>
 
       <div>
-        <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
         </h2>
         <div className="flex flex-wrap gap-2">
@@ -177,13 +177,13 @@ export default function ImportPage() {
       {!fetchingChannels && channels.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {channels.length} channels found &middot; {selectedIds.size} selected
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleAll}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 {selectedIds.size === channels.length ? 'Deselect All' : 'Select All'}
               </button>
@@ -232,7 +232,8 @@ export default function ImportPage() {
                   {ch.tvgLogo ? (
                     <img
                       src={proxyImageUrl(ch.tvgLogo)}
-                      alt=""
+                      alt={`${ch.channelName} logo`}
+                      loading="lazy"
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                     />
                   ) : (

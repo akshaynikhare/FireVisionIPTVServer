@@ -32,7 +32,7 @@ export default function Pagination({ page, pageSize, totalCount, onPageChange }:
 
   return (
     <nav aria-label="Pagination" className="flex items-center justify-between py-3 px-1">
-      <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+      <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
         {start}–{end} of {totalCount}
       </span>
       <div className="flex items-center gap-1">

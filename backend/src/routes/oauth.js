@@ -151,6 +151,11 @@ router.get('/google/callback', async (req, res) => {
     if (e.code === 'ACCOUNT_INACTIVE') {
       return res.status(403).json({ success: false, error: 'Account is inactive' });
     }
+    if (e.code === 11000) {
+      return res
+        .status(409)
+        .json({ success: false, error: 'Account already exists. Please try logging in.' });
+    }
     console.error('Google OAuth error', e);
     return res.status(500).json({ success: false, error: 'Google OAuth failed' });
   }
@@ -267,6 +272,11 @@ router.get('/github/callback', async (req, res) => {
   } catch (e) {
     if (e.code === 'ACCOUNT_INACTIVE') {
       return res.status(403).json({ success: false, error: 'Account is inactive' });
+    }
+    if (e.code === 11000) {
+      return res
+        .status(409)
+        .json({ success: false, error: 'Account already exists. Please try logging in.' });
     }
     console.error('GitHub OAuth error', e);
     return res.status(500).json({ success: false, error: 'GitHub OAuth failed' });

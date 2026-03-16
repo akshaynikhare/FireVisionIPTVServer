@@ -69,7 +69,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
 
       <nav className="flex-1 py-3 px-2" aria-label="Main navigation">
         {!sidebarCollapsed && (
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-2 px-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 px-2">
             Navigation
           </p>
         )}

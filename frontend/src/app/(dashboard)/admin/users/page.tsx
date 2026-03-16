@@ -221,19 +221,19 @@ export default function UsersPage() {
           >
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
             >
               Username
             </span>
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
             >
               Email
             </span>
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
             >
               Channel Code
             </span>
@@ -255,7 +255,7 @@ export default function UsersPage() {
             </span>
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
             >
               Actions
             </span>
@@ -317,7 +317,7 @@ export default function UsersPage() {
                   </div>
                   <span
                     role="cell"
-                    className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground"
+                    className="text-xs uppercase tracking-[0.1em] text-muted-foreground"
                   >
                     {user.role}
                   </span>
@@ -326,7 +326,7 @@ export default function UsersPage() {
                       className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
                       aria-hidden="true"
                     />
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
                     <span className="sr-only">{user.isActive ? 'Active' : 'Inactive'}</span>
@@ -379,7 +379,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="new-username"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Username
               </label>
@@ -397,7 +397,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="new-email"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Email
               </label>
@@ -414,7 +414,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="new-password"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Password
               </label>
@@ -432,7 +432,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="new-role"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Role
               </label>

@@ -208,7 +208,7 @@ export default function UserChannelsPage() {
 
       {showAdd && (
         <div className="border-2 border-primary/30 bg-card p-5 space-y-4">
-          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium">
             Add Channels to Your List
           </h2>
           <div className="relative">
@@ -299,7 +299,8 @@ export default function UserChannelsPage() {
               {getLogo(ch) ? (
                 <img
                   src={proxyImageUrl(getLogo(ch)!)}
-                  alt=""
+                  alt={getName(ch)}
+                  loading="lazy"
                   className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                 />
               ) : (
@@ -316,7 +317,7 @@ export default function UserChannelsPage() {
                     aria-hidden="true"
                   />
                 )}
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {ch.metadata?.isWorking === true
                     ? 'Working'
                     : ch.metadata?.isWorking === false

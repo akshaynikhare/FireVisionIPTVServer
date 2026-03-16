@@ -28,7 +28,7 @@ export function SourceStep({ selectedSources, onToggleSource }: SourceStepProps)
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 1</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 1</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Choose Your Sources
         </h2>

@@ -117,7 +117,7 @@ export default function SettingsPage() {
       {info && (
         <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Server Info
             </h2>
           </div>
@@ -144,7 +144,7 @@ export default function SettingsPage() {
                   {Object.entries(info.features).map(([key, enabled]) => (
                     <span
                       key={key}
-                      className={`text-[11px] uppercase tracking-[0.1em] px-2 py-1 border border-border ${enabled ? 'bg-muted/50' : 'bg-muted/20 line-through text-muted-foreground/50'}`}
+                      className={`text-xs uppercase tracking-[0.1em] px-2 py-1 border border-border ${enabled ? 'bg-muted/50' : 'bg-muted/20 line-through text-muted-foreground/50'}`}
                     >
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </span>
@@ -160,7 +160,7 @@ export default function SettingsPage() {
       {playlistUrl && (
         <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Global Playlist
             </h2>
           </div>
@@ -192,7 +192,7 @@ export default function SettingsPage() {
       {/* Session Management */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Session Management
           </h2>
         </div>
@@ -219,14 +219,14 @@ export default function SettingsPage() {
       {/* IPTV-Org Cache Management */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             IPTV-Org Cache
           </h2>
           <button
             onClick={handleClearCache}
             disabled={cacheLoading}
             aria-label="Clear IPTV-Org cache"
-            className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-destructive hover:text-destructive/80 transition-colors font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.1em] text-destructive hover:text-destructive/80 transition-colors font-medium disabled:opacity-50"
           >
             {cacheLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -252,7 +252,7 @@ export default function SettingsPage() {
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${entry.cached ? 'bg-signal-green' : 'bg-muted-foreground/30'}`}
                     />
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {entry.cached ? 'Cached' : 'Empty'}
                     </span>
                   </div>

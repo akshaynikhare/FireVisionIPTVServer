@@ -122,7 +122,7 @@ export function CountryStep({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 2</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 2</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Select Country / Region
         </h2>
@@ -145,7 +145,7 @@ export function CountryStep({
 
         return (
           <div key={source} className="space-y-2">
-            <h3 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {SOURCE_LABELS[source]}
             </h3>
 

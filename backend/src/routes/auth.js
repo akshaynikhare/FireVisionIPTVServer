@@ -6,6 +6,7 @@ const fs = require('fs').promises;
 const router = express.Router();
 const User = require('../models/User');
 const Session = require('../models/Session');
+const RefreshToken = require('../models/RefreshToken');
 const { audit } = require('../services/audit-log');
 const {
   sendWelcomeEmail,
@@ -368,11 +369,14 @@ router.post('/change-password', requireAuth, async (req, res) => {
     user.password = newPassword;
     await user.save();
 
-    // Invalidate all other sessions for this user (force re-login)
-    await Session.deleteMany({
-      userId: user._id,
-      sessionId: { $ne: req.sessionId },
-    });
+    // Invalidate all other sessions and refresh tokens for this user (force re-login)
+    await Promise.all([
+      Session.deleteMany({
+        userId: user._id,
+        sessionId: { $ne: req.sessionId },
+      }),
+      RefreshToken.deleteMany({ userId: user._id }),
+    ]);
 
     audit({
       userId: req.user.id,
@@ -471,6 +475,13 @@ router.put('/me', requireAuth, async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return res.status(400).json({
+        success: false,
+        error: `That ${field} is already taken`,
+      });
+    }
     console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
@@ -694,6 +705,13 @@ router.put('/profile', requireAuth, async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return res.status(400).json({
+        success: false,
+        error: `That ${field} is already taken`,
+      });
+    }
     console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
@@ -863,21 +881,15 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Generate unique channel list code
-    const channelListCode = await User.generateChannelListCode();
-
-    // Create new user
-    const user = new User({
+    // Create new user with retry-safe channelListCode generation
+    const user = await User.generateAndSaveWithCode({
       username,
       email,
       password,
       role: 'User',
-      channelListCode,
       isActive: true,
       createdAt: new Date(),
     });
-
-    await user.save();
 
     // Generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -917,6 +929,12 @@ router.post('/register', async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username or email already in use',
+      });
+    }
     console.error('Registration error:', error);
     res.status(500).json({
       success: false,
@@ -999,10 +1017,13 @@ router.get('/google/callback', async (req, res) => {
       headers: { Authorization: `Bearer ${access_token}` },
     });
 
-    const { email, picture } = userInfoResponse.data;
+    const { id: googleId, email, picture } = userInfoResponse.data;
 
-    // Find or create user
-    let user = await User.findOne({ email });
+    // Find by Google provider ID first, then fall back to email
+    let user = await User.findOne({ googleId: String(googleId) });
+    if (!user && email) {
+      user = await User.findOne({ email });
+    }
 
     if (user && !user.isActive) {
       return res.redirect('/login?error=account_inactive');
@@ -1011,7 +1032,7 @@ router.get('/google/callback', async (req, res) => {
     if (!user) {
       // Generate username from email
       const username = email.split('@')[0] + '_' + crypto.randomBytes(2).toString('hex');
-      const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const channelListCode = await User.generateChannelListCode();
 
       user = new User({
         username,
@@ -1019,6 +1040,7 @@ router.get('/google/callback', async (req, res) => {
         password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
         role: 'User',
         channelListCode,
+        googleId: String(googleId),
         profilePicture: picture,
         isActive: true,
         emailVerified: true,
@@ -1027,6 +1049,10 @@ router.get('/google/callback', async (req, res) => {
 
       await user.save();
       console.log('New Google OAuth user created:', username);
+    } else if (!user.googleId && googleId) {
+      // Link existing email-matched user to Google provider ID
+      user.googleId = String(googleId);
+      await user.save();
     }
 
     // Create session
@@ -1163,8 +1189,12 @@ router.get('/github/callback', async (req, res) => {
     const primaryEmail =
       emailsResponse.data.find((e) => e.primary)?.email || emailsResponse.data[0]?.email;
 
-    // Find or create user
-    let user = await User.findOne({ email: primaryEmail });
+    // Find by GitHub provider ID first, then fall back to email
+    const githubIdStr = String(githubUser.id);
+    let user = await User.findOne({ githubId: githubIdStr });
+    if (!user && primaryEmail) {
+      user = await User.findOne({ email: primaryEmail });
+    }
 
     if (user && !user.isActive) {
       return res.redirect('/login?error=account_inactive');
@@ -1172,7 +1202,7 @@ router.get('/github/callback', async (req, res) => {
 
     if (!user) {
       const username = githubUser.login + '_' + crypto.randomBytes(2).toString('hex');
-      const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const channelListCode = await User.generateChannelListCode();
 
       user = new User({
         username,
@@ -1180,6 +1210,7 @@ router.get('/github/callback', async (req, res) => {
         password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
         role: 'User',
         channelListCode,
+        githubId: githubIdStr,
         profilePicture: githubUser.avatar_url,
         isActive: true,
         emailVerified: true,
@@ -1188,6 +1219,10 @@ router.get('/github/callback', async (req, res) => {
 
       await user.save();
       console.log('New GitHub OAuth user created:', username);
+    } else if (!user.githubId && githubUser.id) {
+      // Link existing email-matched user to GitHub provider ID
+      user.githubId = githubIdStr;
+      await user.save();
     }
 
     // Create session
@@ -1454,8 +1489,11 @@ router.post('/reset-password', async (req, res) => {
     user.passwordResetExpires = undefined;
     await user.save();
 
-    // Invalidate all sessions for this user
-    await Session.deleteMany({ userId: user._id });
+    // Invalidate all sessions and refresh tokens for this user
+    await Promise.all([
+      Session.deleteMany({ userId: user._id }),
+      RefreshToken.deleteMany({ userId: user._id }),
+    ]);
 
     audit({
       userId: user._id,

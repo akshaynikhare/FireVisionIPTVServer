@@ -59,6 +59,7 @@ export function Header() {
               <img
                 src={profilePic}
                 alt={`${user.username}'s profile picture`}
+                loading="lazy"
                 className="h-6 w-6 rounded-full object-cover"
               />
             ) : (

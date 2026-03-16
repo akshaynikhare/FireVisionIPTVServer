@@ -84,22 +84,18 @@ export default function UserDashboard() {
       <div className="border border-border ">
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <div className="p-4">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-              My Channels
-            </p>
+            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">My Channels</p>
             <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">
               {channelCount !== null ? channelCount : '\u2014'}
             </p>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-[11px] text-muted-foreground">assigned</span>
+              <span className="text-xs text-muted-foreground">assigned</span>
               <span className="sr-only">Channels are assigned</span>
             </div>
           </div>
           <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-              Last Device
-            </p>
+            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Last Device</p>
             <p className="text-2xl font-display font-bold mt-1.5 truncate">
               {profile?.metadata?.lastPairedDevice || '\u2014'}
             </p>
@@ -107,7 +103,7 @@ export default function UserDashboard() {
               {profile?.metadata?.lastPairedDevice ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-                  <span className="text-[11px] text-muted-foreground">paired</span>
+                  <span className="text-xs text-muted-foreground">paired</span>
                   <span className="sr-only">Device is paired</span>
                 </>
               ) : (
@@ -116,18 +112,18 @@ export default function UserDashboard() {
                     className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] text-muted-foreground">not paired</span>
+                  <span className="text-xs text-muted-foreground">not paired</span>
                   <span className="sr-only">No device paired</span>
                 </>
               )}
             </div>
           </div>
           <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Account</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Account</p>
             <p className="text-2xl font-display font-bold mt-1.5">{user?.role || '\u2014'}</p>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-[11px] text-muted-foreground">active</span>
+              <span className="text-xs text-muted-foreground">active</span>
               <span className="sr-only">Account is active</span>
             </div>
           </div>
@@ -136,7 +132,7 @@ export default function UserDashboard() {
 
       {/* Playlist Link */}
       <div className="">
-        <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Playlist Link
         </h2>
         <div className="border border-border p-4">
@@ -171,7 +167,7 @@ export default function UserDashboard() {
 
       {/* Quick Actions */}
       <div className="">
-        <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Quick Actions
         </h2>
         <div className="grid sm:grid-cols-2 gap-3">

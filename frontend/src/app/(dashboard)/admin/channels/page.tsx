@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useDeferredValue } from 'react';
 import {
   Loader2,
   Trash2,
@@ -66,6 +66,7 @@ export default function ChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -143,7 +144,7 @@ export default function ChannelsPage() {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
-      if (search) params.set('search', search);
+      if (deferredSearch) params.set('search', deferredSearch);
       if (selectedGroups.length > 0 && selectedGroups.length < filterOptions.group.length) {
         params.set('group', selectedGroups.join(','));
       }
@@ -170,7 +171,7 @@ export default function ChannelsPage() {
     }
   }, [
     page,
-    search,
+    deferredSearch,
     selectedGroups,
     selectedStatuses,
     selectedLanguages,
@@ -194,7 +195,7 @@ export default function ChannelsPage() {
 
   // Track previous filter values to detect changes and reset page
   const prevFiltersRef = useRef({
-    search,
+    deferredSearch,
     selectedGroups,
     selectedStatuses,
     selectedLanguages,
@@ -205,13 +206,13 @@ export default function ChannelsPage() {
   useEffect(() => {
     const prev = prevFiltersRef.current;
     const filtersChanged =
-      prev.search !== search ||
+      prev.deferredSearch !== deferredSearch ||
       prev.selectedGroups !== selectedGroups ||
       prev.selectedStatuses !== selectedStatuses ||
       prev.selectedLanguages !== selectedLanguages ||
       prev.selectedCountries !== selectedCountries;
     prevFiltersRef.current = {
-      search,
+      deferredSearch,
       selectedGroups,
       selectedStatuses,
       selectedLanguages,
@@ -226,7 +227,7 @@ export default function ChannelsPage() {
   }, [
     fetchChannels,
     page,
-    search,
+    deferredSearch,
     selectedGroups,
     selectedStatuses,
     selectedLanguages,
@@ -530,7 +531,7 @@ export default function ChannelsPage() {
           >
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
             >
               Name
             </span>
@@ -571,7 +572,7 @@ export default function ChannelsPage() {
             </span>
             <span
               role="columnheader"
-              className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
             >
               Actions
             </span>
@@ -592,13 +593,21 @@ export default function ChannelsPage() {
                 >
                   <div
                     role="cell"
+                    tabIndex={0}
                     className="flex items-center gap-3 min-w-0 cursor-pointer"
                     onClick={() => setDetailChannel(channel)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetailChannel(channel);
+                      }
+                    }}
                   >
                     {getLogo(channel) ? (
                       <img
                         src={proxyImageUrl(getLogo(channel)!)}
-                        alt=""
+                        alt={getName(channel) + ' logo'}
+                        loading="lazy"
                         className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                       />
                     ) : (
@@ -620,14 +629,7 @@ export default function ChannelsPage() {
                       className={`w-1.5 h-1.5 rounded-full ${channel.metadata?.isWorking === true ? 'bg-signal-green' : channel.metadata?.isWorking === false ? 'bg-signal-red' : 'bg-muted-foreground/40'}`}
                       aria-hidden="true"
                     />
-                    <span className="text-[11px] text-muted-foreground">
-                      {channel.metadata?.isWorking === true
-                        ? 'Live'
-                        : channel.metadata?.isWorking === false
-                          ? 'Dead'
-                          : 'Untested'}
-                    </span>
-                    <span className="sr-only">
+                    <span className="text-xs text-muted-foreground">
                       {channel.metadata?.isWorking === true
                         ? 'Live'
                         : channel.metadata?.isWorking === false
@@ -638,14 +640,14 @@ export default function ChannelsPage() {
                   <div role="cell" className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setDetailChannel(channel)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="View details"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => playStream({ name: getName(channel), url: getUrl(channel) })}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors"
                       aria-label="Play stream"
                     >
                       <Play className="h-4 w-4" />
@@ -653,7 +655,7 @@ export default function ChannelsPage() {
                     <button
                       onClick={() => handleTestOne(channel)}
                       disabled={testing === channel._id}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
                       aria-label="Test stream"
                     >
                       {testing === channel._id ? (
@@ -664,14 +666,14 @@ export default function ChannelsPage() {
                     </button>
                     <button
                       onClick={() => openEdit(channel)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="Edit channel"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(channel._id)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-destructive transition-colors"
                       aria-label={`Delete ${getName(channel)}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -749,7 +751,7 @@ export default function ChannelsPage() {
               <div key={f.id} className="space-y-1.5">
                 <label
                   htmlFor={f.id}
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   {f.label}
                 </label>
@@ -767,7 +769,7 @@ export default function ChannelsPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="add-order"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Sort Order
               </label>
@@ -849,7 +851,7 @@ export default function ChannelsPage() {
               <div key={f.id} className="space-y-1.5">
                 <label
                   htmlFor={f.id}
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   {f.label}
                 </label>
@@ -866,7 +868,7 @@ export default function ChannelsPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="edit-order"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 Sort Order
               </label>
@@ -914,7 +916,8 @@ export default function ChannelsPage() {
               {getLogo(detailChannel) ? (
                 <img
                   src={proxyImageUrl(getLogo(detailChannel)!)}
-                  alt=""
+                  alt={getName(detailChannel) + ' logo'}
+                  loading="lazy"
                   className="h-16 w-16 rounded object-contain bg-muted shrink-0"
                 />
               ) : (
@@ -1022,7 +1025,7 @@ export default function ChannelsPage() {
             </div>
           )}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+            <label className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
               M3U Content
             </label>
             <textarea

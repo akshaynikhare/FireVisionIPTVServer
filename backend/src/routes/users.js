@@ -39,19 +39,21 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       if (roles.length > 0) filter.role = { $in: roles };
     }
 
-    // Status filter
+    // Status filter — supports single and multi-value (e.g. "Active,Inactive")
     if (status) {
       const statuses = status
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-      if (statuses.length === 1) {
-        if (statuses[0] === 'Active') {
-          filter.isActive = true;
-        } else if (statuses[0] === 'Inactive') {
-          filter.isActive = false;
-        }
+      const hasActive = statuses.includes('Active');
+      const hasInactive = statuses.includes('Inactive');
+      // Only apply filter when the selection is not "both" (which means no filter)
+      if (hasActive && !hasInactive) {
+        filter.isActive = true;
+      } else if (hasInactive && !hasActive) {
+        filter.isActive = false;
       }
+      // Both selected or unrecognized values → no filter (show all)
     }
 
     // Text search
@@ -115,20 +117,14 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       });
     }
 
-    // Generate unique channel list code
-    const channelListCode = await User.generateChannelListCode();
-
-    // Create new user
-    const user = new User({
+    // Create new user with retry-safe channelListCode generation
+    const user = await User.generateAndSaveWithCode({
       username,
       password,
       email,
       role: role || 'User',
-      channelListCode,
       isActive: isActive !== undefined ? isActive : true,
     });
-
-    await user.save();
     audit({
       userId: req.user.id,
       action: 'create_user',
@@ -146,6 +142,13 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       data: userResponse,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return res.status(400).json({
+        success: false,
+        error: `A user with that ${field} already exists`,
+      });
+    }
     console.error('Error creating user:', error);
     res.status(500).json({
       success: false,
@@ -262,6 +265,13 @@ router.put('/:id', requireAuth, async (req, res) => {
       data: userResponse,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return res.status(400).json({
+        success: false,
+        error: `A user with that ${field} already exists`,
+      });
+    }
     console.error('Error updating user:', error);
     res.status(500).json({
       success: false,
@@ -283,9 +293,13 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
       });
     }
 
-    // Purge all sessions for deleted user
+    // Purge all sessions and refresh tokens for deleted user
     const Session = require('../models/Session');
-    await Session.deleteMany({ userId: id });
+    const RefreshToken = require('../models/RefreshToken');
+    await Promise.all([
+      Session.deleteMany({ userId: id }),
+      RefreshToken.deleteMany({ userId: id }),
+    ]);
 
     audit({
       userId: req.user.id,

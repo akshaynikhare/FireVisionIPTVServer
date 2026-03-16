@@ -5,11 +5,8 @@ import type { ExternalSourceType } from '@firevision/shared';
 
 const CACHE_TTL = parseInt(process.env.EXT_SOURCE_CACHE_TTL_MS || '3600000', 10); // 1 hour
 const LIVENESS_CONCURRENCY = parseInt(process.env.EXT_SOURCE_LIVENESS_CONCURRENCY || '20', 10);
-// Pluto TV JWT session management
-let plutoSessionCache: { token: string | null; timestamp: number | null } = {
-  token: null,
-  timestamp: null,
-};
+// Pluto TV JWT session management — keyed by country to avoid cross-region leaks
+const plutoSessionCache = new Map<string, { token: string; timestamp: number }>();
 const PLUTO_SESSION_TTL = 1800000; // 30 min
 
 function buildCacheKey(source: string, region: string): string {
@@ -23,20 +20,18 @@ class ExternalSourceCacheService {
   // ─── Pluto TV JWT ────────────────────────────────────────
 
   async getPlutoSessionToken(country: string): Promise<string> {
-    if (
-      plutoSessionCache.token &&
-      plutoSessionCache.timestamp &&
-      Date.now() - plutoSessionCache.timestamp < PLUTO_SESSION_TTL
-    ) {
-      return plutoSessionCache.token;
+    const key = (country || 'US').toUpperCase();
+    const cached = plutoSessionCache.get(key);
+    if (cached && Date.now() - cached.timestamp < PLUTO_SESSION_TTL) {
+      return cached.token;
     }
-    const bootUrl = `https://boot.pluto.tv/v4/start?appName=web&appVersion=9&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=131&clientModelNumber=1.0.0&serverSideAds=false&clientID=1&country=${(country || 'US').toUpperCase()}`;
+    const bootUrl = `https://boot.pluto.tv/v4/start?appName=web&appVersion=9&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=131&clientModelNumber=1.0.0&serverSideAds=false&clientID=1&country=${key}`;
     const res = await axios.get(bootUrl, {
       timeout: 10000,
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
     const token = res.data.sessionToken;
-    plutoSessionCache = { token, timestamp: Date.now() };
+    plutoSessionCache.set(key, { token, timestamp: Date.now() });
     return token;
   }
 

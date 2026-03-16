@@ -74,7 +74,7 @@ export function LanguageStep({ selectedLanguages, onToggleLanguage }: LanguageSt
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 3</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 3</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Preferred Languages
         </h2>

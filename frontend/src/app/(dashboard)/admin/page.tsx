@@ -189,13 +189,13 @@ export default function AdminDashboard() {
                 i >= 2 ? 'border-t border-border lg:border-t-0' : ''
               } ${i === 2 ? 'lg:border-l' : ''}`}
             >
-              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                 {metric.label}
               </p>
               <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">{metric.value}</p>
               <div className="flex items-center gap-1.5 mt-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${metric.color}`} />
-                <span className="text-[11px] text-muted-foreground">{metric.sub}</span>
+                <span className="text-xs text-muted-foreground">{metric.sub}</span>
               </div>
             </Link>
           ))}
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
       {config?.defaultTvCode && (
         <div className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between ">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
               Default Channel List Code
             </p>
             <div className="flex items-center gap-3 mt-1.5">
@@ -249,7 +249,7 @@ export default function AdminDashboard() {
 
       <div className="grid lg:grid-cols-[1fr,300px] gap-6">
         <div className="">
-          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Recent Activity
           </h2>
           <div className="border border-border divide-y divide-border">
@@ -263,13 +263,13 @@ export default function AdminDashboard() {
                     <div className="shrink-0 text-right w-20">
                       <time
                         dateTime={item.timestamp}
-                        className="text-[11px] tabular-nums text-muted-foreground font-medium"
+                        className="text-xs tabular-nums text-muted-foreground font-medium"
                       >
                         {formatTime(item.timestamp)}
                       </time>
                       <time
                         dateTime={item.timestamp}
-                        className="text-[10px] text-muted-foreground/60 ml-1.5"
+                        className="text-xs text-muted-foreground/60 ml-1.5"
                       >
                         {formatDate(item.timestamp)}
                       </time>
@@ -287,7 +287,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="">
-          <h2 className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Quick Actions
           </h2>
           <div className="space-y-2">

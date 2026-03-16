@@ -265,7 +265,7 @@ export default function ProfilePage() {
       {/* Profile Picture */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Profile Picture
           </h2>
         </div>
@@ -279,6 +279,7 @@ export default function ProfilePage() {
                     : profile.profilePicture
                 }
                 alt="Profile"
+                loading="lazy"
                 className="h-16 w-16 rounded-full object-cover border-2 border-border"
               />
             ) : (
@@ -330,7 +331,7 @@ export default function ProfilePage() {
       {/* Profile Info */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Account Details
           </h2>
           {!editing && (
@@ -339,7 +340,7 @@ export default function ProfilePage() {
                 setEditing(true);
                 setSaveMsg(null);
               }}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Edit
             </button>
@@ -352,7 +353,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-username"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Username
                 </label>
@@ -368,7 +369,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-email"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Email
                 </label>
@@ -461,7 +462,7 @@ export default function ProfilePage() {
       {/* Channel List Code */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel List Code
           </h2>
         </div>
@@ -503,7 +504,7 @@ export default function ProfilePage() {
       {/* Change Password */}
       <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Password
           </h2>
           {!showPwForm && (
@@ -512,7 +513,7 @@ export default function ProfilePage() {
                 setShowPwForm(true);
                 setPwMsg(null);
               }}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Change
             </button>
@@ -524,7 +525,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="current-pw"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Current Password
                 </label>
@@ -554,7 +555,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="new-pw"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   New Password
                 </label>
@@ -624,7 +625,7 @@ export default function ProfilePage() {
       {sessions.length > 0 && (
         <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Active Sessions ({sessions.length})
             </h2>
           </div>
@@ -636,7 +637,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">{parseBrowser(s.userAgent)}</p>
                     {s.isCurrent && (
-                      <span className="text-[10px] uppercase tracking-[0.1em] bg-primary/10 text-primary px-1.5 py-0.5 font-medium">
+                      <span className="text-xs uppercase tracking-[0.1em] bg-primary/10 text-primary px-1.5 py-0.5 font-medium">
                         Current
                       </span>
                     )}
