@@ -74,6 +74,7 @@ services:
       SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-superadmin}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMeNow123!}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
+      SUPER_ADMIN_CHANNEL_LIST_CODE: ${SUPER_ADMIN_CHANNEL_LIST_CODE:-5T6FEP}
       FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
       # Session Configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}

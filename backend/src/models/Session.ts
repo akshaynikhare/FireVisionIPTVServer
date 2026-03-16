@@ -51,9 +51,16 @@ const sessionSchema = new Schema<ISessionDocument>(
 // Index for automatic cleanup of expired sessions
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Update last activity on access
+// Maximum absolute session lifetime (30 days from creation)
+const MAX_SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Update last activity and extend session expiry (sliding window with absolute cap)
 sessionSchema.methods.updateActivity = function (this: ISessionDocument) {
   this.lastActivity = new Date();
+  const slidingExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // Cap at absolute max lifetime from creation
+  const absoluteExpiry = new Date((this as any).createdAt.getTime() + MAX_SESSION_LIFETIME_MS);
+  this.expiresAt = slidingExpiry < absoluteExpiry ? slidingExpiry : absoluteExpiry;
   return (this as any).save();
 };
 

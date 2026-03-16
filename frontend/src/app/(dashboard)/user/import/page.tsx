@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Globe, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
+import { useToast } from '@/hooks/use-toast';
 
 interface Playlist {
   id: string;
@@ -25,6 +26,7 @@ interface EnrichedChannel {
 }
 
 export default function ImportPage() {
+  const { toast } = useToast();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export default function ImportPage() {
       setChannels(data);
       setSelectedIds(new Set(data.map((c: EnrichedChannel) => c.channelId || c.channelName)));
     } catch {
-      alert('Failed to fetch channels');
+      toast('Failed to fetch channels', 'error');
     } finally {
       setFetchingChannels(false);
     }
@@ -102,9 +104,9 @@ export default function ImportPage() {
   async function handleClearCache() {
     try {
       await api.post('/iptv-org/clear-cache');
-      alert('Cache cleared');
+      toast('Cache cleared', 'success');
     } catch {
-      alert('Failed to clear cache');
+      toast('Failed to clear cache', 'error');
     }
   }
 

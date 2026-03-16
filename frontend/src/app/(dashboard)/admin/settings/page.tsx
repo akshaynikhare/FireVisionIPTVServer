@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Copy, Check, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface ServerInfo {
   name: string;
@@ -19,6 +20,7 @@ interface CacheEntry {
 }
 
 export default function SettingsPage() {
+  const { toast } = useToast();
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [playlistUrl, setPlaylistUrl] = useState('');
@@ -77,7 +79,7 @@ export default function SettingsPage() {
       await api.post('/iptv-org/clear-cache');
       await fetchCacheStatus();
     } catch {
-      alert('Failed to clear cache');
+      toast('Failed to clear cache', 'error');
     } finally {
       setCacheLoading(false);
     }
@@ -201,9 +203,9 @@ export default function SettingsPage() {
             onClick={async () => {
               try {
                 const res = await api.post('/auth/cleanup-sessions');
-                alert(res.data.message || 'Sessions cleaned up');
+                toast(res.data.message || 'Sessions cleaned up', 'success');
               } catch {
-                alert('Failed to clean up sessions');
+                toast('Failed to clean up sessions', 'error');
               }
             }}
             className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md active:shadow-none active:bg-muted"

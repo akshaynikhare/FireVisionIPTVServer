@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Tv, Users, Smartphone, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  Tv,
+  Users,
+  Smartphone,
+  ChevronRight,
+  Loader2,
+  Copy,
+  Check,
+  Zap,
+  ExternalLink,
+} from 'lucide-react';
 import api from '@/lib/api';
 
 interface DashboardStats {
@@ -13,7 +23,13 @@ interface DashboardStats {
   activityFeed: Array<{ type: string; message: string; timestamp: string }>;
 }
 
+interface ConfigDefaults {
+  defaultTvCode: string;
+  defaultServerUrl: string;
+}
+
 const quickActions = [
+  { label: 'Quick Pick', href: '/admin/quick-pick', icon: Zap },
   { label: 'Manage Channels', href: '/admin/channels', icon: Tv },
   { label: 'Manage Users', href: '/admin/users', icon: Users },
   { label: 'Manage Devices', href: '/admin/devices', icon: Smartphone },
@@ -36,22 +52,40 @@ function formatDate(timestamp: string) {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [config, setConfig] = useState<ConfigDefaults | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  function copyCode(text: string) {
+    navigator.clipboard.writeText(text);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  }
+
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchStats() {
       try {
-        const res = await api.get('/admin/stats/detailed');
-        const data = res.data;
+        const [statsRes, configRes] = await Promise.all([
+          api.get('/admin/stats/detailed', { signal: controller.signal }),
+          api.get('/config/defaults', { signal: controller.signal }),
+        ]);
+        if (controller.signal.aborted) return;
+        const res = statsRes;
+        if (configRes.data?.data) {
+          setConfig(configRes.data.data);
+        }
+        const data = res.data?.data || res.data;
 
         const activityFeed: DashboardStats['activityFeed'] = [];
 
-        if (data.activityFeed) {
-          for (const item of data.activityFeed) {
+        if (data.activity) {
+          for (const item of data.activity) {
             activityFeed.push({
               type: item.type || 'event',
-              message: item.message || item.event || String(item),
+              message: item.message || item.description || item.event || String(item),
               timestamp: item.timestamp || item.createdAt || new Date().toISOString(),
             });
           }
@@ -75,18 +109,20 @@ export default function AdminDashboard() {
             total: data.pairings?.total ?? 0,
             pending: data.pairings?.pending ?? 0,
             completed: data.pairings?.completed ?? 0,
-            today: data.pairings?.today ?? 0,
+            today: data.pairings?.todayCount ?? 0,
           },
           activityFeed,
         });
-      } catch {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'CanceledError') return;
         setError('Failed to load dashboard data');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
     fetchStats();
+    return () => controller.abort();
   }, []);
 
   if (loading) {
@@ -161,6 +197,54 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {config?.defaultTvCode && (
+        <div
+          className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between animate-fade-up"
+          style={{ animationDelay: '75ms' }}
+        >
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              Default Channel List Code
+            </p>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="text-xl font-display font-bold tracking-[0.15em] font-mono">
+                {config.defaultTvCode}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                New TVs use this code before user pairing
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/v1/tv/playlist/${config.defaultTvCode}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card hover:bg-muted transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open M3U
+            </a>
+            <button
+              onClick={() => copyCode(config.defaultTvCode)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card hover:bg-muted transition-colors"
+            >
+              {codeCopied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-signal-green" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-[1fr,300px] gap-6">
         <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
@@ -169,7 +253,10 @@ export default function AdminDashboard() {
           <div className="border border-border divide-y divide-border">
             {stats?.activityFeed && stats.activityFeed.length > 0 ? (
               stats.activityFeed.slice(0, 8).map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <div
+                  key={`${item.type || 'activity'}-${item.timestamp}-${i}`}
+                  className="flex items-center gap-4 px-4 py-3"
+                >
                   <div className="shrink-0 text-right w-20">
                     <span className="text-[11px] tabular-nums text-muted-foreground font-medium">
                       {formatTime(item.timestamp)}

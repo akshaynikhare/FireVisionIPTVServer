@@ -8,7 +8,7 @@ const capabilities = [
   },
   {
     title: 'Multi-Source Import',
-    desc: 'Import from IPTV-org, Pluto TV, Samsung TV Plus, and Radio Browser with region-based filtering',
+    desc: 'Import from IPTV-org, Pluto TV, and Samsung TV Plus with region-based filtering',
   },
   {
     title: 'Device Pairing',

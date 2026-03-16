@@ -9,7 +9,8 @@ COMPOSE_PROD:= docker compose -f docker-compose.production.yml
 
 .PHONY: help build up down restart logs shell status clean \
         build-prod up-prod down-prod logs-prod \
-        dev test lint typecheck
+        dev test lint typecheck \
+        db-reset db-drop db-shell
 
 # ─── Help ────────────────────────────────────────────────────
 help: ## Show this help
@@ -76,6 +77,19 @@ clean-images: ## Remove dangling images
 clean-all: ## Full cleanup (containers, volumes, images)
 	$(COMPOSE) down -v --rmi local
 	docker image prune -f
+
+# ─── Database ───────────────────────────────────────────────
+db-reset: ## Drop database and restart API (re-creates super admin)
+	$(COMPOSE) exec mongodb mongosh --quiet --eval 'db.getSiblingDB("firevision-iptv").dropDatabase()' && \
+	$(COMPOSE) restart api
+	@echo "Database reset. Super admin will be re-created on startup."
+
+db-drop: ## Drop database only (no restart)
+	$(COMPOSE) exec mongodb mongosh --quiet --eval 'db.getSiblingDB("firevision-iptv").dropDatabase()'
+	@echo "Database dropped."
+
+db-shell: ## Open MongoDB shell
+	$(COMPOSE) exec mongodb mongosh firevision-iptv
 
 # ─── Local Development (no Docker) ──────────────────────────
 dev: ## Start backend + frontend locally (no Docker)

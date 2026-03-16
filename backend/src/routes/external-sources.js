@@ -1,229 +1,204 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const Channel = require('../models/Channel');
-const { requireAuth } = require('./auth');
+const { requireAuth, requireAdmin } = require('./auth');
+const {
+  externalSourceCacheService,
+} = require('../services/external-source-cache');
 
 router.use(requireAuth);
 
-// Cache with TTL
-const cache = {};
-const CACHE_TTL = 3600000; // 1 hour
+// Middleware: admin-only for destructive/administrative operations
+const adminOnly = requireAdmin;
 
-function getCached(key) {
-  const entry = cache[key];
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL) return entry.data;
-  return null;
-}
-
-function setCache(key, data) {
-  cache[key] = { data, timestamp: Date.now() };
+// ─── Helper: map DB doc to frontend shape ────────────────────
+function mapToFrontendShape(ch, source) {
+  return {
+    _uid: String(ch._id),
+    channelId: ch.channelId,
+    channelName: ch.channelName,
+    channelUrl: ch.streamUrl,
+    tvgLogo: ch.tvgLogo || '',
+    groupTitle: ch.groupTitle || 'Uncategorized',
+    country: ch.country || '',
+    source,
+    summary: ch.summary || '',
+    codec: ch.codec || undefined,
+    bitrate: ch.bitrate || undefined,
+    language: ch.language || undefined,
+    votes: ch.votes != null ? ch.votes : undefined,
+    homepage: ch.homepage || undefined,
+    liveness: ch.liveness
+      ? {
+          status: ch.liveness.status,
+          lastCheckedAt: ch.liveness.lastCheckedAt,
+          responseTimeMs: ch.liveness.responseTimeMs,
+          error: ch.liveness.error,
+        }
+      : undefined,
+  };
 }
 
 // ─── Pluto TV ──────────────────────────────────────────────
-const PLUTO_REGIONS = [
-  { code: 'us', name: 'United States' },
-  { code: 'gb', name: 'United Kingdom' },
-  { code: 'de', name: 'Germany' },
-  { code: 'fr', name: 'France' },
-  { code: 'es', name: 'Spain' },
-  { code: 'it', name: 'Italy' },
-  { code: 'br', name: 'Brazil' },
-  { code: 'mx', name: 'Mexico' },
-  { code: 'ca', name: 'Canada' },
-  { code: 'at', name: 'Austria' },
-  { code: 'ch', name: 'Switzerland' },
-  { code: 'dk', name: 'Denmark' },
-  { code: 'no', name: 'Norway' },
-  { code: 'se', name: 'Sweden' },
-];
 
-router.get('/pluto-tv/regions', (req, res) => {
-  res.json({ success: true, data: PLUTO_REGIONS });
+router.get('/pluto-tv/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getPlutoRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('Pluto TV regions error:', error.message);
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to fetch Pluto TV regions' });
+  }
 });
 
 router.get('/pluto-tv/channels', async (req, res) => {
   try {
     const country = (req.query.country || 'us').toLowerCase();
-    const cacheKey = `pluto_${country}`;
-    const cached = getCached(cacheKey);
-    if (cached) return res.json({ success: true, data: cached, fromCache: true });
-
-    const response = await axios.get(
-      `https://boot.pluto.tv/v4/start?channelSlug=*&appName=web&appVersion=9&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=131&appName=web&clientModelNumber=1.0.0&serverSideAds=false&clientID=1&country=${country.toUpperCase()}`,
-      { timeout: 15000 }
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels(
+      'pluto-tv',
+      country,
+      { status },
     );
-
-    const channels = (response.data.channels || []).map((ch) => ({
-      channelId: ch.slug || ch._id,
-      channelName: ch.name,
-      channelUrl: ch.stitched?.urls?.[0]?.url || '',
-      tvgLogo: ch.colorLogoPNG?.url || ch.logo?.url || ch.thumbnail?.url || '',
-      groupTitle: ch.category || 'Uncategorized',
-      country: country.toUpperCase(),
-      source: 'pluto-tv',
-      summary: ch.summary || '',
-    }));
-
-    // Filter out channels without stream URLs
-    const validChannels = channels.filter((ch) => ch.channelUrl);
-    setCache(cacheKey, validChannels);
-    res.json({ success: true, data: validChannels });
+    const data = channels.map((ch) => mapToFrontendShape(ch, 'pluto-tv'));
+    res.json({ success: true, data, fromCache: true });
   } catch (error) {
     console.error('Pluto TV fetch error:', error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch Pluto TV channels' });
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to fetch Pluto TV channels' });
   }
 });
 
 // ─── Samsung TV Plus ───────────────────────────────────────
-const SAMSUNG_REGIONS = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'IN', name: 'India' },
-  { code: 'KR', name: 'South Korea' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'AT', name: 'Austria' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'SE', name: 'Sweden' },
-];
 
-router.get('/samsung-tv-plus/regions', (req, res) => {
-  res.json({ success: true, data: SAMSUNG_REGIONS });
+router.get('/samsung-tv-plus/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getSamsungRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('Samsung TV Plus regions error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Samsung TV Plus regions',
+    });
+  }
 });
 
 router.get('/samsung-tv-plus/channels', async (req, res) => {
   try {
-    const country = (req.query.country || 'US').toUpperCase();
-    const cacheKey = `samsung_${country}`;
-    const cached = getCached(cacheKey);
-    if (cached) return res.json({ success: true, data: cached, fromCache: true });
-
-    const response = await axios.get(
-      `https://api.samsungtvplus.com/content/v3/channel-list/${country}`,
-      {
-        timeout: 15000,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      }
+    const country = (req.query.country || 'us').toLowerCase();
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels(
+      'samsung-tv-plus',
+      country,
+      { status },
     );
-
-    const rawChannels = response.data?.channels || response.data?.data?.channels || response.data || [];
-    const channelList = Array.isArray(rawChannels) ? rawChannels : [];
-
-    const channels = channelList.map((ch) => ({
-      channelId: ch.channelId || ch.id || ch.slug || '',
-      channelName: ch.channelName || ch.title || ch.name || '',
-      channelUrl: ch.mediaUrl || ch.streamUrl || ch.url || '',
-      tvgLogo: ch.channelLogoUrl || ch.logo || ch.thumbnail || '',
-      groupTitle: ch.genreName || ch.category || ch.genre || 'Uncategorized',
-      country: country,
-      source: 'samsung-tv-plus',
-      summary: ch.description || '',
-    }));
-
-    const validChannels = channels.filter((ch) => ch.channelName);
-    setCache(cacheKey, validChannels);
-    res.json({ success: true, data: validChannels });
+    const data = channels.map((ch) =>
+      mapToFrontendShape(ch, 'samsung-tv-plus'),
+    );
+    res.json({ success: true, data, fromCache: true });
   } catch (error) {
     console.error('Samsung TV Plus fetch error:', error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch Samsung TV Plus channels' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Samsung TV Plus channels',
+    });
   }
 });
 
-// ─── Radio Browser ─────────────────────────────────────────
-const RADIO_BROWSER_BASE = 'https://de1.api.radio-browser.info/json';
+// ─── Liveness Endpoints ────────────────────────────────────
 
-router.get('/radio-browser/countries', async (req, res) => {
+router.post('/check-liveness', adminOnly, async (req, res) => {
   try {
-    const cacheKey = 'radio_countries';
-    const cached = getCached(cacheKey);
-    if (cached) return res.json({ success: true, data: cached });
+    const { source, region } = req.body;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
 
-    const response = await axios.get(`${RADIO_BROWSER_BASE}/countries?hidebroken=true&order=stationcount&reverse=true`, {
-      timeout: 10000,
+    // Fire and forget
+    externalSourceCacheService
+      .runBatchLivenessCheck(source, region)
+      .catch((err) =>
+        console.error('[ext-cache] Batch liveness error:', err.message),
+      );
+
+    res.json({
+      success: true,
+      message: `Batch liveness check started for ${source}:${region}`,
     });
-
-    // Return top 50 countries with most stations
-    const countries = (response.data || [])
-      .filter((c) => c.stationcount > 10)
-      .slice(0, 50)
-      .map((c) => ({
-        code: c.iso_3166_1,
-        name: c.name,
-        stationCount: c.stationcount,
-      }));
-
-    setCache(cacheKey, countries);
-    res.json({ success: true, data: countries });
   } catch (error) {
-    console.error('Radio Browser countries error:', error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch countries' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-router.get('/radio-browser/stations', async (req, res) => {
+router.post('/check-liveness/:docId', async (req, res) => {
   try {
-    const { country, tag, search, limit = '100', offset = '0' } = req.query;
-    const params = new URLSearchParams({
-      hidebroken: 'true',
-      order: 'votes',
-      reverse: 'true',
-      limit: String(Math.min(parseInt(limit) || 100, 500)),
-      offset: String(parseInt(offset) || 0),
-    });
-
-    let endpoint = '/stations/search';
-    if (country) params.set('country', country);
-    if (tag) params.set('tag', tag);
-    if (search) params.set('name', search);
-
-    const cacheKey = `radio_${endpoint}_${params.toString()}`;
-    const cached = getCached(cacheKey);
-    if (cached) return res.json({ success: true, data: cached.channels, total: cached.total, fromCache: true });
-
-    const response = await axios.get(`${RADIO_BROWSER_BASE}${endpoint}?${params.toString()}`, {
-      timeout: 10000,
-    });
-
-    const stations = (response.data || []).map((st) => ({
-      channelId: st.stationuuid,
-      channelName: st.name,
-      channelUrl: st.url_resolved || st.url,
-      tvgLogo: st.favicon || '',
-      groupTitle: st.tags ? st.tags.split(',')[0].trim() : 'Radio',
-      country: st.country || '',
-      source: 'radio-browser',
-      summary: `${st.codec || ''} ${st.bitrate ? st.bitrate + 'kbps' : ''} | ${st.language || ''} | Votes: ${st.votes || 0}`.trim(),
-      codec: st.codec,
-      bitrate: st.bitrate,
-      language: st.language,
-      votes: st.votes,
-      homepage: st.homepage,
-    }));
-
-    setCache(cacheKey, { channels: stations, total: stations.length });
-    res.json({ success: true, data: stations, total: stations.length });
+    const result = await externalSourceCacheService.checkSingleStream(
+      req.params.docId,
+    );
+    if (!result)
+      return res
+        .status(404)
+        .json({ success: false, error: 'Channel not found' });
+    res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Radio Browser stations error:', error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch radio stations' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+router.get('/liveness-status', async (req, res) => {
+  try {
+    const { source, region } = req.query;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
+    const meta = await externalSourceCacheService.getCacheMeta(source, region);
+    res.json({
+      success: true,
+      data: {
+        livenessStats: meta?.livenessStats || { alive: 0, dead: 0, unknown: 0 },
+        livenessCheckInProgress: meta?.livenessCheckInProgress || false,
+        lastLivenessCheckAt: meta?.lastLivenessCheckAt || null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+router.post('/refresh-cache', adminOnly, async (req, res) => {
+  try {
+    const { source, region } = req.body;
+    if (!source || !region) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'source and region are required' });
+    }
+    const result = await externalSourceCacheService.refreshRegion(
+      source,
+      region,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // ─── Import to System ──────────────────────────────────────
-router.post('/import', async (req, res) => {
+router.post('/import', adminOnly, async (req, res) => {
   try {
     const { channels, replaceExisting } = req.body;
     if (!channels || !Array.isArray(channels) || channels.length === 0) {
-      return res.status(400).json({ success: false, error: 'No channels provided' });
+      return res
+        .status(400)
+        .json({ success: false, error: 'No channels provided' });
     }
 
     if (replaceExisting) {
@@ -234,14 +209,21 @@ router.post('/import', async (req, res) => {
       channelName: ch.channelName,
       channelUrl: ch.channelUrl,
       tvgLogo: ch.tvgLogo || '',
+      tvgName: ch.tvgName || ch.channelName || '',
       channelGroup: ch.groupTitle || ch.channelGroup || 'Imported',
       channelId: ch.channelId || '',
+      metadata: {
+        country: (ch.country || '').toLowerCase(),
+        source: ch.source || '',
+      },
     }));
 
-    const result = await Channel.insertMany(docs, { ordered: false }).catch((err) => {
-      if (err.insertedDocs) return err.insertedDocs;
-      throw err;
-    });
+    const result = await Channel.insertMany(docs, { ordered: false }).catch(
+      (err) => {
+        if (err.insertedDocs) return err.insertedDocs;
+        throw err;
+      },
+    );
 
     const count = Array.isArray(result) ? result.length : 0;
     res.json({
@@ -251,14 +233,107 @@ router.post('/import', async (req, res) => {
     });
   } catch (error) {
     console.error('External sources import error:', error.message);
-    res.status(500).json({ success: false, error: 'Import failed: ' + error.message });
+    res
+      .status(500)
+      .json({ success: false, error: 'Import failed' });
+  }
+});
+
+// ─── Import to User Playlist ─────────────────────────────
+router.post('/import-user', async (req, res) => {
+  try {
+    const { channels } = req.body;
+    const userId = req.user.id;
+
+    if (!channels || !Array.isArray(channels) || channels.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Channels array is required' });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, error: 'User not found' });
+    }
+
+    const existingChannelIds = new Set(
+      user.channels.map((id) => id.toString()),
+    );
+    const channelIdsToAdd = [];
+
+    for (const ch of channels) {
+      try {
+        let existingChannel = await Channel.findOne({
+          channelUrl: ch.channelUrl,
+        });
+
+        if (existingChannel) {
+          const channelIdStr = existingChannel._id.toString();
+          if (!existingChannelIds.has(channelIdStr)) {
+            channelIdsToAdd.push(existingChannel._id);
+            existingChannelIds.add(channelIdStr);
+          }
+        } else {
+          const newChannel = new Channel({
+            channelId:
+              ch.channelId ||
+              `ext_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            channelName: ch.channelName,
+            channelUrl: ch.channelUrl,
+            channelImg: ch.tvgLogo || '',
+            tvgLogo: ch.tvgLogo || '',
+            channelGroup: ch.groupTitle || 'Imported',
+            tvgName: ch.channelName || '',
+            metadata: {
+              country: ch.country || '',
+              language: ch.language || '',
+            },
+          });
+
+          await newChannel.save();
+          channelIdsToAdd.push(newChannel._id);
+          existingChannelIds.add(newChannel._id.toString());
+        }
+      } catch (error) {
+        console.error(
+          'Error processing channel:',
+          ch.channelName,
+          error.message,
+        );
+      }
+    }
+
+    if (channelIdsToAdd.length > 0) {
+      user.channels.push(...channelIdsToAdd);
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      addedCount: channelIdsToAdd.length,
+      totalChannels: user.channels.length,
+      message: `Added ${channelIdsToAdd.length} channels to your list`,
+    });
+  } catch (error) {
+    console.error('Error importing external channels for user:', error);
+    res
+      .status(500)
+      .json({ success: false, error: 'Failed to import channels' });
   }
 });
 
 // ─── Clear Cache ───────────────────────────────────────────
-router.post('/clear-cache', (req, res) => {
-  Object.keys(cache).forEach((key) => delete cache[key]);
-  res.json({ success: true, message: 'Cache cleared' });
+router.post('/clear-cache', adminOnly, async (req, res) => {
+  try {
+    const { source, region } = req.body || {};
+    await externalSourceCacheService.clearCache(source, region);
+    res.json({ success: true, message: 'Cache cleared' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 module.exports = router;

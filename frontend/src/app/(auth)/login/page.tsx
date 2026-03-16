@@ -29,9 +29,8 @@ export default function LoginPage() {
       } else {
         router.push('/user');
       }
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      setError(axiosErr.response?.data?.error || 'Login failed');
+    } catch {
+      setError('Invalid username or password');
     } finally {
       setLoading(false);
     }
@@ -62,6 +61,11 @@ export default function LoginPage() {
           <p className="text-xs text-muted-foreground leading-relaxed">
             Secure access to your channel management and device provisioning infrastructure.
           </p>
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">
+              IPTV Management Console
+            </p>
+          </div>
         </div>
       </div>
 

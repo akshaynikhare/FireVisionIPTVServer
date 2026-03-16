@@ -156,6 +156,7 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
+      console.warn(`Failed login attempt: user not found (input: ${username}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
@@ -164,6 +165,7 @@ router.post('/login', async (req, res) => {
 
     // Check if user is active
     if (!user.isActive) {
+      console.warn(`Failed login attempt: inactive account (${username}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
         error: 'Account is inactive. Please contact administrator.'
@@ -174,6 +176,7 @@ router.post('/login', async (req, res) => {
     const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
+      console.warn(`Failed login attempt: bad password for ${username}, IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
@@ -236,7 +239,11 @@ router.post('/logout', async (req, res) => {
     const sessionId = req.headers['x-session-id'];
 
     if (sessionId) {
-      await Session.deleteOne({ sessionId });
+      // Only delete the session if it belongs to the requesting user (validate ownership)
+      const session = await Session.findOne({ sessionId });
+      if (session) {
+        await Session.deleteOne({ _id: session._id });
+      }
     }
 
     res.json({
@@ -313,6 +320,13 @@ router.post('/change-password', requireAuth, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'New password must be at least 8 characters long'
+      });
+    }
+
+    if (newPassword.length > 128) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must not exceed 128 characters'
       });
     }
 
@@ -401,8 +415,14 @@ router.put('/me', requireAuth, async (req, res) => {
       user.email = email;
     }
 
-    // Update profile picture if provided
+    // Update profile picture if provided (prevent path traversal)
     if (profilePicture !== undefined) {
+      if (profilePicture && (profilePicture.includes('..') || path.isAbsolute(profilePicture))) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid profile picture path'
+        });
+      }
       user.profilePicture = profilePicture || null;
     }
 
@@ -640,11 +660,15 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
       });
     }
 
-    // Delete old profile picture if exists
+    // Delete old profile picture if exists (with path traversal protection)
     if (user.profilePicture) {
       try {
-        const oldPath = path.join(__dirname, '../../../public', user.profilePicture);
-        await fs.unlink(oldPath);
+        const uploadsDir = path.resolve(__dirname, '../../../public/uploads/profiles');
+        const oldPath = path.resolve(__dirname, '../../../public', user.profilePicture);
+        // Ensure the resolved path is within the uploads directory
+        if (oldPath.startsWith(uploadsDir)) {
+          await fs.unlink(oldPath);
+        }
       } catch (error) {
         console.log('Could not delete old profile picture:', error.message);
       }
@@ -690,10 +714,13 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
       });
     }
 
-    // Delete file from disk
+    // Delete file from disk (with path traversal protection)
     try {
-      const filePath = path.join(__dirname, '../../../public', user.profilePicture);
-      await fs.unlink(filePath);
+      const uploadsDir = path.resolve(__dirname, '../../../public/uploads/profiles');
+      const filePath = path.resolve(__dirname, '../../../public', user.profilePicture);
+      if (filePath.startsWith(uploadsDir)) {
+        await fs.unlink(filePath);
+      }
     } catch (error) {
       console.log('Could not delete profile picture file:', error.message);
     }
@@ -739,6 +766,13 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    if (password.length > 128) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must not exceed 128 characters'
+      });
+    }
+
     // Check if username already exists
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
@@ -758,7 +792,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Generate unique channel list code
-    const channelListCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const channelListCode = await User.generateChannelListCode();
 
     // Create new user
     const user = new User({
@@ -800,14 +834,19 @@ router.post('/register', async (req, res) => {
 router.get('/google', (req, res) => {
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/v1/auth/google/callback`;
-  
+
   if (!googleClientId || googleClientId === 'your-google-client-id') {
     return res.status(500).send('Google OAuth is not configured. Please set GOOGLE_CLIENT_ID in environment variables.');
   }
 
+  // Generate CSRF state parameter
+  const state = crypto.randomBytes(16).toString('hex');
+  // Store state in a secure httpOnly cookie for validation in callback
+  res.cookie('oauth_state', state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 10 * 60 * 1000 });
+
   const scope = 'openid profile email';
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-  
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${state}`;
+
   res.redirect(authUrl);
 });
 
@@ -816,10 +855,17 @@ router.get('/google', (req, res) => {
  */
 router.get('/google/callback', async (req, res) => {
   try {
-    const { code } = req.query;
-    
+    const { code, state } = req.query;
+
     if (!code) {
       return res.redirect('/user/login.html?error=authentication_failed');
+    }
+
+    // Validate OAuth state parameter to prevent CSRF
+    const expectedState = req.cookies?.oauth_state;
+    res.clearCookie('oauth_state');
+    if (!state || !expectedState || state !== expectedState) {
+      return res.redirect('/user/login.html?error=invalid_state');
     }
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -887,8 +933,14 @@ router.get('/google/callback', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Redirect with session
-    res.redirect(`/user/channels.html?sessionId=${sessionId}`);
+    // Set session as httpOnly cookie instead of exposing in URL
+    res.cookie('session_id', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.redirect('/user/channels.html');
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     res.redirect('/user/login.html?error=authentication_failed');
@@ -906,9 +958,13 @@ router.get('/github', (req, res) => {
     return res.status(500).send('GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID in environment variables.');
   }
 
+  // Generate CSRF state parameter
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_state', state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 10 * 60 * 1000 });
+
   const scope = 'read:user user:email';
-  const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
-  
+  const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
+
   res.redirect(authUrl);
 });
 
@@ -917,10 +973,17 @@ router.get('/github', (req, res) => {
  */
 router.get('/github/callback', async (req, res) => {
   try {
-    const { code } = req.query;
-    
+    const { code, state } = req.query;
+
     if (!code) {
       return res.redirect('/user/login.html?error=authentication_failed');
+    }
+
+    // Validate OAuth state parameter to prevent CSRF
+    const expectedState = req.cookies?.oauth_state;
+    res.clearCookie('oauth_state');
+    if (!state || !expectedState || state !== expectedState) {
+      return res.redirect('/user/login.html?error=invalid_state');
     }
 
     const githubClientId = process.env.GITHUB_CLIENT_ID;
@@ -995,8 +1058,14 @@ router.get('/github/callback', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Redirect with session
-    res.redirect(`/user/channels.html?sessionId=${sessionId}`);
+    // Set session as httpOnly cookie instead of exposing in URL
+    res.cookie('session_id', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.redirect('/user/channels.html');
   } catch (error) {
     console.error('GitHub OAuth callback error:', error);
     res.redirect('/user/login.html?error=authentication_failed');

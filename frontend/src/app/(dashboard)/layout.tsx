@@ -1,6 +1,9 @@
 'use client';
 
 import { useRequireAuth } from '@/hooks/use-auth';
+import { StreamPlayerProvider } from '@/components/stream-player-context';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { ToastProvider } from '@/hooks/use-toast';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useRequireAuth();
@@ -13,5 +16,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  return <>{children}</>;
+  return (
+    <ToastProvider>
+      <StreamPlayerProvider>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </StreamPlayerProvider>
+    </ToastProvider>
+  );
 }

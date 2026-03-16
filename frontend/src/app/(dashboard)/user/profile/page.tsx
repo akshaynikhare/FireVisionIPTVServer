@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserProfile {
   id: string;
@@ -42,6 +43,7 @@ interface SessionInfo {
 }
 
 export default function ProfilePage() {
+  const { toast } = useToast();
   const { user: authUser, setUser } = useAuthStore();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -169,7 +171,7 @@ export default function ProfilePage() {
         }
       }
     } catch {
-      alert('Failed to regenerate code');
+      toast('Failed to regenerate code', 'error');
     }
   }
 
@@ -178,7 +180,7 @@ export default function ProfilePage() {
       await api.delete(`/auth/sessions/${sessionId}`);
       setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
     } catch {
-      alert('Failed to revoke session');
+      toast('Failed to revoke session', 'error');
     }
   }
 

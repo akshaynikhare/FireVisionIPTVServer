@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
+import { useToast } from '@/hooks/use-toast';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
+import { useStreamPlayer } from '@/components/stream-player-context';
 import ColumnFilter from '@/components/ui/column-filter';
 
 interface Channel {
@@ -57,6 +59,7 @@ function getUrl(c: Channel) {
 }
 
 export default function ChannelsPage() {
+  const { toast } = useToast();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -125,8 +128,7 @@ export default function ChannelsPage() {
   const [testingAll, setTestingAll] = useState(false);
   const [testResults, setTestResults] = useState<{ working: number; failed: number } | null>(null);
 
-  // Player
-  const [playerChannel, setPlayerChannel] = useState<Channel | null>(null);
+  const { playStream } = useStreamPlayer();
 
   const fetchChannels = useCallback(async () => {
     try {
@@ -182,15 +184,46 @@ export default function ChannelsPage() {
     refreshFilterOptions();
   }, []);
 
-  // Fetch channels whenever filters/page/search change
-  useEffect(() => {
-    fetchChannels();
-  }, [fetchChannels]);
+  // Track previous filter values to detect changes and reset page
+  const prevFiltersRef = useRef({
+    search,
+    selectedGroups,
+    selectedStatuses,
+    selectedLanguages,
+    selectedCountries,
+  });
 
-  // Reset to page 1 when search or filters change
+  // Fetch channels whenever filters/page/search change, resetting page on filter change
   useEffect(() => {
-    setPage(1);
-  }, [search, selectedGroups, selectedStatuses, selectedLanguages, selectedCountries]);
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      prev.search !== search ||
+      prev.selectedGroups !== selectedGroups ||
+      prev.selectedStatuses !== selectedStatuses ||
+      prev.selectedLanguages !== selectedLanguages ||
+      prev.selectedCountries !== selectedCountries;
+    prevFiltersRef.current = {
+      search,
+      selectedGroups,
+      selectedStatuses,
+      selectedLanguages,
+      selectedCountries,
+    };
+
+    if (filtersChanged && page !== 1) {
+      setPage(1); // will trigger this effect again with page=1
+      return;
+    }
+    fetchChannels();
+  }, [
+    fetchChannels,
+    page,
+    search,
+    selectedGroups,
+    selectedStatuses,
+    selectedLanguages,
+    selectedCountries,
+  ]);
 
   async function handleAddChannel(e: React.FormEvent) {
     e.preventDefault();
@@ -275,7 +308,7 @@ export default function ChannelsPage() {
       await api.delete(`/admin/channels/${id}`);
       setChannels((prev) => prev.filter((c) => c._id !== id));
     } catch {
-      alert('Failed to delete channel');
+      toast('Failed to delete channel', 'error');
     }
   }
 
@@ -288,7 +321,7 @@ export default function ChannelsPage() {
       setShowBulkDelete(false);
       refreshFilterOptions();
     } catch {
-      alert('Failed to delete all channels');
+      toast('Failed to delete all channels', 'error');
     } finally {
       setBulkDeleteLoading(false);
     }
@@ -364,7 +397,7 @@ export default function ChannelsPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number } };
       if (axiosErr.response?.status === 409)
-        alert('Another test is already in progress. Please wait.');
+        toast('Another test is already in progress. Please wait.', 'error');
     } finally {
       setTestingAll(false);
     }
@@ -556,7 +589,7 @@ export default function ChannelsPage() {
                   <Eye className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => setPlayerChannel(channel)}
+                  onClick={() => playStream({ name: getName(channel), url: getUrl(channel) })}
                   className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
                   aria-label="Play stream"
                 >
@@ -873,7 +906,7 @@ export default function ChannelsPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  setPlayerChannel(detailChannel);
+                  playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
                   setDetailChannel(null);
                 }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
@@ -979,143 +1012,6 @@ export default function ChannelsPage() {
           </div>
         </form>
       </Modal>
-
-      {/* Channel Player Modal */}
-      <ChannelPlayerInline channel={playerChannel} onClose={() => setPlayerChannel(null)} />
     </div>
-  );
-}
-
-/* ─── Inline HLS Player Component ─── */
-function ChannelPlayerInline({
-  channel,
-  onClose,
-}: {
-  channel: Channel | null;
-  onClose: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<{ destroy: () => void } | null>(null);
-  const [status, setStatus] = useState('Loading...');
-  const [playerError, setPlayerError] = useState('');
-
-  useEffect(() => {
-    if (!channel || !videoRef.current) return;
-    const video = videoRef.current;
-    const streamUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(getUrl(channel))}`;
-    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
-    let destroyed = false;
-
-    async function initPlayer() {
-      const HlsModule = await import('hls.js');
-      const Hls = HlsModule.default;
-      if (destroyed) return;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
-          manifestLoadingTimeOut: 10000,
-          manifestLoadingMaxRetry: 3,
-          levelLoadingTimeOut: 10000,
-          levelLoadingMaxRetry: 3,
-          fragLoadingTimeOut: 20000,
-          fragLoadingMaxRetry: 3,
-          xhrSetup: (xhr: XMLHttpRequest, xhrUrl: string) => {
-            if (xhrUrl.includes('/api/v1/stream-proxy') && sessionId) {
-              xhr.setRequestHeader('X-Session-Id', sessionId);
-            }
-          },
-        });
-        hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!destroyed) {
-            setStatus('Playing');
-            video.play().catch(() => {});
-          }
-        });
-        hls.on(
-          Hls.Events.ERROR,
-          (_event: string, data: { fatal: boolean; type: string; details: string }) => {
-            if (destroyed) return;
-            if (data.fatal) {
-              if (data.type === 'networkError') {
-                setStatus('Network error — retrying...');
-                hls.startLoad();
-              } else if (data.type === 'mediaError') {
-                setStatus('Media error — recovering...');
-                hls.recoverMediaError();
-              } else {
-                setPlayerError(`Fatal error: ${data.details}`);
-                hls.destroy();
-              }
-            }
-          },
-        );
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = streamUrl;
-        video.addEventListener('loadedmetadata', () => {
-          if (!destroyed) {
-            setStatus('Playing');
-            video.play().catch(() => {});
-          }
-        });
-      } else {
-        setPlayerError(
-          'Your browser does not support HLS streaming. Please try Chrome, Firefox, or Safari.',
-        );
-      }
-    }
-
-    initPlayer();
-    const onPlaying = () => !destroyed && setStatus('Playing');
-    const onPause = () => !destroyed && setStatus('Paused');
-    const onWaiting = () => !destroyed && setStatus('Buffering...');
-    const onVidError = () => !destroyed && setPlayerError('Playback error');
-    video.addEventListener('playing', onPlaying);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('waiting', onWaiting);
-    video.addEventListener('error', onVidError);
-
-    return () => {
-      destroyed = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
-      video.removeEventListener('playing', onPlaying);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('waiting', onWaiting);
-      video.removeEventListener('error', onVidError);
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [channel]);
-
-  if (!channel) return null;
-
-  return (
-    <Modal open={!!channel} onClose={onClose} title={getName(channel)} size="xl">
-      <div className="bg-black">
-        <video ref={videoRef} controls className="w-full max-h-[80vh]" playsInline />
-      </div>
-      <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
-        <span
-          className="text-xs text-muted-foreground truncate max-w-[60%]"
-          title={getUrl(channel)}
-        >
-          {getUrl(channel)}
-        </span>
-        <span
-          className={`text-xs font-medium ${playerError ? 'text-signal-red' : status === 'Playing' ? 'text-signal-green' : 'text-muted-foreground'}`}
-        >
-          {playerError || status}
-        </span>
-      </div>
-    </Modal>
   );
 }

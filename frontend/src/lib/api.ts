@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '@/store/auth-store';
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -7,29 +8,12 @@ const api = axios.create({
   },
 });
 
-function safeGetItem(key: string): string | null {
-  try {
-    return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-  } catch {
-    return null;
-  }
-}
-
-function safeRemoveItem(key: string): void {
-  try {
-    if (typeof window !== 'undefined') localStorage.removeItem(key);
-  } catch {
-    // ignore storage errors (e.g. private browsing)
-  }
-}
-
-// Request interceptor: attach session ID or JWT token
+// Request interceptor: attach session ID or JWT token from Zustand store
 api.interceptors.request.use((config) => {
-  const token = safeGetItem('accessToken');
-  const sessionId = safeGetItem('sessionId');
+  const { accessToken, sessionId } = useAuthStore.getState();
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   } else if (sessionId) {
     config.headers['x-session-id'] = sessionId;
   }
@@ -50,9 +34,8 @@ api.interceptors.response.use(
         !window.location.pathname.startsWith('/register')
       ) {
         isRedirecting = true;
-        safeRemoveItem('accessToken');
-        safeRemoveItem('refreshToken');
-        safeRemoveItem('sessionId');
+        // Clear both Zustand store and raw localStorage keys in one call
+        useAuthStore.getState().logout();
         window.location.href = '/login';
         // Reset flag after a short delay so re-login 401s still work
         setTimeout(() => {

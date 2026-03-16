@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { Loader2, Search, Trash2, Plus, Download, TestTube, Check, Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, Search, Trash2, Plus, Download, TestTube, Check, Play, Zap } from 'lucide-react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
+import { useToast } from '@/hooks/use-toast';
 import { proxyImageUrl } from '@/lib/image-proxy';
-import Modal from '@/components/ui/modal';
+import { useStreamPlayer } from '@/components/stream-player-context';
 
 interface Channel {
   _id: string;
@@ -28,6 +30,7 @@ function getLogo(c: Channel) {
 }
 
 export default function UserChannelsPage() {
+  const { toast } = useToast();
   const { user } = useAuthStore();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [allChannels, setAllChannels] = useState<Channel[]>([]);
@@ -39,7 +42,7 @@ export default function UserChannelsPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState(false);
-  const [playerChannel, setPlayerChannel] = useState<Channel | null>(null);
+  const { playStream } = useStreamPlayer();
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -78,7 +81,7 @@ export default function UserChannelsPage() {
       setShowAdd(false);
       fetchMyChannels();
     } catch {
-      alert('Failed to add channels');
+      toast('Failed to add channels', 'error');
     }
   }
 
@@ -87,7 +90,7 @@ export default function UserChannelsPage() {
       await api.post('/user-playlist/me/channels/remove', { channelIds: [id] });
       setChannels((prev) => prev.filter((c) => c._id !== id));
     } catch {
-      alert('Failed to remove channel');
+      toast('Failed to remove channel', 'error');
     }
   }
 
@@ -97,7 +100,7 @@ export default function UserChannelsPage() {
       await api.put('/user-playlist/me/channels', { channelIds: [] });
       setChannels([]);
     } catch {
-      alert('Failed to clear channels');
+      toast('Failed to clear channels', 'error');
     }
   }
 
@@ -164,6 +167,12 @@ export default function UserChannelsPage() {
           <p className="text-sm text-muted-foreground mt-1">{channels.length} channels</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/user/quick-pick"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-all hover:bg-primary/20"
+          >
+            <Zap className="h-4 w-4" /> Quick Pick
+          </Link>
           <button
             onClick={() => {
               setShowAdd(!showAdd);
@@ -316,7 +325,7 @@ export default function UserChannelsPage() {
                 </span>
               </div>
               <button
-                onClick={() => setPlayerChannel(ch)}
+                onClick={() => playStream({ name: getName(ch), url: getChannelUrl(ch) })}
                 className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
                 aria-label="Play stream"
               >
@@ -345,131 +354,10 @@ export default function UserChannelsPage() {
           ))
         )}
       </div>
-
-      {/* Channel Player Modal */}
-      <UserChannelPlayer channel={playerChannel} onClose={() => setPlayerChannel(null)} />
     </div>
   );
 }
 
 function getChannelUrl(c: Channel) {
   return c.channelUrl || c.url || '';
-}
-
-function UserChannelPlayer({ channel, onClose }: { channel: Channel | null; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<{ destroy: () => void } | null>(null);
-  const [status, setStatus] = useState('Loading...');
-  const [playerError, setPlayerError] = useState('');
-
-  useEffect(() => {
-    if (!channel || !videoRef.current) return;
-    const video = videoRef.current;
-    const streamUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(getChannelUrl(channel))}`;
-    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
-    let destroyed = false;
-
-    async function initPlayer() {
-      const HlsModule = await import('hls.js');
-      const Hls = HlsModule.default;
-      if (destroyed) return;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
-          xhrSetup: (xhr: XMLHttpRequest, xhrUrl: string) => {
-            if (xhrUrl.includes('/api/v1/stream-proxy') && sessionId) {
-              xhr.setRequestHeader('X-Session-Id', sessionId);
-            }
-          },
-        });
-        hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!destroyed) {
-            setStatus('Playing');
-            video.play().catch(() => {});
-          }
-        });
-        hls.on(
-          Hls.Events.ERROR,
-          (_e: string, data: { fatal: boolean; type: string; details: string }) => {
-            if (destroyed) return;
-            if (data.fatal) {
-              if (data.type === 'networkError') {
-                setStatus('Retrying...');
-                hls.startLoad();
-              } else if (data.type === 'mediaError') {
-                hls.recoverMediaError();
-              } else {
-                setPlayerError(`Error: ${data.details}`);
-                hls.destroy();
-              }
-            }
-          },
-        );
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = streamUrl;
-        video.addEventListener('loadedmetadata', () => {
-          if (!destroyed) {
-            setStatus('Playing');
-            video.play().catch(() => {});
-          }
-        });
-      } else {
-        setPlayerError('HLS not supported in this browser.');
-      }
-    }
-
-    initPlayer();
-    const onPlaying = () => !destroyed && setStatus('Playing');
-    const onPause = () => !destroyed && setStatus('Paused');
-    const onWaiting = () => !destroyed && setStatus('Buffering...');
-    const onErr = () => !destroyed && setPlayerError('Playback error');
-    video.addEventListener('playing', onPlaying);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('waiting', onWaiting);
-    video.addEventListener('error', onErr);
-
-    return () => {
-      destroyed = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
-      video.removeEventListener('playing', onPlaying);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('waiting', onWaiting);
-      video.removeEventListener('error', onErr);
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [channel]);
-
-  if (!channel) return null;
-
-  return (
-    <Modal open={!!channel} onClose={onClose} title={getName(channel)} size="xl">
-      <div className="bg-black">
-        <video ref={videoRef} controls className="w-full max-h-[80vh]" playsInline />
-      </div>
-      <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
-        <span
-          className="text-xs text-muted-foreground truncate max-w-[60%]"
-          title={getChannelUrl(channel)}
-        >
-          {getChannelUrl(channel)}
-        </span>
-        <span
-          className={`text-xs font-medium ${playerError ? 'text-signal-red' : status === 'Playing' ? 'text-signal-green' : 'text-muted-foreground'}`}
-        >
-          {playerError || status}
-        </span>
-      </div>
-    </Modal>
-  );
 }

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { IUserDocument, IUserModel } from '@firevision/shared';
 
 const userSchema = new Schema<IUserDocument>(
@@ -114,7 +115,7 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let code = '';
     for (let i = 0; i < 6; i++) {
-      code += characters.charAt(Math.floor(Math.random() * characters.length));
+      code += characters.charAt(crypto.randomInt(characters.length));
     }
 
     const existing = await this.findOne({ channelListCode: code });
@@ -127,7 +128,10 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
 };
 
 // Method to generate M3U playlist for this user's channel list
-userSchema.methods.generateUserPlaylist = async function (this: IUserDocument): Promise<string> {
+userSchema.methods.generateUserPlaylist = async function (
+  this: IUserDocument,
+  baseUrl?: string,
+): Promise<string> {
   const ChannelModel = mongoose.model('Channel');
 
   let channels;
@@ -139,7 +143,13 @@ userSchema.methods.generateUserPlaylist = async function (this: IUserDocument): 
     }).sort({ channelGroup: 1, order: 1 });
   }
 
-  let m3uContent = '#EXTM3U\n';
+  let m3uHeader = '#EXTM3U';
+  if (baseUrl && this.channelListCode) {
+    m3uHeader += ` x-tvg-url="${baseUrl}/api/v1/tv/epg/${this.channelListCode}"`;
+  }
+  m3uHeader += '\n';
+
+  let m3uContent = m3uHeader;
   m3uContent += `#PLAYLIST:${this.username}'s Channel List\n\n`;
 
   channels.forEach((channel: any) => {

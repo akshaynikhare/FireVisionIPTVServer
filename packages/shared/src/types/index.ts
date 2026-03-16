@@ -5,3 +5,6 @@ export * from './app-version.types';
 export * from './refresh-token.types';
 export * from './pairing-request.types';
 export * from './audit-log.types';
+export * from './iptv-org-cache.types';
+export * from './external-source-cache.types';
+export * from './epg.types';

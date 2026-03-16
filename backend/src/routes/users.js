@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 // Get distinct filter options for users
 router.get('/filter-options', requireAuth, requireAdmin, async (req, res) => {
@@ -49,7 +50,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 
         // Text search
         if (search) {
-            const regex = new RegExp(search, 'i');
+            const regex = new RegExp(escapeRegex(search), 'i');
             filter.$or = [
                 { username: regex },
                 { email: regex },
@@ -127,10 +128,12 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 
         await user.save();
 
+        // Return user without password hash
+        const userResponse = user.toJSON();
         res.status(201).json({
             success: true,
             message: 'User created successfully',
-            data: user
+            data: userResponse
         });
     } catch (error) {
         console.error('Error creating user:', error);
@@ -206,7 +209,24 @@ router.put('/:id', requireAuth, async (req, res) => {
         // Update fields
         if (username) user.username = username;
         if (email) user.email = email;
-        if (password) user.password = password; // Will be hashed by pre-save hook
+
+        // Non-admin users cannot change password through this endpoint
+        // (must use the dedicated /auth/change-password route which verifies current password)
+        if (password) {
+            if (!isAdmin) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Use the change-password endpoint to update your password'
+                });
+            }
+            if (password.length > 128) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password must not exceed 128 characters'
+                });
+            }
+            user.password = password; // Will be hashed by pre-save hook
+        }
 
         // Only admin can change role and isActive
         if (isAdmin) {
@@ -216,10 +236,12 @@ router.put('/:id', requireAuth, async (req, res) => {
 
         await user.save();
 
+        // Return user without password hash
+        const userResponse = user.toJSON();
         res.json({
             success: true,
             message: 'User updated successfully',
-            data: user
+            data: userResponse
         });
     } catch (error) {
         console.error('Error updating user:', error);

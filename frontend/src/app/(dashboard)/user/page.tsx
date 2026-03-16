@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tv, Smartphone, Copy, Check, ChevronRight } from 'lucide-react';
+import { Tv, Smartphone, Copy, Check, ChevronRight, Zap } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -22,26 +22,33 @@ export default function UserDashboard() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    fetchData();
-  }, []);
+    const controller = new AbortController();
 
-  async function fetchData() {
-    try {
-      const [profileRes, channelsRes] = await Promise.all([
-        api.get('/auth/me'),
-        api.get('/user-playlist/me/channels').catch(() => null),
-      ]);
-      const data = profileRes.data.user || profileRes.data.data || profileRes.data;
-      setProfile(data);
-      if (channelsRes) {
-        const body = channelsRes.data;
-        const list = Array.isArray(body) ? body : body.data || body.channels || [];
-        setChannelCount(list.length);
+    async function fetchData() {
+      try {
+        const [profileRes, channelsRes] = await Promise.all([
+          api.get('/auth/me', { signal: controller.signal }),
+          api.get('/user-playlist/me/channels', { signal: controller.signal }).catch((err) => {
+            if (err.name !== 'CanceledError') console.warn('Failed to load channels:', err.message);
+            return null;
+          }),
+        ]);
+        if (controller.signal.aborted) return;
+        const data = profileRes.data.user || profileRes.data.data || profileRes.data;
+        setProfile(data);
+        if (channelsRes) {
+          const body = channelsRes.data;
+          const list = Array.isArray(body) ? body : body.data || body.channels || [];
+          setChannelCount(list.length);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'CanceledError') return;
       }
-    } catch {
-      // ignore
     }
-  }
+
+    fetchData();
+    return () => controller.abort();
+  }, []);
 
   const code = profile?.channelListCode || user?.channelListCode;
   const playlistUrl = code && origin ? `${origin}/api/v1/tv/playlist/${code}` : null;
@@ -55,6 +62,12 @@ export default function UserDashboard() {
   }
 
   const quickActions = [
+    {
+      label: 'Quick Pick',
+      desc: 'Find channels fast with guided setup',
+      href: '/user/quick-pick',
+      icon: Zap,
+    },
     { label: 'My Channels', desc: 'Manage your channel list', href: '/user/channels', icon: Tv },
     { label: 'Pair Device', desc: 'Connect your TV app', href: '/user/devices', icon: Smartphone },
   ];

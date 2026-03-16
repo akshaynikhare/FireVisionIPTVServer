@@ -2,40 +2,10 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { requireAuth } = require('./auth');
+const { validateUrlForSSRF } = require('../utils/ssrf-guard');
 
 // Apply authentication
 router.use(requireAuth);
-
-// Block internal/private network URLs to prevent SSRF
-function isPrivateUrl(urlStr) {
-    try {
-        const parsed = new URL(urlStr);
-        const hostname = parsed.hostname.replace(/^\[|\]$/g, ''); // strip IPv6 brackets
-        if (!['http:', 'https:'].includes(parsed.protocol)) return true;
-        if (['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(hostname)) return true;
-        // IPv4 private ranges
-        const parts = hostname.split('.').map(Number);
-        if (parts.length === 4 && parts.every(p => p >= 0 && p <= 255)) {
-            if (parts[0] === 10) return true;
-            if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
-            if (parts[0] === 192 && parts[1] === 168) return true;
-            if (parts[0] === 169 && parts[1] === 254) return true;
-            if (parts[0] === 127) return true;
-            if (parts[0] === 0) return true;
-        }
-        // IPv6 private ranges (fc00::/7 ULA, fe80::/10 link-local, ::1 loopback, :: unspecified)
-        const lower = hostname.toLowerCase();
-        if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // ULA
-        if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // link-local
-        if (lower === '::' || lower.startsWith('::ffff:')) return true; // unspecified or IPv4-mapped
-        // Cloud metadata endpoints
-        if (hostname === 'metadata.google.internal') return true;
-        if (hostname === '169.254.169.254') return true;
-        return false;
-    } catch {
-        return true;
-    }
-}
 
 /**
  * Stream Proxy - Proxies HLS streams to bypass CORS and geo-restrictions
@@ -57,8 +27,9 @@ router.get('/', async (req, res) => {
             return res.status(400).send('Invalid URL format');
         }
 
-        if (isPrivateUrl(url)) {
-            return res.status(403).send('Proxying to private/internal addresses is not allowed');
+        const ssrfCheck = await validateUrlForSSRF(url);
+        if (!ssrfCheck.safe) {
+            return res.status(403).send(ssrfCheck.reason);
         }
 
         // Fetch the stream
@@ -74,44 +45,84 @@ router.get('/', async (req, res) => {
             maxRedirects: 5
         });
 
+        // Determine if response is an HLS manifest by checking:
+        // 1. Original URL contains .m3u8
+        // 2. Final URL after redirects contains .m3u8
+        // 3. Response content-type indicates HLS
+        const finalUrl = response.request?.res?.responseUrl || response.request?.responseURL || url;
+        const contentType = (response.headers['content-type'] || '').toLowerCase();
+        const isManifest = url.includes('.m3u8') ||
+            finalUrl.includes('.m3u8') ||
+            contentType.includes('mpegurl') ||
+            contentType.includes('apple.mpegurl');
+
         // Set CORS headers
         res.set({
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Range',
-            'Content-Type': response.headers['content-type'] || 'application/vnd.apple.mpegurl',
+            'Content-Type': isManifest ? 'application/vnd.apple.mpegurl' : (response.headers['content-type'] || 'application/octet-stream'),
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0'
         });
 
         // If it's a playlist (.m3u8), we need to rewrite URLs in it
-        if (url.includes('.m3u8')) {
+        if (isManifest) {
+            const MAX_MANIFEST_SIZE = 10 * 1024 * 1024; // 10 MB
             let data = '';
+            let dataSize = 0;
 
             response.data.on('data', chunk => {
+                dataSize += chunk.length;
+                if (dataSize > MAX_MANIFEST_SIZE) {
+                    response.data.destroy();
+                    if (!res.headersSent) {
+                        res.status(413).send('Manifest too large');
+                    }
+                    return;
+                }
                 data += chunk.toString();
             });
 
             response.data.on('end', () => {
-                // Rewrite relative URLs in the playlist to go through our proxy
-                const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+                // Use the final URL (after redirects) as the base for resolving relative URLs
+                const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
+
+                function resolveAndProxy(rawUrl) {
+                    const trimmed = rawUrl.trim();
+                    if (!trimmed || trimmed.startsWith('/api/v1/stream-proxy')) return trimmed;
+                    let absolute;
+                    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+                        absolute = trimmed;
+                    } else if (trimmed.startsWith('/')) {
+                        // Root-relative URL
+                        try {
+                            const parsed = new URL(finalUrl);
+                            absolute = `${parsed.protocol}//${parsed.host}${trimmed}`;
+                        } catch { absolute = baseUrl + trimmed; }
+                    } else {
+                        absolute = baseUrl + trimmed;
+                    }
+                    return `/api/v1/stream-proxy?url=${encodeURIComponent(absolute)}`;
+                }
+
                 const lines = data.split('\n');
                 const rewrittenLines = lines.map(line => {
-                    // Skip comments and empty lines
-                    if (line.startsWith('#') || line.trim() === '') {
-                        return line;
+                    const trimmedLine = line.trim();
+
+                    // Empty lines pass through
+                    if (trimmedLine === '') return line;
+
+                    // Rewrite URI= attributes in comment/tag lines (e.g. #EXT-X-KEY:...URI="...")
+                    if (trimmedLine.startsWith('#')) {
+                        return line.replace(/URI="([^"]+)"/gi, (match, uri) => {
+                            return `URI="${resolveAndProxy(uri)}"`;
+                        });
                     }
 
-                    // If it's a relative URL, make it absolute
-                    if (!line.startsWith('http')) {
-                        const absoluteUrl = baseUrl + line.trim();
-                        // Proxy the absolute URL
-                        return `/api/v1/stream-proxy?url=${encodeURIComponent(absoluteUrl)}`;
-                    }
-
-                    // If it's already absolute, proxy it
-                    return `/api/v1/stream-proxy?url=${encodeURIComponent(line.trim())}`;
+                    // Non-comment lines are segment/playlist URLs
+                    return resolveAndProxy(trimmedLine);
                 });
 
                 res.send(rewrittenLines.join('\n'));

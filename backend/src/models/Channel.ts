@@ -35,6 +35,10 @@ const channelSchema = new Schema<IChannelDocument>(
       type: String,
       default: '',
     },
+    tvgId: {
+      type: String,
+      default: '',
+    },
     tvgName: {
       type: String,
       default: '',

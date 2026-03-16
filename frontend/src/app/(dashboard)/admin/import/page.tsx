@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { isSafeImageUrl } from '@/lib/safe-url';
 import {
   Loader2,
   Globe,
@@ -14,12 +15,24 @@ import {
   ArrowDown,
   CheckSquare,
   Square,
+  Activity,
+  Zap,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
+import { useToast } from '@/hooks/use-toast';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
 import ColumnFilter from '@/components/ui/column-filter';
+import { useStreamPlayer } from '@/components/stream-player-context';
+
+interface PlaylistFilter {
+  country?: string;
+  language?: string;
+  languages?: string[];
+  category?: string;
+  categories?: string[];
+}
 
 interface Playlist {
   id: string;
@@ -27,6 +40,7 @@ interface Playlist {
   country?: string;
   languages?: string[];
   categories?: string[];
+  filter?: PlaylistFilter;
 }
 
 interface EnrichedChannel {
@@ -47,6 +61,12 @@ interface EnrichedChannel {
   streamReferrer?: string;
   channelIsNsfw?: boolean;
   channelLaunched?: string;
+  liveness?: {
+    status: 'alive' | 'dead' | 'unknown';
+    lastCheckedAt?: string | null;
+    responseTimeMs?: number | null;
+    error?: string | null;
+  };
   [key: string]: unknown;
 }
 
@@ -56,6 +76,7 @@ type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 50;
 
 export default function AdminImportPage() {
+  const { toast } = useToast();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
@@ -77,9 +98,21 @@ export default function AdminImportPage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
+  // Status filter
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
+  // Liveness testing
+  const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
+  const [batchTesting, setBatchTesting] = useState(false);
+  const [livenessStats, setLivenessStats] = useState<{
+    alive: number;
+    dead: number;
+    unknown: number;
+  } | null>(null);
+
   // Modals
   const [detailChannel, setDetailChannel] = useState<EnrichedChannel | null>(null);
-  const [playerChannel, setPlayerChannel] = useState<EnrichedChannel | null>(null);
+  const { playStream } = useStreamPlayer();
 
   useEffect(() => {
     async function fetchPlaylists() {
@@ -93,7 +126,18 @@ export default function AdminImportPage() {
       }
     }
     fetchPlaylists();
+    fetchLivenessStats();
   }, []);
+
+  async function fetchLivenessStats() {
+    try {
+      const res = await api.get('/iptv-org/liveness-status');
+      setLivenessStats(res.data.data?.livenessStats || null);
+      setBatchTesting(res.data.data?.livenessCheckInProgress || false);
+    } catch {
+      // ignore
+    }
+  }
 
   async function handleSelectPlaylist(playlist: Playlist) {
     setSelectedPlaylist(playlist.id);
@@ -106,9 +150,12 @@ export default function AdminImportPage() {
 
     try {
       const params = new URLSearchParams();
-      if (playlist.country) params.set('country', playlist.country);
-      if (playlist.languages?.length) params.set('language', playlist.languages.join(','));
-      if (playlist.categories?.length) params.set('category', playlist.categories.join(','));
+      const f = playlist.filter;
+      if (f?.country) params.set('country', f.country);
+      if (f?.languages?.length) params.set('languages', f.languages.join(','));
+      else if (f?.language) params.set('language', f.language);
+      if (f?.categories?.length) params.set('category', f.categories.join(','));
+      else if (f?.category) params.set('category', f.category);
 
       const res = await api.get(`/iptv-org/fetch?${params.toString()}`);
       const data = (res.data.data || []).map((ch: Omit<EnrichedChannel, '_uid'>, i: number) => ({
@@ -118,7 +165,7 @@ export default function AdminImportPage() {
       setChannels(data);
       // Don't auto-select all — let user choose
     } catch {
-      alert('Failed to fetch channels');
+      toast('Failed to fetch channels', 'error');
     } finally {
       setFetchingChannels(false);
     }
@@ -189,6 +236,12 @@ export default function AdminImportPage() {
       result = result.filter((c) => selectedCountries.includes(c.country || ''));
     }
 
+    // Status filter
+    const statusOptions = ['alive', 'dead', 'unknown'];
+    if (selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length) {
+      result = result.filter((c) => selectedStatuses.includes(c.liveness?.status || 'unknown'));
+    }
+
     const sorted = [...result].sort((a, b) => {
       let valA = '';
       let valB = '';
@@ -221,6 +274,7 @@ export default function AdminImportPage() {
     selectedCategories,
     selectedLanguages,
     selectedCountries,
+    selectedStatuses,
     categoryOptions,
     languageOptions,
     countryOptions,
@@ -317,12 +371,70 @@ export default function AdminImportPage() {
     }
   }
 
+  async function handleTestChannel(ch: EnrichedChannel) {
+    const uid = ch._uid;
+    setTestingChannelId(uid);
+    try {
+      const res = await api.post(`/iptv-org/check-liveness/${ch.channelId}`, {
+        streamUrl: ch.channelUrl,
+      });
+      const result = res.data.data;
+      if (result) {
+        // Update the channel in local state with the new liveness result
+        setChannels((prev) =>
+          prev.map((c) =>
+            c._uid === uid
+              ? {
+                  ...c,
+                  liveness: {
+                    status: result.status,
+                    lastCheckedAt: new Date().toISOString(),
+                    responseTimeMs: result.responseTimeMs,
+                    error: result.error,
+                  },
+                }
+              : c,
+          ),
+        );
+      }
+    } catch {
+      // ignore
+    } finally {
+      setTestingChannelId(null);
+    }
+  }
+
+  async function handleBatchLivenessCheck() {
+    setBatchTesting(true);
+    try {
+      await api.post('/iptv-org/check-liveness');
+      // Poll for status updates
+      const poll = setInterval(async () => {
+        try {
+          const res = await api.get('/iptv-org/liveness-status');
+          const data = res.data.data;
+          setLivenessStats(data?.livenessStats || null);
+          if (!data?.livenessCheckInProgress) {
+            clearInterval(poll);
+            setBatchTesting(false);
+          }
+        } catch {
+          clearInterval(poll);
+          setBatchTesting(false);
+        }
+      }, 5000);
+    } catch {
+      setBatchTesting(false);
+    }
+  }
+
   async function handleClearCache() {
     try {
       await api.post('/iptv-org/clear-cache');
-      alert('Cache cleared');
+      setLivenessStats(null);
+      toast('Cache cleared', 'success');
     } catch {
-      alert('Failed to clear cache');
+      toast('Failed to clear cache', 'error');
     }
   }
 
@@ -346,13 +458,58 @@ export default function AdminImportPage() {
             Import channels from iptv-org to the system database
           </p>
         </div>
-        <button
-          onClick={handleClearCache}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em]"
-        >
-          <RefreshCw className="h-4 w-4" /> Clear Cache
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleBatchLivenessCheck}
+            disabled={batchTesting}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
+          >
+            {batchTesting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Activity className="h-4 w-4" />
+            )}
+            {batchTesting ? 'Checking...' : 'Check Liveness'}
+          </button>
+          <button
+            onClick={handleClearCache}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em]"
+          >
+            <RefreshCw className="h-4 w-4" /> Clear Cache
+          </button>
+        </div>
       </div>
+
+      {/* Liveness Stats */}
+      {livenessStats && (
+        <div className="flex items-center gap-4 px-4 py-2.5 border border-border bg-card animate-fade-up">
+          <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            Stream Health
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="font-medium">{livenessStats.alive}</span>
+              <span className="text-muted-foreground">alive</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="font-medium">{livenessStats.dead}</span>
+              <span className="text-muted-foreground">dead</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="h-2 w-2 rounded-full bg-zinc-400" />
+              <span className="font-medium">{livenessStats.unknown}</span>
+              <span className="text-muted-foreground">unknown</span>
+            </span>
+          </div>
+          {batchTesting && (
+            <span className="text-[11px] text-muted-foreground animate-pulse">
+              Batch check in progress...
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Playlist buttons */}
       <div className="animate-fade-up" style={{ animationDelay: '50ms' }}>
@@ -469,7 +626,7 @@ export default function AdminImportPage() {
           {/* Table */}
           <div className="border border-border">
             {/* Table header */}
-            <div className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+            <div className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
               <div className="flex items-center justify-center">
                 <button
                   onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
@@ -536,6 +693,15 @@ export default function AdminImportPage() {
                   searchable
                 />
               </div>
+              <ColumnFilter
+                label="Status"
+                options={['alive', 'dead', 'unknown']}
+                selected={selectedStatuses}
+                onChange={(v) => {
+                  setSelectedStatuses(v);
+                  setPage(1);
+                }}
+              />
               <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
                 Actions
               </span>
@@ -554,7 +720,7 @@ export default function AdminImportPage() {
                   return (
                     <div
                       key={key}
-                      className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                      className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
                         isSelected ? 'bg-primary/5' : ''
                       }`}
                     >
@@ -582,7 +748,11 @@ export default function AdminImportPage() {
                             className="h-7 w-7 rounded-sm object-contain bg-muted"
                             onError={(e) => {
                               const img = e.currentTarget;
-                              if (!img.dataset.fallback && ch.tvgLogo) {
+                              if (
+                                !img.dataset.fallback &&
+                                ch.tvgLogo &&
+                                isSafeImageUrl(ch.tvgLogo)
+                              ) {
                                 img.dataset.fallback = '1';
                                 img.src = ch.tvgLogo;
                               }
@@ -612,6 +782,36 @@ export default function AdminImportPage() {
                         {ch.languages?.join(', ') || '—'}
                       </span>
 
+                      {/* Status badge + test */}
+                      <div className="flex items-center gap-1.5">
+                        {testingChannelId === ch._uid ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        ) : (
+                          <>
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${
+                                ch.liveness?.status === 'alive'
+                                  ? 'bg-emerald-500'
+                                  : ch.liveness?.status === 'dead'
+                                    ? 'bg-red-500'
+                                    : 'bg-zinc-400'
+                              }`}
+                            />
+                            <span className="text-[11px] text-muted-foreground capitalize">
+                              {ch.liveness?.status || 'unknown'}
+                            </span>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleTestChannel(ch)}
+                          disabled={testingChannelId === ch._uid}
+                          className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                          title="Test stream"
+                        >
+                          <Zap className="h-3 w-3" />
+                        </button>
+                      </div>
+
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setDetailChannel(ch)}
@@ -623,7 +823,12 @@ export default function AdminImportPage() {
                         </button>
                         {ch.channelUrl && (
                           <button
-                            onClick={() => setPlayerChannel(ch)}
+                            onClick={() =>
+                              playStream(
+                                { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
+                                { mode: 'direct-fallback' },
+                              )
+                            }
                             className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
                             aria-label="Preview stream"
                             title="Preview stream"
@@ -665,7 +870,11 @@ export default function AdminImportPage() {
                   className="h-16 w-16 rounded object-contain bg-muted shrink-0"
                   onError={(e) => {
                     const img = e.currentTarget;
-                    if (!img.dataset.fallback && detailChannel.tvgLogo) {
+                    if (
+                      !img.dataset.fallback &&
+                      detailChannel.tvgLogo &&
+                      isSafeImageUrl(detailChannel.tvgLogo)
+                    ) {
                       img.dataset.fallback = '1';
                       img.src = detailChannel.tvgLogo;
                     }
@@ -731,7 +940,13 @@ export default function AdminImportPage() {
                 <button
                   onClick={() => {
                     setDetailChannel(null);
-                    setPlayerChannel(detailChannel);
+                    playStream(
+                      {
+                        name: detailChannel.channelName || 'Stream Preview',
+                        url: detailChannel.channelUrl,
+                      },
+                      { mode: 'direct-fallback' },
+                    );
                   }}
                   className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
                 >
@@ -761,144 +976,6 @@ export default function AdminImportPage() {
           </div>
         )}
       </Modal>
-
-      {/* Player Modal */}
-      {playerChannel && (
-        <ImportPlayerInline channel={playerChannel} onClose={() => setPlayerChannel(null)} />
-      )}
     </div>
-  );
-}
-
-/* ---------- Inline HLS Player ---------- */
-function ImportPlayerInline({
-  channel,
-  onClose,
-}: {
-  channel: EnrichedChannel;
-  onClose: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<{ destroy: () => void } | null>(null);
-  const [status, setStatus] = useState('Loading...');
-  const [playerError, setPlayerError] = useState('');
-
-  const url = channel.channelUrl;
-
-  useEffect(() => {
-    if (!url || !videoRef.current) return;
-    const video = videoRef.current;
-    const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
-    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
-    let destroyed = false;
-
-    async function initPlayer() {
-      try {
-        const HlsModule = await import('hls.js');
-        const Hls = HlsModule.default;
-        if (destroyed) return;
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            maxBufferLength: 30,
-            backBufferLength: 90,
-            maxMaxBufferLength: 60,
-            manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 3,
-            levelLoadingTimeOut: 10000,
-            levelLoadingMaxRetry: 3,
-            fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 3,
-            xhrSetup: (xhr: XMLHttpRequest, xhrUrl: string) => {
-              if (xhrUrl.includes('/api/v1/stream-proxy') && sessionId) {
-                xhr.setRequestHeader('X-Session-Id', sessionId);
-              }
-            },
-          });
-          hlsRef.current = hls;
-          hls.loadSource(proxyUrl);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (!destroyed) {
-              setStatus('Playing');
-              video.play().catch(() => {});
-            }
-          });
-          hls.on(
-            Hls.Events.ERROR,
-            (_: string, data: { fatal: boolean; type: string; details: string }) => {
-              if (destroyed) return;
-              if (data.fatal) {
-                if (data.type === 'networkError') {
-                  setStatus('Network error — retrying...');
-                  hls.startLoad();
-                } else if (data.type === 'mediaError') {
-                  setStatus('Media error — recovering...');
-                  hls.recoverMediaError();
-                } else {
-                  setPlayerError(`Fatal error: ${data.details}`);
-                  hls.destroy();
-                }
-              }
-            },
-          );
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = proxyUrl;
-          video.addEventListener('loadedmetadata', () => {
-            if (!destroyed) {
-              setStatus('Playing');
-              video.play().catch(() => {});
-            }
-          });
-        } else {
-          setPlayerError('HLS not supported in this browser.');
-        }
-      } catch {
-        setPlayerError('Failed to load player');
-      }
-    }
-
-    initPlayer();
-    const onPlaying = () => !destroyed && setStatus('Playing');
-    const onPause = () => !destroyed && setStatus('Paused');
-    const onWaiting = () => !destroyed && setStatus('Buffering...');
-    const onVidError = () => !destroyed && setPlayerError('Playback error');
-    video.addEventListener('playing', onPlaying);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('waiting', onWaiting);
-    video.addEventListener('error', onVidError);
-
-    return () => {
-      destroyed = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
-      video.removeEventListener('playing', onPlaying);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('waiting', onWaiting);
-      video.removeEventListener('error', onVidError);
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [url]);
-
-  return (
-    <Modal open onClose={onClose} title={channel.channelName || 'Stream Preview'} size="xl">
-      <div className="bg-black">
-        <video ref={videoRef} controls className="w-full max-h-[80vh]" playsInline />
-      </div>
-      <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
-        <span className="text-xs text-muted-foreground truncate max-w-[60%]" title={url}>
-          {url}
-        </span>
-        <span
-          className={`text-xs font-medium ${playerError ? 'text-signal-red' : status === 'Playing' ? 'text-signal-green' : 'text-muted-foreground'}`}
-        >
-          {playerError || status}
-        </span>
-      </div>
-    </Modal>
   );
 }

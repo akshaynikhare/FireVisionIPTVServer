@@ -8,6 +8,7 @@ export interface IChannel {
   channelGroup: string;
   channelDrmKey: string;
   channelDrmType: string;
+  tvgId: string;
   tvgName: string;
   tvgLogo: string;
   order: number;

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isSafeImageUrl } from '@/lib/safe-url';
 import {
   Loader2,
   Search,
@@ -13,15 +14,26 @@ import {
   CheckSquare,
   Square,
   Tv,
-  Radio,
   Monitor,
+  Activity,
+  Zap,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
+import { useToast } from '@/hooks/use-toast';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
+import ColumnFilter from '@/components/ui/column-filter';
+import { useStreamPlayer } from '@/components/stream-player-context';
 
 // ─── Types ─────────────────────────────────────────────────
+
+interface ChannelLiveness {
+  status: 'alive' | 'dead' | 'unknown';
+  lastCheckedAt?: string | null;
+  responseTimeMs?: number | null;
+  error?: string | null;
+}
 
 interface SourceChannel {
   _uid: string;
@@ -38,30 +50,79 @@ interface SourceChannel {
   language?: string;
   votes?: number;
   homepage?: string;
+  liveness?: ChannelLiveness;
 }
 
 interface Region {
   code: string;
   name: string;
-  stationCount?: number;
+  channelCount?: number;
 }
 
-type Tab = 'pluto-tv' | 'samsung-tv-plus' | 'radio-browser';
+interface LivenessStats {
+  alive: number;
+  dead: number;
+  unknown: number;
+}
+
+// Country code to display name (for Pluto/Samsung regions from i.mjh.nz)
+const COUNTRY_NAMES: Record<string, string> = {
+  us: 'United States',
+  gb: 'United Kingdom',
+  de: 'Germany',
+  fr: 'France',
+  es: 'Spain',
+  it: 'Italy',
+  br: 'Brazil',
+  mx: 'Mexico',
+  ca: 'Canada',
+  at: 'Austria',
+  ch: 'Switzerland',
+  dk: 'Denmark',
+  no: 'Norway',
+  se: 'Sweden',
+  ar: 'Argentina',
+  cl: 'Chile',
+  in: 'India',
+  kr: 'South Korea',
+  au: 'Australia',
+};
+
+function regionDisplayName(r: Region) {
+  if (r.name && r.name !== r.code.toUpperCase()) return r.name;
+  return COUNTRY_NAMES[r.code.toLowerCase()] || r.code.toUpperCase();
+}
+
+type Tab = 'pluto-tv' | 'samsung-tv-plus';
 type SortField = 'name' | 'category' | 'country';
 type SortDir = 'asc' | 'desc';
-
 const PAGE_SIZE = 50;
 
 const TABS: { id: Tab; label: string; icon: typeof Tv }[] = [
   { id: 'pluto-tv', label: 'Pluto TV', icon: Tv },
   { id: 'samsung-tv-plus', label: 'Samsung TV Plus', icon: Monitor },
-  { id: 'radio-browser', label: 'Radio Browser', icon: Radio },
 ];
 
 // ─── Main Page ─────────────────────────────────────────────
 
 export default function AdminSourcesPage() {
   const [activeTab, setActiveTab] = useState<Tab>('pluto-tv');
+  const { playStream } = useStreamPlayer();
+  const [detailChannel, setDetailChannel] = useState<SourceChannel | null>(null);
+
+  const handlePlay = useCallback(
+    (ch: SourceChannel) => {
+      playStream(
+        {
+          name: ch.channelName || 'Stream Preview',
+          url: ch.channelUrl,
+          logo: ch.tvgLogo ? proxyImageUrl(ch.tvgLogo) : undefined,
+        },
+        { mode: 'direct-fallback' },
+      );
+    },
+    [playStream],
+  );
 
   return (
     <div className="space-y-6">
@@ -100,17 +161,37 @@ export default function AdminSourcesPage() {
 
       {/* Tab Content */}
       <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
-        {activeTab === 'pluto-tv' && <PlutoTVTab />}
-        {activeTab === 'samsung-tv-plus' && <SamsungTVPlusTab />}
-        {activeTab === 'radio-browser' && <RadioBrowserTab />}
+        {activeTab === 'pluto-tv' && <PlutoTVTab onPlay={handlePlay} onDetail={setDetailChannel} />}
+        {activeTab === 'samsung-tv-plus' && (
+          <SamsungTVPlusTab onPlay={handlePlay} onDetail={setDetailChannel} />
+        )}
       </div>
+
+      {/* Detail Modal */}
+      {detailChannel && (
+        <DetailModal
+          channel={detailChannel}
+          onClose={() => setDetailChannel(null)}
+          onPlay={(ch) => {
+            setDetailChannel(null);
+            handlePlay(ch);
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Pluto TV Tab ──────────────────────────────────────────
 
-function PlutoTVTab() {
+function PlutoTVTab({
+  onPlay,
+  onDetail,
+}: {
+  onPlay: (ch: SourceChannel) => void;
+  onDetail: (ch: SourceChannel) => void;
+}) {
+  const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string>('us');
   const [channels, setChannels] = useState<SourceChannel[]>([]);
@@ -131,13 +212,9 @@ function PlutoTVTab() {
     setChannels([]);
     try {
       const res = await api.get(`/external-sources/pluto-tv/channels?country=${region}`);
-      const data = (res.data.data || []).map((ch: Omit<SourceChannel, '_uid'>, i: number) => ({
-        ...ch,
-        _uid: String(i),
-      }));
-      setChannels(data);
+      setChannels(res.data.data || []);
     } catch {
-      alert('Failed to fetch Pluto TV channels');
+      toast('Failed to fetch Pluto TV channels', 'error');
     } finally {
       setLoading(false);
     }
@@ -158,28 +235,49 @@ function PlutoTVTab() {
             <button
               key={r.code}
               onClick={() => fetchChannels(r.code)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
                 selectedRegion === r.code && channels.length > 0
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
               }`}
             >
-              {r.name}
+              {regionDisplayName(r)}
+              {r.channelCount != null && (
+                <span className="text-muted-foreground text-xs">({r.channelCount})</span>
+              )}
             </button>
           ))}
         </div>
       )}
       {loading && <SpinnerWithLabel label="Fetching Pluto TV channels..." />}
-      {!loading && channels.length > 0 && <ChannelDataTable channels={channels} />}
+      {!loading && channels.length > 0 && (
+        <ChannelDataTable
+          channels={channels}
+          onPlay={onPlay}
+          onDetail={onDetail}
+          source="pluto-tv"
+          region={selectedRegion}
+          onChannelUpdate={(uid, liveness) => {
+            setChannels((prev) => prev.map((ch) => (ch._uid === uid ? { ...ch, liveness } : ch)));
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Samsung TV Plus Tab ───────────────────────────────────
 
-function SamsungTVPlusTab() {
+function SamsungTVPlusTab({
+  onPlay,
+  onDetail,
+}: {
+  onPlay: (ch: SourceChannel) => void;
+  onDetail: (ch: SourceChannel) => void;
+}) {
+  const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<string>('US');
+  const [selectedRegion, setSelectedRegion] = useState<string>('us');
   const [channels, setChannels] = useState<SourceChannel[]>([]);
   const [loading, setLoading] = useState(false);
   const [regionsLoading, setRegionsLoading] = useState(true);
@@ -198,13 +296,9 @@ function SamsungTVPlusTab() {
     setChannels([]);
     try {
       const res = await api.get(`/external-sources/samsung-tv-plus/channels?country=${region}`);
-      const data = (res.data.data || []).map((ch: Omit<SourceChannel, '_uid'>, i: number) => ({
-        ...ch,
-        _uid: String(i),
-      }));
-      setChannels(data);
+      setChannels(res.data.data || []);
     } catch {
-      alert('Failed to fetch Samsung TV Plus channels');
+      toast('Failed to fetch Samsung TV Plus channels', 'error');
     } finally {
       setLoading(false);
     }
@@ -225,125 +319,56 @@ function SamsungTVPlusTab() {
             <button
               key={r.code}
               onClick={() => fetchChannels(r.code)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
                 selectedRegion === r.code && channels.length > 0
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
               }`}
             >
-              {r.name}
+              {regionDisplayName(r)}
+              {r.channelCount != null && (
+                <span className="text-muted-foreground text-xs">({r.channelCount})</span>
+              )}
             </button>
           ))}
         </div>
       )}
       {loading && <SpinnerWithLabel label="Fetching Samsung TV Plus channels..." />}
-      {!loading && channels.length > 0 && <ChannelDataTable channels={channels} />}
-    </div>
-  );
-}
-
-// ─── Radio Browser Tab ─────────────────────────────────────
-
-function RadioBrowserTab() {
-  const [countries, setCountries] = useState<Region[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
-  const [channels, setChannels] = useState<SourceChannel[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [countriesLoading, setCountriesLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    api
-      .get('/external-sources/radio-browser/countries')
-      .then((res) => setCountries(res.data.data || []))
-      .catch(() => {})
-      .finally(() => setCountriesLoading(false));
-  }, []);
-
-  async function fetchStations(country?: string) {
-    if (country) setSelectedCountry(country);
-    setLoading(true);
-    setChannels([]);
-    try {
-      const params = new URLSearchParams({ limit: '300' });
-      if (country || selectedCountry) params.set('country', country || selectedCountry);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
-      const res = await api.get(`/external-sources/radio-browser/stations?${params.toString()}`);
-      const data = (res.data.data || []).map((ch: Omit<SourceChannel, '_uid'>, i: number) => ({
-        ...ch,
-        _uid: String(i),
-      }));
-      setChannels(data);
-    } catch {
-      alert('Failed to fetch radio stations');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Search bar for radio */}
-      <div className="flex gap-3 items-end">
-        <div className="flex-1 max-w-md">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
-            Search Stations
-          </p>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by station name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchStations(selectedCountry || undefined)}
-              className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-        <button
-          onClick={() => fetchStations(selectedCountry || undefined)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 h-10 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-        >
-          <Search className="h-4 w-4" /> Search
-        </button>
-      </div>
-
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
-          Or Browse by Country
-        </p>
-        {countriesLoading ? (
-          <Spinner />
-        ) : (
-          <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto p-1">
-            {countries.map((c) => (
-              <button
-                key={c.code}
-                onClick={() => fetchStations(c.name)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-2 transition-all ${
-                  selectedCountry === c.name && channels.length > 0
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border bg-card shadow-sm hover:border-primary/40'
-                }`}
-              >
-                {c.name}
-                <span className="text-muted-foreground">({c.stationCount})</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {loading && <SpinnerWithLabel label="Fetching radio stations..." />}
-      {!loading && channels.length > 0 && <ChannelDataTable channels={channels} />}
+      {!loading && channels.length > 0 && (
+        <ChannelDataTable
+          channels={channels}
+          onPlay={onPlay}
+          onDetail={onDetail}
+          source="samsung-tv-plus"
+          region={selectedRegion}
+          onChannelUpdate={(uid, liveness) => {
+            setChannels((prev) => prev.map((ch) => (ch._uid === uid ? { ...ch, liveness } : ch)));
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Shared Channel Data Table ─────────────────────────────
 
-function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
+function ChannelDataTable({
+  channels,
+  onPlay,
+  onDetail,
+  source,
+  region,
+  disableLiveness,
+  onChannelUpdate,
+}: {
+  channels: SourceChannel[];
+  onPlay: (ch: SourceChannel) => void;
+  onDetail: (ch: SourceChannel) => void;
+  source: Tab;
+  region: string;
+  disableLiveness?: boolean;
+  onChannelUpdate?: (uid: string, liveness: ChannelLiveness) => void;
+}) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
@@ -352,8 +377,104 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
-  const [detailChannel, setDetailChannel] = useState<SourceChannel | null>(null);
-  const [playerChannel, setPlayerChannel] = useState<SourceChannel | null>(null);
+
+  // Column filter state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+
+  // Liveness state
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
+  const [batchTesting, setBatchTesting] = useState(false);
+  const [livenessStats, setLivenessStats] = useState<LivenessStats | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch liveness stats when source/region changes
+  const fetchLivenessStats = useCallback(async () => {
+    if (disableLiveness || !source || !region) return;
+    try {
+      const res = await api.get(
+        `/external-sources/liveness-status?source=${source}&region=${encodeURIComponent(region)}`,
+      );
+      const data = res.data.data;
+      setLivenessStats(data.livenessStats);
+      if (!data.livenessCheckInProgress && pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setBatchTesting(false);
+      }
+      if (data.livenessCheckInProgress) {
+        setBatchTesting(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, [source, region, disableLiveness]);
+
+  useEffect(() => {
+    fetchLivenessStats();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [fetchLivenessStats]);
+
+  async function handleTestChannel(ch: SourceChannel) {
+    if (!ch._uid) return;
+    setTestingChannelId(ch._uid);
+    try {
+      const res = await api.post(`/external-sources/check-liveness/${ch._uid}`);
+      const result = res.data.data;
+      if (result && onChannelUpdate) {
+        onChannelUpdate(ch._uid, {
+          status: result.status,
+          lastCheckedAt: new Date().toISOString(),
+          responseTimeMs: result.responseTimeMs,
+          error: result.error,
+        });
+      }
+      fetchLivenessStats();
+    } catch {
+      // ignore
+    } finally {
+      setTestingChannelId(null);
+    }
+  }
+
+  async function handleBatchLivenessCheck() {
+    if (batchTesting || !source || !region) return;
+    setBatchTesting(true);
+    try {
+      await api.post('/external-sources/check-liveness', { source, region });
+      // Start polling
+      pollRef.current = setInterval(fetchLivenessStats, 5000);
+    } catch {
+      setBatchTesting(false);
+    }
+  }
+
+  // Compute unique filter options from loaded data
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      if (c.groupTitle) set.add(c.groupTitle);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      if (c.country) set.add(c.country);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  // Reset column filters when channels change
+  useEffect(() => {
+    setSelectedCategories([]);
+    setSelectedCountries([]);
+    setSelectedStatuses([]);
+  }, [channels]);
 
   const { filtered, paginated } = useMemo(() => {
     let result = channels;
@@ -367,6 +488,20 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
           c.groupTitle?.toLowerCase().includes(q) ||
           c.country?.toLowerCase().includes(q),
       );
+    }
+
+    // Apply column filters
+    if (selectedCategories.length > 0 && selectedCategories.length < categoryOptions.length) {
+      result = result.filter((c) => selectedCategories.includes(c.groupTitle || ''));
+    }
+    if (selectedCountries.length > 0 && selectedCountries.length < countryOptions.length) {
+      result = result.filter((c) => selectedCountries.includes(c.country || ''));
+    }
+
+    // Apply status filter
+    const statusOptions = ['alive', 'dead', 'unknown'];
+    if (selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length) {
+      result = result.filter((c) => selectedStatuses.includes(c.liveness?.status || 'unknown'));
     }
 
     const sorted = [...result].sort((a, b) => {
@@ -392,7 +527,18 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
 
     const sliced = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     return { filtered: sorted, paginated: sliced };
-  }, [channels, search, sortField, sortDir, page]);
+  }, [
+    channels,
+    search,
+    sortField,
+    sortDir,
+    page,
+    selectedCategories,
+    selectedCountries,
+    categoryOptions,
+    countryOptions,
+    selectedStatuses,
+  ]);
 
   function getKey(ch: SourceChannel) {
     return ch._uid;
@@ -485,6 +631,20 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Liveness stats bar */}
+      {!disableLiveness &&
+        livenessStats &&
+        (livenessStats.alive > 0 || livenessStats.dead > 0 || livenessStats.unknown > 0) && (
+          <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/50 border border-border text-xs">
+            <Activity className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-signal-green font-medium">{livenessStats.alive} alive</span>
+            <span className="text-signal-red font-medium">{livenessStats.dead} dead</span>
+            <span className="text-muted-foreground font-medium">
+              {livenessStats.unknown} unknown
+            </span>
+          </div>
+        )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md w-full">
@@ -501,6 +661,21 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Batch liveness check button */}
+          {!disableLiveness && (
+            <button
+              onClick={handleBatchLivenessCheck}
+              disabled={batchTesting}
+              className="inline-flex items-center gap-2 px-4 py-2.5 h-10 text-sm font-medium border border-border bg-card text-foreground uppercase tracking-[0.1em] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {batchTesting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Activity className="h-4 w-4" />
+              )}
+              {batchTesting ? 'Checking...' : 'Check Liveness'}
+            </button>
+          )}
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
@@ -525,7 +700,8 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
       <div className="flex items-center justify-between px-1 flex-wrap gap-2">
         <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           {filtered.length} channels
-          {search && ` (filtered from ${channels.length})`} &middot;{' '}
+          {filtered.length !== channels.length &&
+            ` (filtered from ${channels.length})`} &middot;{' '}
           <span className="text-foreground font-medium">{selectedIds.size} selected</span>
         </p>
         <div className="flex items-center gap-3 flex-wrap">
@@ -566,7 +742,9 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
       {/* Table */}
       <div className="border border-border">
         {/* Header */}
-        <div className="hidden lg:grid grid-cols-[40px,44px,1fr,180px,120px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+        <div
+          className={`hidden lg:grid gap-2 px-4 py-2 bg-muted/50 border-b border-border ${disableLiveness ? 'grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'}`}
+        >
           <div className="flex items-center justify-center">
             <button
               onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
@@ -587,18 +765,53 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
           >
             Name <SortIcon field="name" />
           </button>
-          <button
-            onClick={() => handleSort('category')}
-            className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-          >
-            Category <SortIcon field="category" />
-          </button>
-          <button
-            onClick={() => handleSort('country')}
-            className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-          >
-            Country <SortIcon field="country" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleSort('category')}
+              className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+            >
+              Category <SortIcon field="category" />
+            </button>
+            <ColumnFilter
+              label=""
+              options={categoryOptions}
+              selected={selectedCategories}
+              onChange={(v) => {
+                setSelectedCategories(v);
+                setPage(1);
+              }}
+              searchable
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleSort('country')}
+              className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+            >
+              Country <SortIcon field="country" />
+            </button>
+            <ColumnFilter
+              label=""
+              options={countryOptions}
+              selected={selectedCountries}
+              onChange={(v) => {
+                setSelectedCountries(v);
+                setPage(1);
+              }}
+              searchable
+            />
+          </div>
+          {!disableLiveness && (
+            <ColumnFilter
+              label="Status"
+              options={['alive', 'dead', 'unknown']}
+              selected={selectedStatuses}
+              onChange={(v) => {
+                setSelectedStatuses(v);
+                setPage(1);
+              }}
+            />
+          )}
           <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
             Actions
           </span>
@@ -614,10 +827,11 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
             paginated.map((ch) => {
               const key = getKey(ch);
               const isSelected = selectedIds.has(key);
+              const status = ch.liveness?.status || 'unknown';
               return (
                 <div
                   key={key}
-                  className={`grid lg:grid-cols-[40px,44px,1fr,180px,120px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                  className={`grid ${disableLiveness ? 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'} gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
                     isSelected ? 'bg-primary/5' : ''
                   }`}
                 >
@@ -645,7 +859,7 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
                         className="h-7 w-7 rounded-sm object-contain bg-muted"
                         onError={(e) => {
                           const img = e.currentTarget;
-                          if (!img.dataset.fallback && ch.tvgLogo) {
+                          if (!img.dataset.fallback && ch.tvgLogo && isSafeImageUrl(ch.tvgLogo)) {
                             img.dataset.fallback = '1';
                             img.src = ch.tvgLogo;
                           }
@@ -673,9 +887,47 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
                     {ch.country || '—'}
                   </span>
 
+                  {/* Status badge + test button */}
+                  {!disableLiveness && (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 ${
+                          status === 'alive'
+                            ? 'text-signal-green bg-signal-green/10'
+                            : status === 'dead'
+                              ? 'text-signal-red bg-signal-red/10'
+                              : 'text-muted-foreground bg-muted'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            status === 'alive'
+                              ? 'bg-signal-green'
+                              : status === 'dead'
+                                ? 'bg-signal-red'
+                                : 'bg-muted-foreground'
+                          }`}
+                        />
+                        {status}
+                      </span>
+                      <button
+                        onClick={() => handleTestChannel(ch)}
+                        disabled={testingChannelId === ch._uid}
+                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                        title="Test stream"
+                      >
+                        {testingChannelId === ch._uid ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Zap className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-end gap-1">
                     <button
-                      onClick={() => setDetailChannel(ch)}
+                      onClick={() => onDetail(ch)}
                       className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="View details"
                       title="Channel info"
@@ -684,7 +936,7 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
                     </button>
                     {ch.channelUrl && (
                       <button
-                        onClick={() => setPlayerChannel(ch)}
+                        onClick={() => onPlay(ch)}
                         className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
                         aria-label="Preview stream"
                         title="Preview stream"
@@ -706,280 +958,99 @@ function ChannelDataTable({ channels }: { channels: SourceChannel[] }) {
         totalCount={filtered.length}
         onPageChange={setPage}
       />
-
-      {/* Detail Modal */}
-      <Modal
-        open={!!detailChannel}
-        onClose={() => setDetailChannel(null)}
-        title="Channel Details"
-        size="lg"
-      >
-        {detailChannel && (
-          <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-start gap-4">
-              {detailChannel.tvgLogo ? (
-                <img
-                  src={proxyImageUrl(detailChannel.tvgLogo)}
-                  alt=""
-                  className="h-16 w-16 rounded object-contain bg-muted shrink-0"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.dataset.fallback && detailChannel.tvgLogo) {
-                      img.dataset.fallback = '1';
-                      img.src = detailChannel.tvgLogo;
-                    }
-                  }}
-                />
-              ) : (
-                <div className="h-16 w-16 rounded bg-muted shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-medium">{detailChannel.channelName}</h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                  {detailChannel.channelId}
-                </p>
-                {detailChannel.summary && (
-                  <p className="text-sm text-muted-foreground mt-1">{detailChannel.summary}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="divide-y divide-border border border-border">
-              {(
-                [
-                  { label: 'Stream URL', value: detailChannel.channelUrl },
-                  { label: 'Logo URL', value: detailChannel.tvgLogo },
-                  { label: 'Category', value: detailChannel.groupTitle },
-                  { label: 'Country', value: detailChannel.country },
-                  { label: 'Source', value: detailChannel.source },
-                  { label: 'Codec', value: detailChannel.codec },
-                  {
-                    label: 'Bitrate',
-                    value: detailChannel.bitrate ? `${detailChannel.bitrate} kbps` : undefined,
-                  },
-                  { label: 'Language', value: detailChannel.language },
-                  {
-                    label: 'Votes',
-                    value: detailChannel.votes != null ? String(detailChannel.votes) : undefined,
-                  },
-                  { label: 'Homepage', value: detailChannel.homepage },
-                ] as { label: string; value?: string | null }[]
-              )
-                .filter((r) => r.value)
-                .map((r) => (
-                  <div key={r.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <span className="text-sm text-muted-foreground shrink-0">{r.label}</span>
-                    <span className="text-sm font-medium text-right break-all max-w-[65%]">
-                      {r.value}
-                    </span>
-                  </div>
-                ))}
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              {detailChannel.channelUrl && (
-                <button
-                  onClick={() => {
-                    setDetailChannel(null);
-                    setPlayerChannel(detailChannel);
-                  }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-                >
-                  <Play className="h-4 w-4" />
-                  Preview Stream
-                </button>
-              )}
-              <button
-                onClick={() => toggleOne(detailChannel)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {selectedIds.has(getKey(detailChannel)) ? (
-                  <>
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                    Selected
-                  </>
-                ) : (
-                  <>
-                    <Square className="h-4 w-4" />
-                    Select for Import
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Player Modal */}
-      {playerChannel && (
-        <PlayerModal channel={playerChannel} onClose={() => setPlayerChannel(null)} />
-      )}
     </div>
   );
 }
 
-// ─── Player Modal ──────────────────────────────────────────
+// ─── Detail Modal ──────────────────────────────────────────
 
-function PlayerModal({ channel, onClose }: { channel: SourceChannel; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const hlsRef = useRef<{ destroy: () => void } | null>(null);
-  const [status, setStatus] = useState('Loading...');
-  const [playerError, setPlayerError] = useState('');
-
-  const url = channel.channelUrl;
-  const isRadio = channel.source === 'radio-browser';
-
-  useEffect(() => {
-    if (!url) return;
-    const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
-    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
-    let destroyed = false;
-
-    // For radio stations, use audio element directly
-    if (isRadio) {
-      const audio = audioRef.current;
-      if (!audio) return;
-      audio.src = proxyUrl;
-      audio.addEventListener('loadedmetadata', () => {
-        if (!destroyed) {
-          setStatus('Playing');
-          audio.play().catch(() => {});
-        }
-      });
-      audio.addEventListener('playing', () => !destroyed && setStatus('Playing'));
-      audio.addEventListener('pause', () => !destroyed && setStatus('Paused'));
-      audio.addEventListener('waiting', () => !destroyed && setStatus('Buffering...'));
-      audio.addEventListener('error', () => !destroyed && setPlayerError('Playback error'));
-
-      return () => {
-        destroyed = true;
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-      };
-    }
-
-    // For video streams, use HLS
-    const video = videoRef.current;
-    if (!video) return;
-
-    async function initPlayer() {
-      try {
-        const HlsModule = await import('hls.js');
-        const Hls = HlsModule.default;
-        if (destroyed) return;
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            maxBufferLength: 30,
-            manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 3,
-            fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 3,
-            xhrSetup: (xhr: XMLHttpRequest, xhrUrl: string) => {
-              if (xhrUrl.includes('/api/v1/stream-proxy') && sessionId) {
-                xhr.setRequestHeader('X-Session-Id', sessionId);
-              }
-            },
-          });
-          hlsRef.current = hls;
-          hls.loadSource(proxyUrl);
-          hls.attachMedia(video!);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (!destroyed) {
-              setStatus('Playing');
-              video!.play().catch(() => {});
-            }
-          });
-          hls.on(
-            Hls.Events.ERROR,
-            (_: string, data: { fatal: boolean; type: string; details: string }) => {
-              if (destroyed) return;
-              if (data.fatal) {
-                if (data.type === 'networkError') {
-                  setStatus('Network error — retrying...');
-                  hls.startLoad();
-                } else if (data.type === 'mediaError') {
-                  setStatus('Media error — recovering...');
-                  hls.recoverMediaError();
-                } else {
-                  setPlayerError(`Fatal error: ${data.details}`);
-                  hls.destroy();
-                }
-              }
-            },
-          );
-        } else if (video!.canPlayType('application/vnd.apple.mpegurl')) {
-          video!.src = proxyUrl;
-          video!.addEventListener('loadedmetadata', () => {
-            if (!destroyed) {
-              setStatus('Playing');
-              video!.play().catch(() => {});
-            }
-          });
-        } else {
-          setPlayerError('HLS not supported in this browser.');
-        }
-      } catch {
-        setPlayerError('Failed to load player');
-      }
-    }
-
-    initPlayer();
-    const onPlaying = () => !destroyed && setStatus('Playing');
-    const onPause = () => !destroyed && setStatus('Paused');
-    const onWaiting = () => !destroyed && setStatus('Buffering...');
-    const onVidError = () => !destroyed && setPlayerError('Playback error');
-    video.addEventListener('playing', onPlaying);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('waiting', onWaiting);
-    video.addEventListener('error', onVidError);
-
-    return () => {
-      destroyed = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
-      video.removeEventListener('playing', onPlaying);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('waiting', onWaiting);
-      video.removeEventListener('error', onVidError);
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [url, isRadio]);
-
+function DetailModal({
+  channel,
+  onClose,
+  onPlay,
+}: {
+  channel: SourceChannel;
+  onClose: () => void;
+  onPlay: (ch: SourceChannel) => void;
+}) {
   return (
-    <Modal open onClose={onClose} title={channel.channelName || 'Stream Preview'} size="xl">
-      {isRadio ? (
-        <div className="p-6 flex flex-col items-center gap-4">
-          {channel.tvgLogo && (
+    <Modal open onClose={onClose} title="Channel Details" size="lg">
+      <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-start gap-4">
+          {channel.tvgLogo ? (
             <img
               src={proxyImageUrl(channel.tvgLogo)}
               alt=""
-              className="h-24 w-24 rounded object-contain bg-muted"
+              className="h-16 w-16 rounded object-contain bg-muted shrink-0"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (!img.dataset.fallback && channel.tvgLogo && isSafeImageUrl(channel.tvgLogo)) {
+                  img.dataset.fallback = '1';
+                  img.src = channel.tvgLogo;
+                }
+              }}
             />
+          ) : (
+            <div className="h-16 w-16 rounded bg-muted shrink-0" />
           )}
-          <p className="text-sm font-medium">{channel.channelName}</p>
-          <audio ref={audioRef} controls className="w-full max-w-md" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-medium">{channel.channelName}</h3>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{channel.channelId}</p>
+            {channel.summary && (
+              <p className="text-sm text-muted-foreground mt-1">{channel.summary}</p>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="bg-black">
-          <video ref={videoRef} controls className="w-full max-h-[80vh]" playsInline />
+
+        <div className="divide-y divide-border border border-border">
+          {(
+            [
+              { label: 'Stream URL', value: channel.channelUrl },
+              { label: 'Logo URL', value: channel.tvgLogo },
+              { label: 'Category', value: channel.groupTitle },
+              { label: 'Country', value: channel.country },
+              { label: 'Source', value: channel.source },
+              { label: 'Codec', value: channel.codec },
+              {
+                label: 'Bitrate',
+                value: channel.bitrate ? `${channel.bitrate} kbps` : undefined,
+              },
+              { label: 'Language', value: channel.language },
+              {
+                label: 'Votes',
+                value: channel.votes != null ? String(channel.votes) : undefined,
+              },
+              { label: 'Homepage', value: channel.homepage },
+              {
+                label: 'Liveness',
+                value: channel.liveness
+                  ? `${channel.liveness.status}${channel.liveness.responseTimeMs ? ` (${channel.liveness.responseTimeMs}ms)` : ''}${channel.liveness.error ? ` — ${channel.liveness.error}` : ''}`
+                  : undefined,
+              },
+            ] as { label: string; value?: string | null }[]
+          )
+            .filter((r) => r.value)
+            .map((r) => (
+              <div key={r.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                <span className="text-sm text-muted-foreground shrink-0">{r.label}</span>
+                <span className="text-sm font-medium text-right break-all max-w-[65%]">
+                  {r.value}
+                </span>
+              </div>
+            ))}
         </div>
-      )}
-      <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
-        <span className="text-xs text-muted-foreground truncate max-w-[60%]" title={url}>
-          {url}
-        </span>
-        <span
-          className={`text-xs font-medium ${playerError ? 'text-signal-red' : status === 'Playing' ? 'text-signal-green' : 'text-muted-foreground'}`}
-        >
-          {playerError || status}
-        </span>
+
+        <div className="flex items-center gap-3 pt-2">
+          {channel.channelUrl && (
+            <button
+              onClick={() => onPlay(channel)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
+            >
+              <Play className="h-4 w-4" />
+              Preview Stream
+            </button>
+          )}
+        </div>
       </div>
     </Modal>
   );

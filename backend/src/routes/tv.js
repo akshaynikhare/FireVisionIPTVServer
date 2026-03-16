@@ -1,41 +1,46 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Channel = require('../models/Channel');
 const PairingRequest = require('../models/PairingRequest');
+const { epgService } = require('../services/epg-service');
 
 // NO authentication required for TV endpoints
+
+// Shared helper: validate code, find user, update lastLogin
+async function findUserByCode(code, res) {
+    if (!code || code.length !== 6) {
+        res.status(400).json({
+            success: false,
+            error: 'Invalid channel list code. Code must be 6 characters.'
+        });
+        return null;
+    }
+    const user = await User.findOne({
+        channelListCode: code.toUpperCase(),
+        isActive: true
+    });
+    if (!user) {
+        res.status(404).json({
+            success: false,
+            error: 'Invalid or inactive channel list code'
+        });
+        return null;
+    }
+    user.lastLogin = new Date();
+    await user.save();
+    return user;
+}
 
 // Get playlist by code (TV App endpoint)
 router.get('/playlist/:code', async (req, res) => {
     try {
-        const { code } = req.params;
+        const user = await findUserByCode(req.params.code, res);
+        if (!user) return;
 
-        if (!code || code.length !== 6) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid channel list code. Code must be 6 characters.'
-            });
-        }
-
-        // Find user by channel list code
-        const user = await User.findOne({
-            channelListCode: code.toUpperCase(),
-            isActive: true
-        });
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'Invalid or inactive channel list code'
-            });
-        }
-
-        // Update last login
-        user.lastLogin = new Date();
-        await user.save();
-
-        // Generate M3U playlist for this user
-        const m3uContent = await user.generateUserPlaylist();
+        // Generate M3U playlist for this user (with EPG URL)
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const m3uContent = await user.generateUserPlaylist(baseUrl);
 
         // Set response headers for M3U
         res.setHeader('Content-Type', 'audio/x-mpegurl');
@@ -53,31 +58,8 @@ router.get('/playlist/:code', async (req, res) => {
 // Get playlist as JSON (alternative format for TV apps)
 router.get('/playlist/:code/json', async (req, res) => {
     try {
-        const { code } = req.params;
-
-        if (!code || code.length !== 6) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid channel list code. Code must be 6 characters.'
-            });
-        }
-
-        // Find user by channel list code
-        const user = await User.findOne({
-            channelListCode: code.toUpperCase(),
-            isActive: true
-        }).populate('channels');
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'Invalid or inactive channel list code'
-            });
-        }
-
-        // Update last login
-        user.lastLogin = new Date();
-        await user.save();
+        const user = await findUserByCode(req.params.code, res);
+        if (!user) return;
 
         const Channel = require('../models/Channel');
         let channels;
@@ -87,8 +69,9 @@ router.get('/playlist/:code/json', async (req, res) => {
             channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 });
         } else {
             // Regular users get only their assigned channels
+            const channelIds = (user.channels || []).filter(Boolean);
             channels = await Channel.find({
-                _id: { $in: user.channels }
+                _id: { $in: channelIds }
             }).sort({ channelGroup: 1, order: 1 });
         }
 
@@ -201,6 +184,151 @@ router.get('/verify/:code', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to verify code'
+        });
+    }
+});
+
+// ====================
+// EPG (Electronic Program Guide) ENDPOINTS
+// ====================
+
+// Get EPG as XMLTV format by channel list code
+router.get('/epg/:code', async (req, res) => {
+    try {
+        const hours = Math.min(parseInt(req.query.hours) || 24, 72);
+        const user = await findUserByCode(req.params.code, res);
+        if (!user) return;
+
+        // Get user's channels
+        let channels;
+        if (user.role === 'Admin') {
+            channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 }).lean();
+        } else {
+            channels = await Channel.find({
+                _id: { $in: user.channels }
+            }).sort({ channelGroup: 1, order: 1 }).lean();
+        }
+
+        // Build EPG IDs from channel data (tvgId, channelId, tvgName)
+        const epgIds = [];
+        const channelInfoMap = new Map();
+
+        for (const ch of channels) {
+            const ids = [ch.channelId, ch.tvgId, ch.tvgName].filter(Boolean);
+            for (const id of ids) {
+                if (!channelInfoMap.has(id)) {
+                    epgIds.push(id);
+                    channelInfoMap.set(id, {
+                        epgId: id,
+                        name: ch.channelName,
+                        icon: ch.tvgLogo || ch.channelImg || '',
+                    });
+                }
+            }
+        }
+
+        // Query EPG programs
+        const programs = await epgService.getEpgForChannels(epgIds, hours);
+
+        // Build channel info for XMLTV output (only channels that have programs)
+        const activeChannelIds = new Set(programs.map(p => p.channelEpgId));
+        const channelInfos = [];
+        for (const id of activeChannelIds) {
+            const info = channelInfoMap.get(id);
+            if (info) {
+                channelInfos.push(info);
+            } else {
+                channelInfos.push({ epgId: id, name: id, icon: '' });
+            }
+        }
+
+        const xmltv = epgService.generateXmltv(channelInfos, programs);
+
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(xmltv);
+    } catch (error) {
+        console.error('Error fetching EPG:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch EPG data'
+        });
+    }
+});
+
+// Get EPG as JSON by channel list code
+router.get('/epg/:code/json', async (req, res) => {
+    try {
+        const hours = Math.min(parseInt(req.query.hours) || 24, 72);
+        const user = await findUserByCode(req.params.code, res);
+        if (!user) return;
+
+        // Get user's channels
+        let channels;
+        if (user.role === 'Admin') {
+            channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 }).lean();
+        } else {
+            channels = await Channel.find({
+                _id: { $in: user.channels }
+            }).sort({ channelGroup: 1, order: 1 }).lean();
+        }
+
+        // Build EPG IDs
+        const epgIds = [];
+        const channelNameMap = new Map();
+
+        for (const ch of channels) {
+            const ids = [ch.channelId, ch.tvgId, ch.tvgName].filter(Boolean);
+            for (const id of ids) {
+                if (!channelNameMap.has(id)) {
+                    epgIds.push(id);
+                    channelNameMap.set(id, {
+                        channelId: ch.channelId,
+                        channelName: ch.channelName,
+                        tvgLogo: ch.tvgLogo || ch.channelImg || '',
+                    });
+                }
+            }
+        }
+
+        const programs = await epgService.getEpgForChannels(epgIds, hours);
+
+        // Group programs by channel
+        const grouped = {};
+        for (const prog of programs) {
+            if (!grouped[prog.channelEpgId]) {
+                const info = channelNameMap.get(prog.channelEpgId) || {};
+                grouped[prog.channelEpgId] = {
+                    channelId: prog.channelEpgId,
+                    channelName: info.channelName || prog.channelEpgId,
+                    tvgLogo: info.tvgLogo || '',
+                    programs: [],
+                };
+            }
+            grouped[prog.channelEpgId].programs.push({
+                title: prog.title,
+                description: prog.description,
+                category: prog.category,
+                start: prog.startTime,
+                end: prog.endTime,
+                icon: prog.icon,
+                language: prog.language,
+            });
+        }
+
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.json({
+            success: true,
+            hours,
+            channelCount: Object.keys(grouped).length,
+            programCount: programs.length,
+            channels: Object.values(grouped),
+        });
+    } catch (error) {
+        console.error('Error fetching EPG JSON:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch EPG data'
         });
     }
 });

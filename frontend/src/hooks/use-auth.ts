@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
+import api from '@/lib/api';
 
 export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const router = useRouter();
@@ -10,6 +11,7 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const [hydrated, setHydrated] = useState(() =>
     typeof window !== 'undefined' ? (useAuthStore.persist?.hasHydrated?.() ?? false) : false,
   );
+  const validated = useRef(false);
 
   useEffect(() => {
     if (hydrated) return;
@@ -18,6 +20,19 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
     });
     return () => unsub?.();
   }, [hydrated]);
+
+  // Validate session with backend on page load
+  useEffect(() => {
+    if (!hydrated || validated.current) return;
+    if (!user || !sessionId) return;
+
+    validated.current = true;
+
+    api.get('/auth/me').catch(() => {
+      // 401 is handled by the response interceptor (calls logout + redirects)
+      // Other errors are transient — don't log the user out
+    });
+  }, [hydrated, user, sessionId]);
 
   useEffect(() => {
     if (!hydrated) return;

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Copy, Check, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserDetail {
   _id: string;
@@ -18,6 +19,7 @@ interface UserDetail {
 }
 
 export default function UserDetailPage() {
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const [user, setUser] = useState<UserDetail | null>(null);
@@ -79,7 +81,7 @@ export default function UserDetailPage() {
         setUser((prev) => (prev ? { ...prev, channelListCode: newCode } : prev));
       }
     } catch {
-      alert('Failed to regenerate code');
+      toast('Failed to regenerate code', 'error');
     }
   }
 
@@ -259,7 +261,7 @@ export default function UserDetailPage() {
                       await api.put(`/users/${params.id}`, { isActive: !user.isActive });
                       setUser((prev) => (prev ? { ...prev, isActive: !prev.isActive } : prev));
                     } catch {
-                      alert('Failed to update status');
+                      toast('Failed to update status', 'error');
                     }
                   }}
                   className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"

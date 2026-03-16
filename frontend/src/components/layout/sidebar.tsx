@@ -14,18 +14,22 @@ import {
   Globe,
   UserCircle,
   Package,
-  Radio,
+  MonitorPlay,
   Bug,
+  Zap,
+  Calendar,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
 const adminLinks = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/quick-pick', label: 'Quick Pick', icon: Zap },
   { href: '/admin/channels', label: 'Channels', icon: Tv },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/devices', label: 'Devices', icon: Smartphone },
   { href: '/admin/import', label: 'Import IPTV', icon: Globe },
-  { href: '/admin/sources', label: 'Other Sources', icon: Radio },
+  { href: '/admin/sources', label: 'Other Sources', icon: MonitorPlay },
+  { href: '/admin/epg', label: 'EPG Guide', icon: Calendar },
   { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
@@ -33,6 +37,7 @@ const adminLinks = [
 
 const userLinks = [
   { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/user/quick-pick', label: 'Quick Pick', icon: Zap },
   { href: '/user/channels', label: 'My Channels', icon: Tv },
   { href: '/user/import', label: 'Import IPTV', icon: Globe },
   { href: '/user/devices', label: 'Pair Device', icon: Smartphone },

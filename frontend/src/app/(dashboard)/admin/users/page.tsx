@@ -15,6 +15,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
 import ColumnFilter from '@/components/ui/column-filter';
@@ -31,6 +32,7 @@ interface UserData {
 }
 
 export default function UsersPage() {
+  const { toast } = useToast();
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +108,7 @@ export default function UsersPage() {
       await api.delete(`/users/${id}`);
       setUsers((prev) => prev.filter((u) => u._id !== id));
     } catch {
-      alert('Failed to delete user');
+      toast('Failed to delete user', 'error');
     }
   }
 
@@ -150,7 +152,7 @@ export default function UsersPage() {
         prev.map((u) => (u._id === user._id ? { ...u, isActive: !user.isActive } : u)),
       );
     } catch {
-      alert('Failed to update user status');
+      toast('Failed to update user status', 'error');
     }
   }
 

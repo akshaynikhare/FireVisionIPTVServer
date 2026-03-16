@@ -6,6 +6,7 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const PairingRequest = require('../models/PairingRequest');
 const { requireAuth, requireAdmin } = require('./auth');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 // Apply session authentication and admin role check to all admin routes
 router.use(requireAuth);
@@ -13,10 +14,15 @@ router.use(requireAdmin);
 
 // ============ CHANNEL MANAGEMENT ============
 
-// Create new channel
+// Create new channel (with field whitelist to prevent mass assignment)
 router.post('/channels', async (req, res) => {
   try {
-    const channel = new Channel(req.body);
+    const { channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
+            channelGroup, channelDrmKey, order, isActive, metadata } = req.body;
+    const channel = new Channel({
+      channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
+      channelGroup, channelDrmKey, order, isActive, metadata
+    });
     await channel.save();
 
     res.status(201).json({
@@ -27,7 +33,7 @@ router.post('/channels', async (req, res) => {
     console.error('Error creating channel:', error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to create channel'
+      error: 'Failed to create channel'
     });
   }
 });
@@ -35,9 +41,25 @@ router.post('/channels', async (req, res) => {
 // Update channel
 router.put('/channels/:id', async (req, res) => {
   try {
+    const { channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
+            channelGroup, channelDrmKey, order, isActive, metadata } = req.body;
+    const allowedUpdates = {};
+    if (channelId !== undefined) allowedUpdates.channelId = channelId;
+    if (channelName !== undefined) allowedUpdates.channelName = channelName;
+    if (channelUrl !== undefined) allowedUpdates.channelUrl = channelUrl;
+    if (channelImg !== undefined) allowedUpdates.channelImg = channelImg;
+    if (tvgLogo !== undefined) allowedUpdates.tvgLogo = tvgLogo;
+    if (tvgName !== undefined) allowedUpdates.tvgName = tvgName;
+    if (tvgId !== undefined) allowedUpdates.tvgId = tvgId;
+    if (channelGroup !== undefined) allowedUpdates.channelGroup = channelGroup;
+    if (channelDrmKey !== undefined) allowedUpdates.channelDrmKey = channelDrmKey;
+    if (order !== undefined) allowedUpdates.order = order;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (metadata !== undefined) allowedUpdates.metadata = metadata;
+
     const channel = await Channel.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      allowedUpdates,
       { new: true, runValidators: true }
     );
 
@@ -56,7 +78,7 @@ router.put('/channels/:id', async (req, res) => {
     console.error('Error updating channel:', error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update channel'
+      error: 'Failed to update channel'
     });
   }
 });
@@ -167,7 +189,7 @@ router.post('/channels/import-m3u', async (req, res) => {
     console.error('Error importing M3U:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to import M3U'
+      error: 'Failed to import M3U'
     });
   }
 });
@@ -236,7 +258,7 @@ router.get('/channels', async (req, res) => {
 
     // Text search across name and group
     if (search) {
-      const regex = new RegExp(search, 'i');
+      const regex = new RegExp(escapeRegex(search), 'i');
       filter.$or = [
         { channelName: regex },
         { name: regex },
