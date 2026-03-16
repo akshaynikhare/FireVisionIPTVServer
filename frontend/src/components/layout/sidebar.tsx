@@ -14,6 +14,8 @@ import {
   Globe,
   UserCircle,
   Package,
+  Radio,
+  Bug,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -23,6 +25,7 @@ const adminLinks = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/devices', label: 'Devices', icon: Smartphone },
   { href: '/admin/import', label: 'Import IPTV', icon: Globe },
+  { href: '/admin/sources', label: 'Other Sources', icon: Radio },
   { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
@@ -89,6 +92,23 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
           })}
         </div>
       </nav>
+
+      <div className="border-t border-sidebar-border py-2 px-2 space-y-0.5">
+        <a
+          href="https://github.com/akshaynikhare/FireVisionIPTVServer/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center gap-2.5 py-2 text-[13px] text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${
+            sidebarCollapsed ? 'justify-center px-2' : 'px-2.5'
+          }`}
+          title={sidebarCollapsed ? 'Raise Issue' : undefined}
+        >
+          <Bug className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className={sidebarCollapsed ? 'sr-only' : 'uppercase tracking-[0.05em]'}>
+            Raise Issue
+          </span>
+        </a>
+      </div>
 
       <button
         onClick={toggleSidebar}

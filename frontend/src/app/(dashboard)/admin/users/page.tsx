@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader2,
@@ -17,6 +17,7 @@ import {
 import api from '@/lib/api';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
+import ColumnFilter from '@/components/ui/column-filter';
 
 interface UserData {
   _id: string;
@@ -38,7 +39,16 @@ export default function UsersPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const pageSize = 50;
+
+  // Column filter state
+  const [filterOptions, setFilterOptions] = useState<{ role: string[]; status: string[] }>({
+    role: [],
+    status: [],
+  });
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   // Add user form state
   const [newUsername, setNewUsername] = useState('');
@@ -48,21 +58,46 @@ export default function UsersPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
 
-  async function fetchUsers() {
+  const fetchUsers = useCallback(async () => {
     try {
-      const res = await api.get('/users');
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+      if (search) params.set('search', search);
+      if (selectedRoles.length > 0 && selectedRoles.length < filterOptions.role.length) {
+        params.set('role', selectedRoles.join(','));
+      }
+      if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
+        params.set('status', selectedStatuses.join(','));
+      }
+      const res = await api.get(`/users?${params.toString()}`);
       const body = res.data;
       setUsers(Array.isArray(body) ? body : body.data || body.users || []);
+      setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
     } catch {
       setError('Failed to load users');
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, search, selectedRoles, selectedStatuses, filterOptions]);
 
+  // Fetch filter options once
+  useEffect(() => {
+    async function loadFilterOptions() {
+      try {
+        const res = await api.get('/users/filter-options');
+        setFilterOptions(res.data.data || { role: [], status: [] });
+      } catch {
+        /* ignore */
+      }
+    }
+    loadFilterOptions();
+  }, []);
+
+  // Fetch users when filters/page/search change
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   async function handleDelete(e: React.MouseEvent, id: string, username: string) {
     e.stopPropagation();
@@ -119,18 +154,13 @@ export default function UsersPage() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Reset to page 1 when search or filters change
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, selectedRoles, selectedStatuses]);
 
-  const filtered = users.filter(
-    (u) =>
-      u.username?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase()) ||
-      u.channelListCode?.toLowerCase().includes(search.toLowerCase()),
-  );
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Data is already filtered & paginated server-side
+  const paginated = users;
 
   if (loading) {
     return (
@@ -145,7 +175,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between animate-fade-up">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Users</h1>
-          <p className="text-sm text-muted-foreground mt-1">{users.length} registered users</p>
+          <p className="text-sm text-muted-foreground mt-1">{totalCount} registered users</p>
         </div>
         <button
           onClick={() => {
@@ -190,12 +220,18 @@ export default function UsersPage() {
           <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel Code
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Role
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Status
-          </span>
+          <ColumnFilter
+            label="Role"
+            options={filterOptions.role}
+            selected={selectedRoles}
+            onChange={setSelectedRoles}
+          />
+          <ColumnFilter
+            label="Status"
+            options={filterOptions.status}
+            selected={selectedStatuses}
+            onChange={setSelectedStatuses}
+          />
           <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
             Actions
           </span>
@@ -274,12 +310,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalCount={filtered.length}
-        onPageChange={setPage}
-      />
+      <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
 
       {/* Add User Modal */}
       <Modal

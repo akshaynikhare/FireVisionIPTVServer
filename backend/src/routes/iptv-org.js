@@ -16,6 +16,7 @@ let streamsCache = { data: null, timestamp: null };
 let languagesCache = { data: null, timestamp: null };
 let guidesCache = { data: null, timestamp: null };
 let feedsCache = { data: null, timestamp: null };
+let logosCache = { data: null, timestamp: null };
 const CACHE_TTL = 3600000; // 1 hour
 
 // Clear cache endpoint
@@ -26,6 +27,7 @@ router.post('/clear-cache', async (req, res) => {
         languagesCache = { data: null, timestamp: null };
         guidesCache = { data: null, timestamp: null };
         feedsCache = { data: null, timestamp: null };
+        logosCache = { data: null, timestamp: null };
 
         res.json({
             success: true,
@@ -187,11 +189,12 @@ router.get('/api/enriched', async (req, res) => {
     try {
         const { country, category, language, limit = 100 } = req.query;
 
-        // Fetch channels, streams, and languages data
-        const [channelsData, streamsData, languagesData] = await Promise.all([
+        // Fetch channels, streams, languages, and logos data
+        const [channelsData, streamsData, languagesData, logosData] = await Promise.all([
             fetchChannelsData(),
             fetchStreamsData(),
-            fetchLanguagesData()
+            fetchLanguagesData(),
+            fetchLogosData()
         ]);
 
         // Create maps for quick lookup
@@ -205,9 +208,21 @@ router.get('/api/enriched', async (req, res) => {
             languagesMap.set(lang.code, lang);
         });
 
+        const logosMap = new Map();
+        logosData.forEach(logo => {
+            if (logo.channel && logo.url) {
+                const existing = logosMap.get(logo.channel);
+                if (!existing || (!logo.feed && existing.feed) || (logo.width > (existing.width || 0))) {
+                    logosMap.set(logo.channel, logo);
+                }
+            }
+        });
+
         // Merge streams with channel metadata
         let enrichedChannels = streamsData.map(stream => {
             const channelMeta = channelsMap.get(stream.channel) || {};
+            const logoEntry = logosMap.get(stream.channel);
+            const logoUrl = logoEntry?.url || channelMeta.logo || null;
 
             // Get language names from codes
             const languageNames = channelMeta.languages?.map(langCode => {
@@ -234,12 +249,12 @@ router.get('/api/enriched', async (req, res) => {
                 channelNetwork: channelMeta.network,
                 channelIsNsfw: channelMeta.is_nsfw || false,
                 channelLaunched: channelMeta.launched,
-                channelLogo: null, // Will be enriched from other sources if available
+                channelLogo: logoUrl,
 
                 // Combined data for easy use
                 tvgId: stream.channel,
                 tvgName: channelMeta.name || stream.title,
-                tvgLogo: null,
+                tvgLogo: logoUrl,
                 groupTitle: channelMeta.categories?.[0] || 'Uncategorized'
             };
         });
@@ -375,6 +390,24 @@ async function fetchFeedsData() {
     feedsCache.data = response.data;
     feedsCache.timestamp = Date.now();
     console.log(`Fetched ${response.data.length} feed entries`);
+
+    return response.data;
+}
+
+// Helper function to fetch logos data (with caching)
+async function fetchLogosData() {
+    if (logosCache.data && (Date.now() - logosCache.timestamp) < CACHE_TTL) {
+        return logosCache.data;
+    }
+
+    console.log('Fetching logos.json from IPTV-org API...');
+    const response = await axios.get(`${IPTV_ORG_API_BASE}/logos.json`, {
+        timeout: 30000
+    });
+
+    logosCache.data = response.data;
+    logosCache.timestamp = Date.now();
+    console.log(`Fetched ${response.data.length} logo entries`);
 
     return response.data;
 }
@@ -579,16 +612,17 @@ router.get('/fetch', async (req, res) => {
         }
 
         // Fetch enriched data from our API
-        const [channelsData, streamsData, languagesData, guidesData, feedsData] = await Promise.all([
+        const [channelsData, streamsData, languagesData, guidesData, feedsData, logosData] = await Promise.all([
             fetchChannelsData(),
             fetchStreamsData(),
             fetchLanguagesData(),
             fetchGuidesData(),
-            fetchFeedsData()
+            fetchFeedsData(),
+            fetchLogosData()
         ]);
 
         // Brief data summary logging
-        console.log(`Data loaded: ${channelsData.length} channels, ${streamsData.length} streams, ${languagesData.length} languages`);
+        console.log(`Data loaded: ${channelsData.length} channels, ${streamsData.length} streams, ${languagesData.length} languages, ${logosData.length} logos`);
 
         // Create maps for quick lookup
         const channelsMap = new Map();
@@ -600,6 +634,21 @@ router.get('/fetch', async (req, res) => {
         languagesData.forEach(lang => {
             languagesMap.set(lang.code, lang);
         });
+
+        // Create a map of channel ID to logo URL from logos.json
+        // logos.json has: { channel, feed, url, width, height, format }
+        // Pick the best logo per channel (prefer larger, non-feed-specific logos)
+        const logosMap = new Map();
+        logosData.forEach(logo => {
+            if (logo.channel && logo.url) {
+                const existing = logosMap.get(logo.channel);
+                // Prefer: no feed (generic) > wider > first found
+                if (!existing || (!logo.feed && existing.feed) || (logo.width > (existing.width || 0))) {
+                    logosMap.set(logo.channel, logo);
+                }
+            }
+        });
+        console.log(`Built logo mapping for ${logosMap.size} channels from logos data`);
 
         // Create a map of channel ID to languages from guides data
         // The guides.json contains entries like: {"channel":"ChannelID.country","lang":"en"}
@@ -677,6 +726,10 @@ router.get('/fetch', async (req, res) => {
                     return lang ? lang.name : langCode;
                 });
 
+                // Get logo from logos.json (channels.json no longer has logo field)
+                const logoEntry = logosMap.get(stream.channel);
+                const logoUrl = logoEntry?.url || channelMeta.logo || null;
+
                 return {
                     // For compatibility with existing frontend
                     channelId: stream.channel || `stream_${Math.random()}`,
@@ -684,7 +737,7 @@ router.get('/fetch', async (req, res) => {
                     channelUrl: stream.url,
                     tvgId: stream.channel,
                     tvgName: channelMeta.name || stream.title,
-                    tvgLogo: channelMeta.logo || null,
+                    tvgLogo: logoUrl,
 
                     // Group/Category - Frontend expects 'channelGroup'
                     channelGroup: channelMeta.categories?.[0] || 'Uncategorized',
@@ -702,7 +755,7 @@ router.get('/fetch', async (req, res) => {
                     languageCodes: languageCodes,
 
                     // Additional metadata
-                    channelImg: channelMeta.logo || null,
+                    channelImg: logoUrl,
                     streamQuality: stream.quality,
                     streamUserAgent: stream.user_agent,
                     streamReferrer: stream.referrer,
@@ -715,6 +768,14 @@ router.get('/fetch', async (req, res) => {
                     categories: channelMeta.categories || []
                 };
             });
+
+        // Debug: Count how many enriched channels got logos
+        const enrichedWithLogo = enrichedChannels.filter(ch => ch.tvgLogo);
+        console.log(`[LOGO] Enriched channels with logo: ${enrichedWithLogo.length}/${enrichedChannels.length} (from ${logosMap.size} logos in logos.json)`);
+        if (enrichedWithLogo.length > 0) {
+            const sample = enrichedWithLogo[0];
+            console.log(`[LOGO] Sample: ${sample.channelId} -> ${sample.tvgLogo}`);
+        }
 
         // Debug: Count how many channels got languages from each source
         const channelsWithFeedsLangs = enrichedChannels.filter(ch =>

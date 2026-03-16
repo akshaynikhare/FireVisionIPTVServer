@@ -4,17 +4,78 @@ const User = require('../models/User');
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
 
-// Get all users (Admin only)
+// Get distinct filter options for users
+router.get('/filter-options', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const roles = await User.distinct('role');
+        const statuses = ['Active', 'Inactive'];
+
+        res.json({
+            success: true,
+            data: {
+                role: roles.filter(Boolean).sort(),
+                status: statuses,
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching user filter options:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
+    }
+});
+
+// Get all users (Admin only) with server-side filtering & pagination
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const users = await User.find()
-            .select('-password')
-            .populate('channels', 'channelName channelGroup')
-            .sort({ createdAt: -1 });
+        const { role, status, search, page, pageSize } = req.query;
+        const filter = {};
+
+        // Multi-value role filter
+        if (role) {
+            const roles = role.split(',').map(r => r.trim()).filter(Boolean);
+            if (roles.length > 0) filter.role = { $in: roles };
+        }
+
+        // Status filter
+        if (status) {
+            const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+            if (statuses.length === 1) {
+                if (statuses[0] === 'Active') {
+                    filter.isActive = true;
+                } else if (statuses[0] === 'Inactive') {
+                    filter.isActive = false;
+                }
+            }
+        }
+
+        // Text search
+        if (search) {
+            const regex = new RegExp(search, 'i');
+            filter.$or = [
+                { username: regex },
+                { email: regex },
+                { channelListCode: regex },
+            ];
+        }
+
+        const p = parseInt(page) || 1;
+        const ps = Math.min(parseInt(pageSize) || 50, 200);
+
+        const [users, totalCount] = await Promise.all([
+            User.find(filter)
+                .select('-password')
+                .populate('channels', 'channelName channelGroup')
+                .sort({ createdAt: -1 })
+                .skip((p - 1) * ps)
+                .limit(ps),
+            User.countDocuments(filter),
+        ]);
 
         res.json({
             success: true,
             count: users.length,
+            totalCount,
+            page: p,
+            pageSize: ps,
             data: users
         });
     } catch (error) {

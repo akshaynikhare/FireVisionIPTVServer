@@ -172,20 +172,95 @@ router.post('/channels/import-m3u', async (req, res) => {
   }
 });
 
-// Get all channels (for admin)
+// Get distinct filter options for channels
+router.get('/channels/filter-options', async (req, res) => {
+  try {
+    const [groups, languages, countries] = await Promise.all([
+      Channel.distinct('channelGroup'),
+      Channel.distinct('metadata.language'),
+      Channel.distinct('metadata.country'),
+    ]);
+    const statuses = ['Live', 'Dead'];
+
+    res.json({
+      success: true,
+      data: {
+        group: groups.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+        status: statuses,
+        language: languages.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+        country: countries.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching channel filter options:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
+  }
+});
+
+// Get all channels (for admin) with server-side filtering & pagination
 router.get('/channels', async (req, res) => {
   try {
-    const { group } = req.query;
+    const { group, status, language, country, search, page, pageSize } = req.query;
     const filter = {};
 
-    if (group) filter.channelGroup = group;
+    // Multi-value group filter (comma-separated)
+    if (group) {
+      const groups = group.split(',').map(g => g.trim()).filter(Boolean);
+      if (groups.length > 0) filter.channelGroup = { $in: groups };
+    }
 
-    const channels = await Channel.find(filter)
-      .sort({ channelGroup: 1, order: 1 });
+    // Status filter: Active = isWorking !== false, Down = isWorking === false
+    if (status) {
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        if (statuses[0] === 'Dead') {
+          filter['metadata.isWorking'] = false;
+        } else if (statuses[0] === 'Live') {
+          filter['metadata.isWorking'] = { $ne: false };
+        }
+      }
+      // If both are selected, no filter needed (show all)
+    }
+
+    // Language filter
+    if (language) {
+      const langs = language.split(',').map(l => l.trim()).filter(Boolean);
+      if (langs.length > 0) filter['metadata.language'] = { $in: langs };
+    }
+
+    // Country filter
+    if (country) {
+      const countries = country.split(',').map(c => c.trim()).filter(Boolean);
+      if (countries.length > 0) filter['metadata.country'] = { $in: countries };
+    }
+
+    // Text search across name and group
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      filter.$or = [
+        { channelName: regex },
+        { name: regex },
+        { channelGroup: regex },
+      ];
+    }
+
+    const p = parseInt(page) || 1;
+    const ps = Math.min(parseInt(pageSize) || 50, 200);
+
+    const [channels, totalCount] = await Promise.all([
+      Channel.find(filter)
+        .sort({ channelGroup: 1, order: 1 })
+        .skip((p - 1) * ps)
+        .limit(ps),
+      Channel.countDocuments(filter),
+    ]);
 
     res.json({
       success: true,
       count: channels.length,
+      totalCount,
+      page: p,
+      pageSize: ps,
       data: channels
     });
   } catch (error) {

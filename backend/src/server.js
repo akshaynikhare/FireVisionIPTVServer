@@ -96,6 +96,7 @@ app.use('/api/v1/channels', require('./routes/channels'));
 app.use('/api/v1/app', require('./routes/app-update'));
 app.use('/api/v1/admin', require('./routes/admin'));
 app.use('/api/v1/iptv-org', require('./routes/iptv-org'));
+app.use('/api/v1/external-sources', require('./routes/external-sources'));
 app.use('/api/v1/test', require('./routes/channel-test'));
 app.use('/api/v1/image-proxy', require('./routes/image-proxy'));
 app.use('/api/v1/stream-proxy', require('./routes/stream-proxy'));

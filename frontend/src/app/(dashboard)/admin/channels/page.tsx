@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Loader2,
   Trash2,
@@ -18,6 +18,7 @@ import { proxyImageUrl } from '@/lib/image-proxy';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
+import ColumnFilter from '@/components/ui/column-filter';
 
 interface Channel {
   _id: string;
@@ -61,7 +62,20 @@ export default function ChannelsPage() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const pageSize = 50;
+
+  // Column filter state
+  const [filterOptions, setFilterOptions] = useState<{
+    group: string[];
+    status: string[];
+    language: string[];
+    country: string[];
+  }>({ group: [], status: [], language: [], country: [] });
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
   // Add channel form
   const [showAdd, setShowAdd] = useState(false);
@@ -114,24 +128,69 @@ export default function ChannelsPage() {
   // Player
   const [playerChannel, setPlayerChannel] = useState<Channel | null>(null);
 
-  async function fetchChannels() {
+  const fetchChannels = useCallback(async () => {
     try {
-      const res = await api.get('/admin/channels');
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+      if (search) params.set('search', search);
+      if (selectedGroups.length > 0 && selectedGroups.length < filterOptions.group.length) {
+        params.set('group', selectedGroups.join(','));
+      }
+      if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
+        params.set('status', selectedStatuses.join(','));
+      }
+      if (
+        selectedLanguages.length > 0 &&
+        selectedLanguages.length < filterOptions.language.length
+      ) {
+        params.set('language', selectedLanguages.join(','));
+      }
+      if (selectedCountries.length > 0 && selectedCountries.length < filterOptions.country.length) {
+        params.set('country', selectedCountries.join(','));
+      }
+      const res = await api.get(`/admin/channels?${params.toString()}`);
       const body = res.data;
       setChannels(Array.isArray(body) ? body : body.data || body.channels || []);
+      setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
     } catch {
       setError('Failed to load channels');
     } finally {
       setLoading(false);
     }
+  }, [
+    page,
+    search,
+    selectedGroups,
+    selectedStatuses,
+    selectedLanguages,
+    selectedCountries,
+    filterOptions,
+  ]);
+
+  async function refreshFilterOptions() {
+    try {
+      const res = await api.get('/admin/channels/filter-options');
+      setFilterOptions(res.data.data || { group: [], status: [], language: [], country: [] });
+    } catch {
+      /* ignore */
+    }
   }
 
+  // Fetch filter options once on mount
+  useEffect(() => {
+    refreshFilterOptions();
+  }, []);
+
+  // Fetch channels whenever filters/page/search change
   useEffect(() => {
     fetchChannels();
-  }, []);
+  }, [fetchChannels]);
+
+  // Reset to page 1 when search or filters change
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, selectedGroups, selectedStatuses, selectedLanguages, selectedCountries]);
 
   async function handleAddChannel(e: React.FormEvent) {
     e.preventDefault();
@@ -225,7 +284,9 @@ export default function ChannelsPage() {
     try {
       await api.delete('/admin/channels');
       setChannels([]);
+      setTotalCount(0);
       setShowBulkDelete(false);
+      refreshFilterOptions();
     } catch {
       alert('Failed to delete all channels');
     } finally {
@@ -248,6 +309,7 @@ export default function ChannelsPage() {
       setImportContent('');
       setImportClear(false);
       fetchChannels();
+      refreshFilterOptions();
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       setImportResult(axiosErr.response?.data?.error || 'Import failed');
@@ -308,12 +370,8 @@ export default function ChannelsPage() {
     }
   }
 
-  const filtered = channels.filter(
-    (c) =>
-      getName(c).toLowerCase().includes(search.toLowerCase()) ||
-      c.channelGroup?.toLowerCase().includes(search.toLowerCase()),
-  );
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Data is already filtered & paginated server-side
+  const paginated = channels;
 
   if (loading) {
     return (
@@ -329,7 +387,7 @@ export default function ChannelsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-up">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Channels</h1>
-          <p className="text-sm text-muted-foreground mt-1">{channels.length} total channels</p>
+          <p className="text-sm text-muted-foreground mt-1">{totalCount} total channels</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -410,16 +468,37 @@ export default function ChannelsPage() {
         className="border border-border divide-y divide-border animate-fade-up"
         style={{ animationDelay: '100ms' }}
       >
-        <div className="hidden lg:grid grid-cols-[1fr,1fr,100px,140px] gap-4 px-4 py-2 bg-muted/50">
+        <div className="hidden lg:grid grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-4 px-4 py-2 bg-muted/50">
           <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Name
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Group
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            Status
-          </span>
+          <ColumnFilter
+            label="Group"
+            options={filterOptions.group}
+            selected={selectedGroups}
+            onChange={setSelectedGroups}
+            searchable
+          />
+          <ColumnFilter
+            label="Country"
+            options={filterOptions.country}
+            selected={selectedCountries}
+            onChange={setSelectedCountries}
+            searchable
+          />
+          <ColumnFilter
+            label="Language"
+            options={filterOptions.language}
+            selected={selectedLanguages}
+            onChange={setSelectedLanguages}
+            searchable
+          />
+          <ColumnFilter
+            label="Status"
+            options={filterOptions.status}
+            selected={selectedStatuses}
+            onChange={setSelectedStatuses}
+          />
           <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
             Actions
           </span>
@@ -434,7 +513,7 @@ export default function ChannelsPage() {
           paginated.map((channel) => (
             <div
               key={channel._id}
-              className="grid lg:grid-cols-[1fr,1fr,100px,140px] gap-2 lg:gap-4 items-center px-4 py-3"
+              className="grid lg:grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-2 lg:gap-4 items-center px-4 py-3"
             >
               <div
                 className="flex items-center gap-3 min-w-0 cursor-pointer"
@@ -454,12 +533,18 @@ export default function ChannelsPage() {
               <span className="text-sm text-muted-foreground truncate">
                 {channel.channelGroup || '—'}
               </span>
+              <span className="text-xs text-muted-foreground truncate">
+                {channel.metadata?.country || '—'}
+              </span>
+              <span className="text-xs text-muted-foreground truncate">
+                {channel.metadata?.language || '—'}
+              </span>
               <div className="flex items-center gap-1.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${channel.metadata?.isWorking !== false ? 'bg-signal-green' : 'bg-signal-red'}`}
                 />
                 <span className="text-[11px] text-muted-foreground">
-                  {channel.metadata?.isWorking === false ? 'Down' : 'Active'}
+                  {channel.metadata?.isWorking === false ? 'Dead' : 'Live'}
                 </span>
               </div>
               <div className="flex items-center justify-end gap-1">
@@ -509,12 +594,7 @@ export default function ChannelsPage() {
         )}
       </div>
 
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalCount={filtered.length}
-        onPageChange={setPage}
-      />
+      <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
 
       {/* Add Channel Modal */}
       <Modal

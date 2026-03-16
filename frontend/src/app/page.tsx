@@ -4,19 +4,23 @@ import { ExternalLink, Download } from 'lucide-react';
 const capabilities = [
   {
     title: 'Channel Management',
-    desc: 'Organize, distribute, and monitor your IPTV stream catalog',
+    desc: 'Add, organize, and test IPTV channels with M3U import, DRM support, and live stream preview',
   },
   {
-    title: 'Device Provisioning',
-    desc: 'Pair and manage Fire TV devices across your network',
+    title: 'Multi-Source Import',
+    desc: 'Import from IPTV-org, Pluto TV, Samsung TV Plus, and Radio Browser with region-based filtering',
   },
   {
-    title: 'Stream Monitoring',
-    desc: 'Real-time health, uptime, and performance data for all feeds',
+    title: 'Device Pairing',
+    desc: 'Provision and manage Fire TV devices with pairing codes, status tracking, and user assignment',
   },
   {
-    title: 'User Administration',
-    desc: 'Role-based access control and session management',
+    title: 'User & Access Control',
+    desc: 'Role-based user management with channel list codes, session tracking, and activity monitoring',
+  },
+  {
+    title: 'System Analytics',
+    desc: 'Real-time dashboard with channel, user, device, and session metrics across your infrastructure',
   },
 ];
 
@@ -86,15 +90,15 @@ export default function Home() {
               </div>
 
               <a
-                href="https://github.com/akshaynikhare/FireVisionIPTVServer/releases"
+                href="https://github.com/akshaynikhare/FireVisionIPTV/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 mt-6 text-sm text-muted-foreground hover:text-primary transition-colors animate-fade-up"
+                className="inline-flex items-center gap-3 mt-8 border-2 border-primary/30 bg-primary/5 px-8 py-4 text-sm font-semibold uppercase tracking-[0.1em] text-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors animate-fade-up"
                 style={{ animationDelay: '250ms' }}
               >
-                <Download className="h-4 w-4" aria-hidden="true" />
+                <Download className="h-5 w-5 text-primary" aria-hidden="true" />
                 <span>Download Android TV APK</span>
-                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               </a>
             </div>
 
@@ -143,15 +147,27 @@ export default function Home() {
           <span className="text-[11px] text-muted-foreground tracking-[0.15em]">
             &copy; 2025 FireVision IPTV &bull; Open Source Project
           </span>
-          <a
-            href="https://github.com/akshaynikhare"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground tracking-[0.1em] hover:text-primary transition-colors"
-          >
-            View Source Code &amp; Creator Profile on GitHub
-            <ExternalLink className="h-3 w-3" aria-hidden="true" />
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://github.com/akshaynikhare/FireVisionIPTV"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground tracking-[0.1em] hover:text-primary transition-colors"
+            >
+              View Source Code
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+            <span className="text-muted-foreground/40">&bull;</span>
+            <a
+              href="https://github.com/akshaynikhare/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground tracking-[0.1em] hover:text-primary transition-colors"
+            >
+              Built by Akshay Nikhare
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+          </div>
         </div>
       </footer>
     </div>

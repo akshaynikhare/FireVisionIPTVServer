@@ -19,6 +19,7 @@ import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
+import ColumnFilter from '@/components/ui/column-filter';
 
 interface Playlist {
   id: string;
@@ -71,6 +72,11 @@ export default function AdminImportPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [page, setPage] = useState(1);
 
+  // Column filter state (client-side for import since data is from external API)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+
   // Modals
   const [detailChannel, setDetailChannel] = useState<EnrichedChannel | null>(null);
   const [playerChannel, setPlayerChannel] = useState<EnrichedChannel | null>(null);
@@ -118,6 +124,41 @@ export default function AdminImportPage() {
     }
   }
 
+  // Compute unique filter options from loaded data
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      const cat = c.groupTitle || c.channelCategories?.[0];
+      if (cat) set.add(cat);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  const languageOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      c.languages?.forEach((l) => {
+        if (l) set.add(l);
+      });
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      if (c.country) set.add(c.country);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  // Reset column filters when channels change (new playlist selected)
+  useEffect(() => {
+    setSelectedCategories([]);
+    setSelectedLanguages([]);
+    setSelectedCountries([]);
+  }, [channels]);
+
   // Filtered + sorted + paginated — single useMemo to avoid stale chaining
   const { filtered, paginated } = useMemo(() => {
     let result = channels;
@@ -132,6 +173,20 @@ export default function AdminImportPage() {
           c.channelCategories?.some((cat) => cat.toLowerCase().includes(q)) ||
           c.languages?.some((lang) => lang.toLowerCase().includes(q)),
       );
+    }
+
+    // Apply column filters
+    if (selectedCategories.length > 0 && selectedCategories.length < categoryOptions.length) {
+      result = result.filter((c) => {
+        const cat = c.groupTitle || c.channelCategories?.[0] || '';
+        return selectedCategories.includes(cat);
+      });
+    }
+    if (selectedLanguages.length > 0 && selectedLanguages.length < languageOptions.length) {
+      result = result.filter((c) => c.languages?.some((l) => selectedLanguages.includes(l)));
+    }
+    if (selectedCountries.length > 0 && selectedCountries.length < countryOptions.length) {
+      result = result.filter((c) => selectedCountries.includes(c.country || ''));
     }
 
     const sorted = [...result].sort((a, b) => {
@@ -157,7 +212,19 @@ export default function AdminImportPage() {
 
     const sliced = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     return { filtered: sorted, paginated: sliced };
-  }, [channels, search, sortField, sortDir, page]);
+  }, [
+    channels,
+    search,
+    sortField,
+    sortDir,
+    page,
+    selectedCategories,
+    selectedLanguages,
+    selectedCountries,
+    categoryOptions,
+    languageOptions,
+    countryOptions,
+  ]);
 
   function getKey(ch: EnrichedChannel) {
     return ch._uid;
@@ -402,7 +469,7 @@ export default function AdminImportPage() {
           {/* Table */}
           <div className="border border-border">
             {/* Table header */}
-            <div className="hidden lg:grid grid-cols-[40px,44px,1fr,180px,140px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+            <div className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
               <div className="flex items-center justify-center">
                 <button
                   onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
@@ -423,18 +490,52 @@ export default function AdminImportPage() {
               >
                 Name <SortIcon field="name" />
               </button>
-              <button
-                onClick={() => handleSort('category')}
-                className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-              >
-                Category <SortIcon field="category" />
-              </button>
-              <button
-                onClick={() => handleSort('language')}
-                className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-              >
-                Language <SortIcon field="language" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleSort('category')}
+                  className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                >
+                  Category <SortIcon field="category" />
+                </button>
+                <ColumnFilter
+                  label=""
+                  options={categoryOptions}
+                  selected={selectedCategories}
+                  onChange={(v) => {
+                    setSelectedCategories(v);
+                    setPage(1);
+                  }}
+                  searchable
+                />
+              </div>
+              <ColumnFilter
+                label="Country"
+                options={countryOptions}
+                selected={selectedCountries}
+                onChange={(v) => {
+                  setSelectedCountries(v);
+                  setPage(1);
+                }}
+                searchable
+              />
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleSort('language')}
+                  className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                >
+                  Language <SortIcon field="language" />
+                </button>
+                <ColumnFilter
+                  label=""
+                  options={languageOptions}
+                  selected={selectedLanguages}
+                  onChange={(v) => {
+                    setSelectedLanguages(v);
+                    setPage(1);
+                  }}
+                  searchable
+                />
+              </div>
               <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
                 Actions
               </span>
@@ -453,7 +554,7 @@ export default function AdminImportPage() {
                   return (
                     <div
                       key={key}
-                      className={`grid lg:grid-cols-[40px,44px,1fr,180px,140px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                      className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
                         isSelected ? 'bg-primary/5' : ''
                       }`}
                     >
@@ -501,6 +602,10 @@ export default function AdminImportPage() {
 
                       <span className="text-xs text-muted-foreground truncate">
                         {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
+                      </span>
+
+                      <span className="text-xs text-muted-foreground truncate">
+                        {ch.country || '—'}
                       </span>
 
                       <span className="text-xs text-muted-foreground truncate">
