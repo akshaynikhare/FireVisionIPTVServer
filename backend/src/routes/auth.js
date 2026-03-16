@@ -234,17 +234,11 @@ router.post('/login', async (req, res) => {
  * Logout endpoint
  * Destroys the current session
  */
-router.post('/logout', async (req, res) => {
+router.post('/logout', requireAuth, async (req, res) => {
   try {
-    const sessionId = req.headers['x-session-id'];
-
-    if (sessionId) {
-      // Only delete the session if it belongs to the requesting user (validate ownership)
-      const session = await Session.findOne({ sessionId });
-      if (session) {
-        await Session.deleteOne({ _id: session._id });
-      }
-    }
+    // Delete the current session (ownership is guaranteed by requireAuth which
+    // already validated the session belongs to req.user)
+    await Session.deleteOne({ sessionId: req.sessionId, userId: req.user.id });
 
     res.json({
       success: true,
@@ -799,7 +793,7 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password,
-      role: 'user',
+      role: 'User',
       channelListCode,
       isActive: true,
       createdAt: new Date()
@@ -858,14 +852,14 @@ router.get('/google/callback', async (req, res) => {
     const { code, state } = req.query;
 
     if (!code) {
-      return res.redirect('/user/login.html?error=authentication_failed');
+      return res.redirect('/login?error=authentication_failed');
     }
 
     // Validate OAuth state parameter to prevent CSRF
     const expectedState = req.cookies?.oauth_state;
     res.clearCookie('oauth_state');
     if (!state || !expectedState || state !== expectedState) {
-      return res.redirect('/user/login.html?error=invalid_state');
+      return res.redirect('/login?error=invalid_state');
     }
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -903,7 +897,7 @@ router.get('/google/callback', async (req, res) => {
         username,
         email,
         password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
-        role: 'user',
+        role: 'User',
         channelListCode,
         profilePicture: picture,
         isActive: true,
@@ -933,17 +927,19 @@ router.get('/google/callback', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Set session as httpOnly cookie instead of exposing in URL
-    res.cookie('session_id', sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-    res.redirect('/user/channels.html');
+    // Redirect to frontend OAuth callback page with a short-lived one-time code
+    // The frontend will extract the sessionId and store it in its auth store
+    const oauthCode = crypto.randomBytes(16).toString('hex');
+    // Store mapping: oauthCode -> sessionId (expires in 60 seconds)
+    if (!global._oauthCodes) global._oauthCodes = new Map();
+    global._oauthCodes.set(oauthCode, { sessionId, userId: user._id, expiresAt: Date.now() + 60000 });
+    // Clean up expired codes
+    for (const [k, v] of global._oauthCodes) { if (v.expiresAt < Date.now()) global._oauthCodes.delete(k); }
+
+    res.redirect(`/login?oauth_code=${oauthCode}`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    res.redirect('/user/login.html?error=authentication_failed');
+    res.redirect('/login?error=authentication_failed');
   }
 });
 
@@ -976,14 +972,14 @@ router.get('/github/callback', async (req, res) => {
     const { code, state } = req.query;
 
     if (!code) {
-      return res.redirect('/user/login.html?error=authentication_failed');
+      return res.redirect('/login?error=authentication_failed');
     }
 
     // Validate OAuth state parameter to prevent CSRF
     const expectedState = req.cookies?.oauth_state;
     res.clearCookie('oauth_state');
     if (!state || !expectedState || state !== expectedState) {
-      return res.redirect('/user/login.html?error=invalid_state');
+      return res.redirect('/login?error=invalid_state');
     }
 
     const githubClientId = process.env.GITHUB_CLIENT_ID;
@@ -1028,7 +1024,7 @@ router.get('/github/callback', async (req, res) => {
         username,
         email: primaryEmail,
         password: crypto.randomBytes(16).toString('hex'), // Random password for OAuth users
-        role: 'user',
+        role: 'User',
         channelListCode,
         profilePicture: githubUser.avatar_url,
         isActive: true,
@@ -1058,17 +1054,69 @@ router.get('/github/callback', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Set session as httpOnly cookie instead of exposing in URL
-    res.cookie('session_id', sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-    res.redirect('/user/channels.html');
+    // Redirect to frontend OAuth callback page with a short-lived one-time code
+    const oauthCode = crypto.randomBytes(16).toString('hex');
+    if (!global._oauthCodes) global._oauthCodes = new Map();
+    global._oauthCodes.set(oauthCode, { sessionId, userId: user._id, expiresAt: Date.now() + 60000 });
+    for (const [k, v] of global._oauthCodes) { if (v.expiresAt < Date.now()) global._oauthCodes.delete(k); }
+
+    res.redirect(`/login?oauth_code=${oauthCode}`);
   } catch (error) {
     console.error('GitHub OAuth callback error:', error);
-    res.redirect('/user/login.html?error=authentication_failed');
+    res.redirect('/login?error=authentication_failed');
+  }
+});
+
+/**
+ * Exchange a one-time OAuth code for a session.
+ * The code is issued during OAuth callback and expires after 60 seconds.
+ */
+router.post('/oauth-exchange', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ success: false, error: 'Code is required' });
+    }
+
+    if (!global._oauthCodes) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired code' });
+    }
+
+    const entry = global._oauthCodes.get(code);
+    // Always delete the code (one-time use)
+    global._oauthCodes.delete(code);
+
+    if (!entry || entry.expiresAt < Date.now()) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired code' });
+    }
+
+    // Validate the session still exists
+    const session = await Session.findOne({ sessionId: entry.sessionId });
+    if (!session || !session.isValid()) {
+      return res.status(401).json({ success: false, error: 'Session no longer valid' });
+    }
+
+    const user = await User.findById(entry.userId).select('-password');
+    if (!user || !user.isActive) {
+      return res.status(401).json({ success: false, error: 'User account is inactive' });
+    }
+
+    res.json({
+      success: true,
+      sessionId: entry.sessionId,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        channelListCode: user.channelListCode,
+        isActive: user.isActive,
+      },
+    });
+  } catch (error) {
+    console.error('OAuth exchange error:', error);
+    res.status(500).json({ success: false, error: 'Exchange failed' });
   }
 });
 

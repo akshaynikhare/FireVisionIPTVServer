@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { requireAuth } = require('./auth');
-const { validateUrlForSSRF } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 
 // Apply authentication
 router.use(requireAuth);
@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
             return res.status(403).send(ssrfCheck.reason);
         }
 
-        // Fetch the stream
+        // Fetch the stream with SSRF-safe redirect handling
         const response = await axios.get(url, {
             responseType: 'stream',
             timeout: 30000,
@@ -42,7 +42,14 @@ router.get('/', async (req, res) => {
                 'Accept-Encoding': 'gzip, deflate',
                 'Connection': 'keep-alive'
             },
-            maxRedirects: 5
+            maxRedirects: 5,
+            beforeRedirect: (options) => {
+                // Synchronous SSRF check on redirect destinations (IP literals + known internal hosts)
+                const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
+                if (isPrivateIP(hostname) || ['localhost', 'metadata.google.internal'].includes(hostname.toLowerCase())) {
+                    throw new Error('Redirect to private/internal address blocked');
+                }
+            },
         });
 
         // Determine if response is an HLS manifest by checking:
@@ -86,6 +93,9 @@ router.get('/', async (req, res) => {
             });
 
             response.data.on('end', () => {
+                // If the stream was destroyed due to size limit, don't process
+                if (res.headersSent) return;
+
                 // Use the final URL (after redirects) as the base for resolving relative URLs
                 const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
 

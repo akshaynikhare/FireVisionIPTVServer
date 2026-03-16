@@ -56,7 +56,10 @@ app.use(cors({
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
-// Default body limit is 5MB; the M3U import route gets a larger limit applied below
+// Route-specific larger body limit for M3U import (must be BEFORE the global 5MB parser)
+app.use('/api/v1/admin/channels/import-m3u', express.json({ limit: '50mb' }));
+
+// Default body limit is 5MB for all other routes
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(morgan('combined'));
@@ -124,8 +127,6 @@ app.use('/api/v1/user-playlist', userPlaylistRouter);
 app.use('/api/v1/channels', require('./routes/channels'));
 // App update routes (GitHub-based APK delivery)
 app.use('/api/v1/app', require('./routes/app-update'));
-// Apply larger body limit specifically for admin M3U import
-app.use('/api/v1/admin/channels/import-m3u', express.json({ limit: '50mb' }));
 app.use('/api/v1/admin', require('./routes/admin'));
 app.use('/api/v1/iptv-org', require('./routes/iptv-org'));
 app.use('/api/v1/external-sources', require('./routes/external-sources'));

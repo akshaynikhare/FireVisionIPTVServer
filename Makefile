@@ -9,7 +9,7 @@ COMPOSE_PROD:= docker compose -f docker-compose.production.yml
 
 .PHONY: help build up down restart logs shell status clean \
         build-prod up-prod down-prod logs-prod \
-        dev test lint typecheck \
+        dev test lint lint-fix typecheck \
         db-reset db-drop db-shell
 
 # ─── Help ────────────────────────────────────────────────────
@@ -109,6 +109,9 @@ test-e2e: ## Run Playwright E2E tests
 
 lint: ## Run ESLint
 	npm run lint
+
+lint-fix: ## Run ESLint with auto-fix
+	npm run lint:fix
 
 typecheck: ## Run TypeScript type checking
 	npm run typecheck

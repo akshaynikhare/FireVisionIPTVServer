@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 const crypto = require('crypto');
 const { requireAuth, requireAdmin } = require('./auth');
-const { validateUrlForSSRF } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 
 // In-memory cache for images with size limit
 const imageCache = new Map();
@@ -80,7 +80,13 @@ router.get('/', async (req, res) => {
       maxRedirects: 5,
       headers: {
         'User-Agent': 'FireVision-IPTV-Server/1.0'
-      }
+      },
+      beforeRedirect: (options) => {
+        const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
+        if (isPrivateIP(hostname) || ['localhost', 'metadata.google.internal'].includes(hostname.toLowerCase())) {
+          throw new Error('Redirect to private/internal address blocked');
+        }
+      },
     });
 
     const rawContentType = response.headers['content-type'] || 'image/jpeg';

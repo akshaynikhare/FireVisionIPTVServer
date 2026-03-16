@@ -136,7 +136,7 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/check-liveness/:docId', async (req, res) => {
+router.post('/check-liveness/:docId', adminOnly, async (req, res) => {
   try {
     const result = await externalSourceCacheService.checkSingleStream(
       req.params.docId,

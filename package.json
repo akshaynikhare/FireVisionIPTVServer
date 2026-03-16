@@ -15,6 +15,7 @@
     "build": "npm run build -w @firevision/shared && npm run build -w @firevision/backend && npm run build -w @firevision/frontend",
     "build:backend": "npm run build -w @firevision/shared && npm run build -w @firevision/backend",
     "lint": "npm run lint -w @firevision/backend",
+    "lint:fix": "npm run lint:fix -w @firevision/backend && npm run lint:fix -w @firevision/frontend",
     "test": "npm run test -w @firevision/backend && npm run test -w @firevision/frontend",
     "test:backend": "npm run test -w @firevision/backend",
     "test:frontend": "npm run test -w @firevision/frontend",

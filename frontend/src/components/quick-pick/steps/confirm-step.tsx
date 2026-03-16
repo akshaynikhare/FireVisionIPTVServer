@@ -72,8 +72,10 @@ export function ConfirmStep({
             channelName: ch.channelName,
             channelUrl: ch.channelUrl,
             tvgLogo: ch.tvgLogo,
-            groupTitle: ch.groupTitle,
+            channelGroup: ch.groupTitle,
             channelId: ch.channelId,
+            country: ch.country,
+            language: ch.language,
           }));
           const res = await api.post('/iptv-org/import', { channels: payload });
           totalAdded += res.data.importedCount || 0;

@@ -84,7 +84,7 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
 });
 
 // Check liveness of a single channel (on-demand)
-router.post('/check-liveness/:channelId', async (req, res) => {
+router.post('/check-liveness/:channelId', adminOnly, async (req, res) => {
     try {
         const { channelId } = req.params;
         const { streamUrl } = req.body;

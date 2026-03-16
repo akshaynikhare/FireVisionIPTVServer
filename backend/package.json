@@ -9,6 +9,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "test": "jest"
   },
   "dependencies": {

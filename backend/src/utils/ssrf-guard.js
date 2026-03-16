@@ -57,11 +57,13 @@ async function validateUrlForSSRF(urlStr) {
       return { safe: false, reason: 'Proxying to private/internal addresses is not allowed' };
     }
 
-    // DNS resolution check to prevent DNS rebinding
+    // DNS resolution check — resolve ALL addresses to prevent DNS rebinding
     try {
-      const { address } = await dnsLookup(hostname, { family: 0 });
-      if (isPrivateIP(address)) {
-        return { safe: false, reason: 'Hostname resolves to a private/internal address' };
+      const results = await dnsLookup(hostname, { family: 0, all: true });
+      for (const { address } of results) {
+        if (isPrivateIP(address)) {
+          return { safe: false, reason: 'Hostname resolves to a private/internal address' };
+        }
       }
     } catch (err) {
       return { safe: false, reason: 'DNS resolution failed for hostname' };

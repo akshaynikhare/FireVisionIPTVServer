@@ -1,18 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setSession } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const oauthHandled = useRef(false);
+
+  // Handle OAuth code exchange on mount
+  useEffect(() => {
+    if (oauthHandled.current) return;
+    const oauthCode = searchParams.get('oauth_code');
+    const oauthError = searchParams.get('error');
+
+    if (oauthError) {
+      setError('OAuth authentication failed. Please try again.');
+      return;
+    }
+
+    if (oauthCode) {
+      oauthHandled.current = true;
+      setLoading(true);
+      api
+        .post('/auth/oauth-exchange', { code: oauthCode })
+        .then((res) => {
+          const { user, sessionId } = res.data;
+          setSession(user, sessionId);
+          router.push(user.role === 'Admin' ? '/admin' : '/user');
+        })
+        .catch(() => {
+          setError('OAuth login failed. The code may have expired — please try again.');
+          setLoading(false);
+        });
+    }
+  }, [searchParams, setSession, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

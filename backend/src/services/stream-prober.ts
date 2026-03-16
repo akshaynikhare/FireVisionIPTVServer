@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { validateUrlForSSRF } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 
 export interface ProbeResult {
   status: 'alive' | 'dead';
@@ -55,6 +55,17 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
 
   const isHls = url.includes('.m3u8');
 
+  // Shared redirect guard for all outbound requests in this probe
+  const beforeRedirect = (options: any) => {
+    const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
+    if (
+      isPrivateIP(hostname) ||
+      ['localhost', 'metadata.google.internal'].includes(hostname.toLowerCase())
+    ) {
+      throw new Error('Redirect to private/internal address blocked');
+    }
+  };
+
   try {
     const response = await axios.get(url, {
       timeout,
@@ -63,6 +74,7 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
       headers,
       maxContentLength: isHls ? 512 * 1024 : 1024,
       responseType: isHls ? 'text' : 'stream',
+      beforeRedirect,
     });
 
     const responseTimeMs = Date.now() - startTime;
@@ -127,15 +139,21 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
     const segmentUrl = extractFirstSegmentUrl(manifest, url);
 
     if (segmentUrl) {
-      try {
-        const segRes = await axios.head(segmentUrl, {
-          timeout: 8000,
-          maxRedirects: 5,
-          validateStatus: (s) => s >= 200 && s < 500,
-          headers,
-        });
-        segmentReachable = segRes.status >= 200 && segRes.status < 400;
-      } catch {
+      const segSsrf = await validateUrlForSSRF(segmentUrl);
+      if (segSsrf.safe) {
+        try {
+          const segRes = await axios.head(segmentUrl, {
+            timeout: 8000,
+            maxRedirects: 5,
+            validateStatus: (s) => s >= 200 && s < 500,
+            headers,
+            beforeRedirect,
+          });
+          segmentReachable = segRes.status >= 200 && segRes.status < 400;
+        } catch {
+          segmentReachable = false;
+        }
+      } else {
         segmentReachable = false;
       }
     }
@@ -145,34 +163,44 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
     if (manifestInfo.segmentCount === 0 && manifest.includes('#EXT-X-STREAM-INF')) {
       const variantUrl = extractFirstVariantUrl(manifest, url);
       if (variantUrl) {
-        try {
-          const varRes = await axios.get(variantUrl, {
-            timeout: 8000,
-            maxRedirects: 5,
-            validateStatus: (s) => s >= 200 && s < 500,
-            headers,
-            maxContentLength: 512 * 1024,
-            responseType: 'text',
-          });
-          if (varRes.status >= 200 && varRes.status < 400) {
-            const varManifest = String(varRes.data);
-            const varSegUrl = extractFirstSegmentUrl(varManifest, variantUrl);
-            if (varSegUrl) {
-              try {
-                const segRes2 = await axios.head(varSegUrl, {
-                  timeout: 8000,
-                  maxRedirects: 5,
-                  validateStatus: (s) => s >= 200 && s < 500,
-                  headers,
-                });
-                segmentReachable = segRes2.status >= 200 && segRes2.status < 400;
-              } catch {
-                segmentReachable = false;
+        const varSsrf = await validateUrlForSSRF(variantUrl);
+        if (varSsrf.safe) {
+          try {
+            const varRes = await axios.get(variantUrl, {
+              timeout: 8000,
+              maxRedirects: 5,
+              validateStatus: (s) => s >= 200 && s < 500,
+              headers,
+              maxContentLength: 512 * 1024,
+              responseType: 'text',
+              beforeRedirect,
+            });
+            if (varRes.status >= 200 && varRes.status < 400) {
+              const varManifest = String(varRes.data);
+              const varSegUrl = extractFirstSegmentUrl(varManifest, variantUrl);
+              if (varSegUrl) {
+                const varSegSsrf = await validateUrlForSSRF(varSegUrl);
+                if (varSegSsrf.safe) {
+                  try {
+                    const segRes2 = await axios.head(varSegUrl, {
+                      timeout: 8000,
+                      maxRedirects: 5,
+                      validateStatus: (s) => s >= 200 && s < 500,
+                      headers,
+                      beforeRedirect,
+                    });
+                    segmentReachable = segRes2.status >= 200 && segRes2.status < 400;
+                  } catch {
+                    segmentReachable = false;
+                  }
+                } else {
+                  segmentReachable = false;
+                }
               }
             }
+          } catch {
+            // variant probe failed, keep whatever segmentReachable was
           }
-        } catch {
-          // variant probe failed, keep whatever segmentReachable was
         }
       }
     }
