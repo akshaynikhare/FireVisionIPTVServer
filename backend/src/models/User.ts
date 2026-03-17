@@ -13,6 +13,10 @@ const userSchema = new Schema<IUserDocument>(
       minlength: 3,
       maxlength: 50,
       index: true,
+      match: [
+        /^[a-zA-Z0-9_.-]+$/,
+        'Username can only contain letters, numbers, underscores, dots, and hyphens',
+      ],
     },
     password: {
       type: String,
@@ -26,6 +30,7 @@ const userSchema = new Schema<IUserDocument>(
       trim: true,
       lowercase: true,
       index: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email address'],
     },
     role: {
       type: String,
@@ -76,6 +81,26 @@ const userSchema = new Schema<IUserDocument>(
       sparse: true,
       trim: true,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+    emailVerificationExpires: {
+      type: Date,
+    },
+    passwordResetToken: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+    passwordResetExpires: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -89,7 +114,7 @@ userSchema.pre('save', async function (next) {
   }
 
   try {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -105,9 +130,10 @@ userSchema.methods.comparePassword = async function (
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Static method to generate unique channel list code
+// Static method to generate unique channel list code.
 // Uses crypto for better randomness; the unique index on channelListCode
 // guarantees uniqueness even under concurrent requests.
+// Callers must handle E11000 duplicate-key errors by retrying.
 userSchema.statics.generateChannelListCode = async function (): Promise<string> {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxAttempts = 10;
@@ -118,6 +144,8 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
       code += characters.charAt(crypto.randomInt(characters.length));
     }
 
+    // Use findOne to avoid obvious collisions (optimistic check),
+    // but the unique index is the real safety net.
     const existing = await this.findOne({ channelListCode: code });
     if (!existing) {
       return code;
@@ -125,6 +153,27 @@ userSchema.statics.generateChannelListCode = async function (): Promise<string> 
   }
 
   throw new Error('Failed to generate unique channel list code after maximum attempts');
+};
+
+// Helper: generate a channelListCode and save the user, retrying on duplicate-key race.
+userSchema.statics.generateAndSaveWithCode = async function (
+  this: any,
+  userData: Record<string, unknown>,
+  maxRetries = 3,
+): Promise<IUserDocument> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const code = await this.generateChannelListCode();
+      const user = new this({ ...userData, channelListCode: code });
+      await user.save();
+      return user;
+    } catch (err: any) {
+      const isDuplicateCode = err.code === 11000 && err.keyPattern?.channelListCode;
+      if (!isDuplicateCode || attempt === maxRetries - 1) throw err;
+      // Retry with a new code
+    }
+  }
+  throw new Error('Failed to save user with unique channel list code');
 };
 
 // Method to generate M3U playlist for this user's channel list
@@ -163,6 +212,12 @@ userSchema.methods.generateUserPlaylist = async function (
 userSchema.methods.toJSON = function (this: IUserDocument) {
   const obj = (this as any).toObject();
   delete obj.password;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
+  delete obj.googleId;
+  delete obj.githubId;
   return obj;
 };
 

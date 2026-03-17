@@ -275,12 +275,23 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
 
       {/* Player container */}
       <div
+        role="region"
+        aria-label={`Stream player — ${channel.name}`}
         className={
           mini
-            ? 'fixed z-[60] shadow-2xl border border-border bg-card flex flex-col overflow-hidden rounded-lg transition-all duration-300'
+            ? 'fixed z-[60] shadow-2xl border border-border bg-card flex flex-col overflow-hidden rounded-lg transition-[transform,box-shadow] duration-300'
             : 'fixed z-50 inset-0 flex items-center justify-center p-4 pointer-events-none'
         }
-        style={mini ? { width: 360, right: position.right, bottom: position.bottom } : undefined}
+        style={
+          mini
+            ? {
+                width: 'min(360px, calc(100vw - 32px))',
+                maxWidth: 'calc(100vw - 32px)',
+                right: position.right,
+                bottom: position.bottom,
+              }
+            : undefined
+        }
       >
         <div
           className={
@@ -301,8 +312,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             <h2
               className={
                 mini
-                  ? 'text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground truncate mr-2'
-                  : 'text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground'
+                  ? 'text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground truncate mr-2'
+                  : 'text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground'
               }
             >
               {channel.name}
@@ -312,7 +323,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 onClick={() => setMini(!mini)}
                 className={
                   mini
-                    ? 'flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
+                    ? 'flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
                     : 'flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
                 }
                 aria-label={mini ? 'Expand' : 'Mini player'}
@@ -323,13 +334,13 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 ) : (
                   <>
                     <Minimize2 className="h-3.5 w-3.5" />
-                    <span className="uppercase tracking-[0.1em] text-[10px] font-medium">Mini</span>
+                    <span className="uppercase tracking-[0.1em] text-xs font-medium">Mini</span>
                   </>
                 )}
               </button>
               <button
                 onClick={onClose}
-                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-6 w-6' : 'h-7 w-7'}`}
+                className={`flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ${mini ? 'h-8 w-8' : 'h-10 w-10'}`}
                 aria-label="Close"
                 title="Close"
               >
@@ -361,19 +372,23 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             >
               {!mini && (
                 <span
-                  className={`truncate ${mini ? 'text-[10px]' : 'text-xs'} text-muted-foreground`}
+                  className={`truncate ${mini ? 'text-xs' : 'text-xs'} text-muted-foreground`}
                   title={channel.url}
                 >
                   {channel.url}
                 </span>
               )}
               {!mini && (
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 border border-border text-muted-foreground shrink-0">
+                <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 border border-border text-muted-foreground shrink-0">
                   {sourceBadge}
                 </span>
               )}
             </div>
-            <span className={`font-medium ${mini ? 'text-[10px]' : 'text-xs'} ${statusColor}`}>
+            <span
+              className={`font-medium ${mini ? 'text-xs' : 'text-xs'} ${statusColor}`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {playerError || status}
             </span>
           </div>

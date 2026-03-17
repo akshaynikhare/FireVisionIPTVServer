@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSafeImageUrl } from '@/lib/safe-url';
 import {
   Loader2,
@@ -356,6 +356,11 @@ export default function AdminImportPage() {
         tvgLogo: c.tvgLogo || '',
         channelGroup: c.groupTitle || c.channelCategories?.[0] || 'Imported',
         channelId: c.channelId,
+        country: c.country || '',
+        language: c.languages?.join(', ') || '',
+        streamQuality: c.streamQuality || '',
+        channelNetwork: c.channelNetwork || '',
+        channelWebsite: c.channelWebsite || '',
       }));
 
     try {
@@ -404,22 +409,33 @@ export default function AdminImportPage() {
     }
   }
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
   async function handleBatchLivenessCheck() {
     setBatchTesting(true);
     try {
       await api.post('/iptv-org/check-liveness');
       // Poll for status updates
-      const poll = setInterval(async () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
         try {
           const res = await api.get('/iptv-org/liveness-status');
           const data = res.data.data;
           setLivenessStats(data?.livenessStats || null);
           if (!data?.livenessCheckInProgress) {
-            clearInterval(poll);
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
             setBatchTesting(false);
           }
         } catch {
-          clearInterval(poll);
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
           setBatchTesting(false);
         }
       }, 5000);
@@ -449,7 +465,7 @@ export default function AdminImportPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-up">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
             Import from IPTV-org
@@ -462,7 +478,7 @@ export default function AdminImportPage() {
           <button
             onClick={handleBatchLivenessCheck}
             disabled={batchTesting}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
           >
             {batchTesting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -473,7 +489,7 @@ export default function AdminImportPage() {
           </button>
           <button
             onClick={handleClearCache}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
           >
             <RefreshCw className="h-4 w-4" /> Clear Cache
           </button>
@@ -482,29 +498,29 @@ export default function AdminImportPage() {
 
       {/* Liveness Stats */}
       {livenessStats && (
-        <div className="flex items-center gap-4 px-4 py-2.5 border border-border bg-card animate-fade-up">
-          <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="flex items-center gap-4 px-4 py-2.5 border border-border bg-card">
+          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Stream Health
           </span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-signal-green" />
               <span className="font-medium">{livenessStats.alive}</span>
               <span className="text-muted-foreground">alive</span>
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="h-2 w-2 rounded-full bg-signal-red" />
               <span className="font-medium">{livenessStats.dead}</span>
               <span className="text-muted-foreground">dead</span>
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-zinc-400" />
+              <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
               <span className="font-medium">{livenessStats.unknown}</span>
               <span className="text-muted-foreground">unknown</span>
             </span>
           </div>
           {batchTesting && (
-            <span className="text-[11px] text-muted-foreground animate-pulse">
+            <span className="text-xs text-muted-foreground animate-pulse">
               Batch check in progress...
             </span>
           )}
@@ -512,8 +528,8 @@ export default function AdminImportPage() {
       )}
 
       {/* Playlist buttons */}
-      <div className="animate-fade-up" style={{ animationDelay: '50ms' }}>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
         </p>
         <div className="flex flex-wrap gap-2">
@@ -521,7 +537,7 @@ export default function AdminImportPage() {
             <button
               key={pl.id}
               onClick={() => handleSelectPlaylist(pl)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
                 selectedPlaylist === pl.id
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
@@ -544,7 +560,7 @@ export default function AdminImportPage() {
 
       {/* Datatable */}
       {!fetchingChannels && channels.length > 0 && (
-        <div className="space-y-4 animate-fade-up" style={{ animationDelay: '100ms' }}>
+        <div className="space-y-4">
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md w-full">
@@ -557,7 +573,8 @@ export default function AdminImportPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                aria-label="Search channels"
+                className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -583,7 +600,7 @@ export default function AdminImportPage() {
 
           {/* Selection bar */}
           <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {filtered.length} channels
               {search && ` (filtered from ${channels.length})`} &middot;{' '}
               <span className="text-foreground font-medium">{selectedIds.size} selected</span>
@@ -591,26 +608,26 @@ export default function AdminImportPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={selectPage}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Select Page
               </button>
               <button
                 onClick={unselectPage}
-                className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
               >
                 Unselect Page
               </button>
               <span className="w-px h-4 bg-border" />
               <button
                 onClick={selectAllFiltered}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Select All ({filtered.length})
               </button>
               <button
                 onClick={unselectAll}
-                className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
               >
                 Unselect All
               </button>
@@ -624,223 +641,274 @@ export default function AdminImportPage() {
           )}
 
           {/* Table */}
-          <div className="border border-border">
-            {/* Table header */}
-            <div className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border">
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Toggle page selection"
-                >
-                  {pageAllSelected ? (
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Square className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <span />
-              <button
-                onClick={() => handleSort('name')}
-                className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+          <div className="overflow-x-auto">
+            <div role="table" aria-label="Import channels table" className="border border-border">
+              {/* Table header */}
+              <div
+                role="rowgroup"
+                className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border"
               >
-                Name <SortIcon field="name" />
-              </button>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleSort('category')}
-                  className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-                >
-                  Category <SortIcon field="category" />
-                </button>
-                <ColumnFilter
-                  label=""
-                  options={categoryOptions}
-                  selected={selectedCategories}
-                  onChange={(v) => {
-                    setSelectedCategories(v);
-                    setPage(1);
-                  }}
-                  searchable
-                />
-              </div>
-              <ColumnFilter
-                label="Country"
-                options={countryOptions}
-                selected={selectedCountries}
-                onChange={(v) => {
-                  setSelectedCountries(v);
-                  setPage(1);
-                }}
-                searchable
-              />
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleSort('language')}
-                  className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-                >
-                  Language <SortIcon field="language" />
-                </button>
-                <ColumnFilter
-                  label=""
-                  options={languageOptions}
-                  selected={selectedLanguages}
-                  onChange={(v) => {
-                    setSelectedLanguages(v);
-                    setPage(1);
-                  }}
-                  searchable
-                />
-              </div>
-              <ColumnFilter
-                label="Status"
-                options={['alive', 'dead', 'unknown']}
-                selected={selectedStatuses}
-                onChange={(v) => {
-                  setSelectedStatuses(v);
-                  setPage(1);
-                }}
-              />
-              <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
-                Actions
-              </span>
-            </div>
-
-            {/* Rows */}
-            <div className="divide-y divide-border">
-              {paginated.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  {search ? 'No channels match your search' : 'No channels found'}
+                <div role="columnheader" className="flex items-center justify-center">
+                  <button
+                    onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle page selection"
+                  >
+                    {pageAllSelected ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
-              ) : (
-                paginated.map((ch) => {
-                  const key = getKey(ch);
-                  const isSelected = selectedIds.has(key);
-                  return (
-                    <div
-                      key={key}
-                      className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
-                        isSelected ? 'bg-primary/5' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-center">
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={isSelected}
-                          onClick={() => toggleOne(ch)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="h-4 w-4 text-primary" />
-                          ) : (
-                            <Square className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
+                <span role="columnheader" />
+                <button
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
+                  aria-label="Sort by name"
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                >
+                  Name <SortIcon field="name" />
+                </button>
+                <div
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'category'
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className="flex items-center gap-1"
+                >
+                  <button
+                    onClick={() => handleSort('category')}
+                    aria-label="Sort by category"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  >
+                    Category <SortIcon field="category" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={categoryOptions}
+                    selected={selectedCategories}
+                    onChange={(v) => {
+                      setSelectedCategories(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </div>
+                <span role="columnheader">
+                  <ColumnFilter
+                    label="Country"
+                    options={countryOptions}
+                    selected={selectedCountries}
+                    onChange={(v) => {
+                      setSelectedCountries(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </span>
+                <div
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'language'
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className="flex items-center gap-1"
+                >
+                  <button
+                    onClick={() => handleSort('language')}
+                    aria-label="Sort by language"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  >
+                    Language <SortIcon field="language" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={languageOptions}
+                    selected={selectedLanguages}
+                    onChange={(v) => {
+                      setSelectedLanguages(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </div>
+                <span role="columnheader">
+                  <ColumnFilter
+                    label="Status"
+                    options={['alive', 'dead', 'unknown']}
+                    selected={selectedStatuses}
+                    onChange={(v) => {
+                      setSelectedStatuses(v);
+                      setPage(1);
+                    }}
+                  />
+                </span>
+                <span
+                  role="columnheader"
+                  className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+                >
+                  Actions
+                </span>
+              </div>
 
-                      <div>
-                        {ch.tvgLogo ? (
-                          <img
-                            src={proxyImageUrl(ch.tvgLogo)}
-                            alt=""
-                            className="h-7 w-7 rounded-sm object-contain bg-muted"
-                            onError={(e) => {
-                              const img = e.currentTarget;
-                              if (
-                                !img.dataset.fallback &&
-                                ch.tvgLogo &&
-                                isSafeImageUrl(ch.tvgLogo)
-                              ) {
-                                img.dataset.fallback = '1';
-                                img.src = ch.tvgLogo;
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="h-7 w-7 rounded-sm bg-muted" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <span className="text-sm font-medium truncate block">{ch.channelName}</span>
-                        <span className="text-[11px] text-muted-foreground font-mono truncate block lg:hidden">
-                          {ch.channelId}
-                        </span>
-                      </div>
-
-                      <span className="text-xs text-muted-foreground truncate">
-                        {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
-                      </span>
-
-                      <span className="text-xs text-muted-foreground truncate">
-                        {ch.country || '—'}
-                      </span>
-
-                      <span className="text-xs text-muted-foreground truncate">
-                        {ch.languages?.join(', ') || '—'}
-                      </span>
-
-                      {/* Status badge + test */}
-                      <div className="flex items-center gap-1.5">
-                        {testingChannelId === ch._uid ? (
-                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                        ) : (
-                          <>
-                            <span
-                              className={`h-2 w-2 rounded-full shrink-0 ${
-                                ch.liveness?.status === 'alive'
-                                  ? 'bg-emerald-500'
-                                  : ch.liveness?.status === 'dead'
-                                    ? 'bg-red-500'
-                                    : 'bg-zinc-400'
-                              }`}
-                            />
-                            <span className="text-[11px] text-muted-foreground capitalize">
-                              {ch.liveness?.status || 'unknown'}
-                            </span>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleTestChannel(ch)}
-                          disabled={testingChannelId === ch._uid}
-                          className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                          title="Test stream"
-                        >
-                          <Zap className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setDetailChannel(ch)}
-                          className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label="View details"
-                          title="Channel info"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {ch.channelUrl && (
+              {/* Rows */}
+              <div role="rowgroup" className="divide-y divide-border">
+                {paginated.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    {search ? 'No channels match your search' : 'No channels found'}
+                  </div>
+                ) : (
+                  paginated.map((ch) => {
+                    const key = getKey(ch);
+                    const isSelected = selectedIds.has(key);
+                    return (
+                      <div
+                        key={key}
+                        role="row"
+                        className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                          isSelected ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <div role="cell" className="flex items-center justify-center">
                           <button
-                            onClick={() =>
-                              playStream(
-                                { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
-                                { mode: 'direct-fallback' },
-                              )
-                            }
-                            className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
-                            aria-label="Preview stream"
-                            title="Preview stream"
+                            type="button"
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            onClick={() => toggleOne(ch)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
                           >
-                            <Play className="h-4 w-4" />
+                            {isSelected ? (
+                              <CheckSquare className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Square className="h-4 w-4" />
+                            )}
                           </button>
-                        )}
+                        </div>
+
+                        <div role="cell">
+                          {ch.tvgLogo ? (
+                            <img
+                              src={proxyImageUrl(ch.tvgLogo)}
+                              alt={`${ch.channelName} logo`}
+                              loading="lazy"
+                              className="h-7 w-7 rounded-sm object-contain bg-muted"
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                if (
+                                  !img.dataset.fallback &&
+                                  ch.tvgLogo &&
+                                  isSafeImageUrl(ch.tvgLogo)
+                                ) {
+                                  img.dataset.fallback = '1';
+                                  img.src = ch.tvgLogo;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="h-7 w-7 rounded-sm bg-muted" />
+                          )}
+                        </div>
+
+                        <div role="cell" className="min-w-0">
+                          <span className="text-sm font-medium truncate block">
+                            {ch.channelName}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono truncate block lg:hidden">
+                            {ch.channelId}
+                          </span>
+                        </div>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
+                        </span>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.country || '—'}
+                        </span>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.languages?.join(', ') || '—'}
+                        </span>
+
+                        {/* Status badge + test */}
+                        <div role="cell" className="flex items-center gap-1.5">
+                          {testingChannelId === ch._uid ? (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          ) : (
+                            <>
+                              <span
+                                className={`h-2 w-2 rounded-full shrink-0 ${
+                                  ch.liveness?.status === 'alive'
+                                    ? 'bg-signal-green'
+                                    : ch.liveness?.status === 'dead'
+                                      ? 'bg-signal-red'
+                                      : 'bg-muted-foreground/40'
+                                }`}
+                                aria-hidden="true"
+                              />
+                              <span className="text-xs text-muted-foreground capitalize">
+                                {ch.liveness?.status || 'unknown'}
+                              </span>
+                              <span className="sr-only">
+                                {ch.liveness?.status === 'alive'
+                                  ? 'Alive'
+                                  : ch.liveness?.status === 'dead'
+                                    ? 'Dead'
+                                    : 'Unknown'}
+                              </span>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleTestChannel(ch)}
+                            disabled={testingChannelId === ch._uid}
+                            className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                            title="Test stream"
+                          >
+                            <Zap className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        <div role="cell" className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setDetailChannel(ch)}
+                            className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label="View details"
+                            title="Channel info"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {ch.channelUrl && (
+                            <button
+                              onClick={() =>
+                                playStream(
+                                  { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
+                                  { mode: 'direct-fallback' },
+                                )
+                              }
+                              className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                              aria-label="Preview stream"
+                              title="Preview stream"
+                            >
+                              <Play className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
@@ -866,7 +934,8 @@ export default function AdminImportPage() {
               {detailChannel.tvgLogo ? (
                 <img
                   src={proxyImageUrl(detailChannel.tvgLogo)}
-                  alt=""
+                  alt={`${detailChannel.channelName} logo`}
+                  loading="lazy"
                   className="h-16 w-16 rounded object-contain bg-muted shrink-0"
                   onError={(e) => {
                     const img = e.currentTarget;
@@ -924,7 +993,7 @@ export default function AdminImportPage() {
 
             {/* Raw Data */}
             <details className="group">
-              <summary className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+              <summary className="text-xs uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
                 Raw Data
               </summary>
               <pre className="mt-2 text-xs font-mono bg-muted border border-border p-3 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">

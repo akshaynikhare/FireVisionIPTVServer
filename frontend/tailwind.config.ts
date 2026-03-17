@@ -52,6 +52,7 @@ const config: Config = {
           green: 'hsl(var(--signal-green))',
           red: 'hsl(var(--signal-red))',
           blue: 'hsl(var(--signal-blue))',
+          amber: 'hsl(var(--signal-amber))',
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',

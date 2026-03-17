@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StepIndicator } from './step-indicator';
 import { SourceStep } from './steps/source-step';
@@ -119,7 +119,7 @@ export function WizardShell({ mode }: WizardShellProps) {
     setCurrentStep(Math.min(nextStep, TOTAL_STEPS - 1));
   }
 
-  function handleBack() {
+  const handleBack = useCallback(() => {
     // If leaving the channels step, clear fetched data so it re-fetches with updated filters
     if (currentStep === 4) {
       setFetchedChannels([]);
@@ -129,7 +129,7 @@ export function WizardShell({ mode }: WizardShellProps) {
     // Skip language step if no IPTV-org
     if (prevStep === 2 && !hasIptvOrg) prevStep = 1;
     setCurrentStep(Math.max(prevStep, 0));
-  }
+  }, [currentStep, hasIptvOrg]);
 
   const canProceed = (() => {
     switch (currentStep) {
@@ -152,10 +152,31 @@ export function WizardShell({ mode }: WizardShellProps) {
 
   const isLastBeforeConfirm = currentStep === 4;
 
+  // Focus management: move focus to step content when step changes
+  const stepContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stepContentRef.current?.focus();
+  }, [currentStep]);
+
+  // Escape key handler: go back or navigate away on first step
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (currentStep === 0) {
+          // On first step, could navigate away — for now just no-op
+        } else {
+          handleBack();
+        }
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [currentStep, handleBack]);
+
   return (
-    <div className="space-y-6">
+    <main aria-label="Channel Quick Pick Wizard" className="space-y-6">
       {/* Header */}
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
           Quick Channel Pick
         </h1>
@@ -165,7 +186,7 @@ export function WizardShell({ mode }: WizardShellProps) {
       </div>
 
       {/* Step Indicator */}
-      <div className="animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div>
         <StepIndicator
           currentStep={currentStep}
           onGoToStep={(step) => {
@@ -180,7 +201,12 @@ export function WizardShell({ mode }: WizardShellProps) {
       </div>
 
       {/* Step Content */}
-      <div className="min-h-[300px]">
+      <div
+        ref={stepContentRef}
+        tabIndex={-1}
+        aria-live="polite"
+        className="min-h-[300px] focus:outline-none"
+      >
         {currentStep === 0 && (
           <SourceStep selectedSources={selectedSources} onToggleSource={toggleSource} />
         )}
@@ -222,16 +248,17 @@ export function WizardShell({ mode }: WizardShellProps) {
       </div>
 
       {/* Navigation Bar */}
-      <div className="flex items-center justify-between pt-4 border-t border-border animate-fade-up">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <button
           onClick={handleBack}
           disabled={currentStep === 0}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-all disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Go to previous step"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
           <ChevronLeft className="h-3.5 w-3.5" /> Back
         </button>
 
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground" aria-live="polite">
           Step {currentStep + 1} of {TOTAL_STEPS}
         </span>
 
@@ -239,6 +266,7 @@ export function WizardShell({ mode }: WizardShellProps) {
           <button
             onClick={handleNext}
             disabled={!canProceed}
+            aria-label={isLastBeforeConfirm ? 'Finish and import channels' : 'Go to next step'}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
             {isLastBeforeConfirm
@@ -252,6 +280,6 @@ export function WizardShell({ mode }: WizardShellProps) {
           <div />
         )}
       </div>
-    </div>
+    </main>
   );
 }

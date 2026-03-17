@@ -5,9 +5,23 @@ import { Loader2, Search, Play, ChevronLeft, ChevronRight, RefreshCw } from 'luc
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import type { SourceType, WizardChannel, ChannelLiveness } from '../wizard-shell';
 
 const PAGE_SIZE = 50;
+
+const SOURCE_LABELS: Record<string, string> = {
+  all: 'All',
+  'iptv-org': 'IPTV-org',
+  'pluto-tv': 'Pluto TV',
+  'samsung-tv-plus': 'Samsung TV+',
+};
+
+const LIVENESS_COLORS: Record<string, string> = {
+  alive: 'bg-signal-green',
+  dead: 'bg-signal-red',
+  unknown: 'bg-muted-foreground/40',
+};
 
 type LivenessFilter = 'all' | 'alive' | 'dead' | 'unknown';
 
@@ -38,7 +52,7 @@ export function RecommendationsStep({
 }: RecommendationsStepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
   const [sourceFilter, setSourceFilter] = useState<SourceType | 'all'>('all');
   const [page, setPage] = useState(1);
   const { playStream } = useStreamPlayer();
@@ -273,8 +287,8 @@ export function RecommendationsStep({
     if (sourceFilter !== 'all') {
       list = list.filter((ch) => ch.source === sourceFilter);
     }
-    if (search) {
-      const q = search.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (ch) =>
           ch.channelName.toLowerCase().includes(q) ||
@@ -283,7 +297,7 @@ export function RecommendationsStep({
       );
     }
     return list;
-  }, [fetchedChannels, sourceFilter, search]);
+  }, [fetchedChannels, sourceFilter, debouncedSearch]);
 
   // Liveness counts (computed from base, before liveness filter)
   const livenessCounts = useMemo(() => {
@@ -330,7 +344,7 @@ export function RecommendationsStep({
   }
 
   // Build page number array for pagination
-  function getPageNumbers(): (number | '...')[] {
+  const pageNumbers = useMemo((): (number | '...')[] => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const pages: (number | '...')[] = [1];
     const start = Math.max(2, page - 1);
@@ -340,12 +354,12 @@ export function RecommendationsStep({
     if (end < totalPages - 1) pages.push('...');
     pages.push(totalPages);
     return pages;
-  }
+  }, [totalPages, page]);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, sourceFilter, livenessFilter]);
+  }, [debouncedSearch, sourceFilter, livenessFilter]);
 
   // --- Check all channels on current page ---
   async function checkPageLiveness() {
@@ -366,19 +380,6 @@ export function RecommendationsStep({
     return counts;
   }, [fetchedChannels]);
 
-  const SOURCE_LABELS: Record<string, string> = {
-    all: 'All',
-    'iptv-org': 'IPTV-org',
-    'pluto-tv': 'Pluto TV',
-    'samsung-tv-plus': 'Samsung TV+',
-  };
-
-  const LIVENESS_COLORS: Record<string, string> = {
-    alive: 'bg-green-500',
-    dead: 'bg-red-500',
-    unknown: 'bg-muted-foreground/40',
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -392,9 +393,9 @@ export function RecommendationsStep({
   }
 
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4 ">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 5</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 5</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Select Your Channels
         </h2>
@@ -416,17 +417,19 @@ export function RecommendationsStep({
           <input
             type="text"
             placeholder="Search channels..."
+            aria-label="Search channels"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
           />
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={checkPageLiveness}
             disabled={bulkChecking || pageChannels.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-[0.1em] font-medium border border-border bg-card hover:border-primary/40 transition-all disabled:opacity-40 disabled:pointer-events-none"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-[0.1em] font-medium border border-border bg-card hover:border-primary/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
             title="Check liveness of channels on this page"
+            aria-label="Check liveness of channels on this page"
           >
             {bulkChecking ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -438,14 +441,14 @@ export function RecommendationsStep({
           <span className="text-muted-foreground/40">|</span>
           <button
             onClick={onSelectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
           >
             Select All
           </button>
           <span className="text-muted-foreground">|</span>
           <button
             onClick={onDeselectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium"
           >
             Deselect All
           </button>
@@ -461,7 +464,7 @@ export function RecommendationsStep({
               <button
                 key={src}
                 onClick={() => setSourceFilter(src)}
-                className={`px-3 py-1.5 text-xs border transition-all ${
+                className={`px-3 py-1.5 text-xs border transition-colors ${
                   sourceFilter === src
                     ? 'border-primary bg-primary/10 text-primary font-medium'
                     : 'border-border bg-card hover:border-primary/40'
@@ -476,14 +479,15 @@ export function RecommendationsStep({
 
       {/* Liveness filter */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground mr-1">
+        <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground mr-1">
           Status:
         </span>
         {(['all', 'alive', 'dead', 'unknown'] as const).map((status) => (
           <button
             key={status}
             onClick={() => setLivenessFilter(status)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border transition-all ${
+            aria-label={`Filter by ${status} status`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border transition-colors ${
               livenessFilter === status
                 ? 'border-primary bg-primary/10 text-primary font-medium'
                 : 'border-border bg-card hover:border-primary/40'
@@ -508,21 +512,22 @@ export function RecommendationsStep({
               if (el) el.indeterminate = somePageSelected;
             }}
             onChange={togglePageSelection}
-            className="accent-primary shrink-0"
+            className="accent-primary shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Select all channels on page"
             title={allPageSelected ? 'Deselect all on page' : 'Select all on page'}
           />
           <div className="h-7 w-7 shrink-0" /> {/* spacer for logo column */}
-          <span className="flex-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <span className="flex-1 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-2 text-center"></span>
-          <span className="hidden sm:inline text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0">
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-2 text-center"></span>
+          <span className="hidden sm:inline text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0">
             Source
           </span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
+          <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
         </div>
-        <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
+        <div className="max-h-[50vh] sm:max-h-[400px] overflow-y-auto divide-y divide-border">
           {pageChannels.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
               No channels match your filters.
@@ -545,7 +550,10 @@ export function RecommendationsStep({
                 {ch.tvgLogo ? (
                   <img
                     src={proxyImageUrl(ch.tvgLogo)}
-                    alt=""
+                    alt={ch.channelName}
+                    loading="lazy"
+                    width={28}
+                    height={28}
                     className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -556,7 +564,7 @@ export function RecommendationsStep({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{ch.channelName}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {ch.groupTitle}
                     {ch.country ? ` · ${ch.country}` : ''}
                   </p>
@@ -565,14 +573,16 @@ export function RecommendationsStep({
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${
                     lv.status === 'alive'
-                      ? 'bg-green-500'
+                      ? 'bg-signal-green'
                       : lv.status === 'dead'
-                        ? 'bg-red-500'
+                        ? 'bg-signal-red'
                         : 'bg-muted-foreground/40'
                   }`}
                   title={`Status: ${lv.status}${lv.responseTimeMs ? ` (${lv.responseTimeMs}ms)` : ''}`}
-                />
-                <span className="hidden sm:inline text-[10px] uppercase tracking-[0.1em] text-muted-foreground bg-muted px-1.5 py-0.5 shrink-0">
+                >
+                  <span className="sr-only">Status: {lv.status}</span>
+                </span>
+                <span className="hidden sm:inline text-xs uppercase tracking-[0.1em] text-muted-foreground bg-muted px-1.5 py-0.5 shrink-0">
                   {SOURCE_LABELS[ch.source] || ch.source}
                 </span>
                 {/* Check liveness button */}
@@ -580,6 +590,7 @@ export function RecommendationsStep({
                   onClick={() => checkSingleLiveness(ch)}
                   disabled={isChecking}
                   className="p-1.5 text-muted-foreground hover:text-primary transition-colors shrink-0 disabled:pointer-events-none"
+                  aria-label={`Check liveness for ${ch.channelName}`}
                   title="Check liveness"
                 >
                   {isChecking ? (
@@ -597,6 +608,7 @@ export function RecommendationsStep({
                       )
                     }
                     className="p-1.5 text-muted-foreground hover:text-primary transition-colors shrink-0"
+                    aria-label={`Preview ${ch.channelName}`}
                     title="Preview stream"
                   >
                     <Play className="h-3.5 w-3.5" />
@@ -618,20 +630,27 @@ export function RecommendationsStep({
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2 py-1.5 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
+              className="px-2.5 py-2 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Previous page"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            {getPageNumbers().map((n, i) =>
+            {pageNumbers.map((n, i) =>
               n === '...' ? (
-                <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">
+                <span
+                  key={`ellipsis-${i}`}
+                  className="px-1 text-xs text-muted-foreground"
+                  aria-hidden="true"
+                >
                   ...
                 </span>
               ) : (
                 <button
                   key={n}
                   onClick={() => setPage(n)}
-                  className={`px-2.5 py-1.5 text-xs border transition-all ${
+                  aria-label={`Go to page ${n}`}
+                  aria-current={page === n ? 'page' : undefined}
+                  className={`px-2.5 py-2 text-xs border transition-colors ${
                     page === n
                       ? 'border-primary bg-primary/10 text-primary font-medium'
                       : 'border-border hover:border-primary/40'
@@ -644,7 +663,8 @@ export function RecommendationsStep({
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-2 py-1.5 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
+              className="px-2.5 py-2 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Next page"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>

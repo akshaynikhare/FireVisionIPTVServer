@@ -12,6 +12,8 @@ import {
   Upload,
   Trash2,
   UserCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
@@ -68,6 +70,8 @@ export default function ProfilePage() {
   const [newPw, setNewPw] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -245,7 +249,10 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div
+        role="alert"
+        className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      >
         Failed to load profile
       </div>
     );
@@ -253,17 +260,17 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Profile</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your account and security</p>
       </div>
 
       {/* Profile Picture */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Profile Picture
-          </p>
+          </h2>
         </div>
         <div className="px-4 py-4">
           <div className="flex items-center gap-4">
@@ -275,6 +282,7 @@ export default function ProfilePage() {
                     : profile.profilePicture
                 }
                 alt="Profile"
+                loading="lazy"
                 className="h-16 w-16 rounded-full object-cover border-2 border-border"
               />
             ) : (
@@ -294,6 +302,7 @@ export default function ProfilePage() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPic}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors disabled:opacity-50"
+                aria-label="Upload profile picture"
               >
                 <Upload className="h-3.5 w-3.5" />
                 {uploadingPic ? 'Uploading...' : 'Upload'}
@@ -312,6 +321,8 @@ export default function ProfilePage() {
           <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, or GIF. Max 5 MB.</p>
           {picMsg && (
             <div
+              role="alert"
+              aria-live="polite"
               className={`mt-3 px-4 py-2.5 text-sm border ${picMsg.type === 'success' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
             >
               {picMsg.text}
@@ -321,18 +332,18 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Info */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Account Details
-          </p>
+          </h2>
           {!editing && (
             <button
               onClick={() => {
                 setEditing(true);
                 setSaveMsg(null);
               }}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Edit
             </button>
@@ -345,7 +356,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-username"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Username
                 </label>
@@ -355,13 +366,13 @@ export default function ProfilePage() {
                   required
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-email"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Email
                 </label>
@@ -371,7 +382,7 @@ export default function ProfilePage() {
                   required
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
             </div>
@@ -419,9 +430,13 @@ export default function ProfilePage() {
               <div className="flex items-center gap-1.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${profile.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
+                  aria-hidden="true"
                 />
                 <span className="text-sm font-medium">
                   {profile.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span className="sr-only">
+                  {profile.isActive ? 'Account is active' : 'Account is inactive'}
                 </span>
               </div>
             </div>
@@ -438,6 +453,8 @@ export default function ProfilePage() {
 
         {saveMsg && (
           <div
+            role="alert"
+            aria-live="polite"
             className={`mx-4 mb-4 px-4 py-3 text-sm border ${saveMsg.type === 'success' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
           >
             {saveMsg.text}
@@ -446,11 +463,11 @@ export default function ProfilePage() {
       </div>
 
       {/* Channel List Code */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel List Code
-          </p>
+          </h2>
         </div>
         <div className="px-4 py-4">
           <div className="flex items-center gap-3">
@@ -488,18 +505,18 @@ export default function ProfilePage() {
       </div>
 
       {/* Change Password */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '200ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Password
-          </p>
+          </h2>
           {!showPwForm && (
             <button
               onClick={() => {
                 setShowPwForm(true);
                 setPwMsg(null);
               }}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Change
             </button>
@@ -511,36 +528,60 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="current-pw"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Current Password
                 </label>
-                <input
-                  id="current-pw"
-                  type="password"
-                  required
-                  value={currentPw}
-                  onChange={(e) => setCurrentPw(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
+                <div className="relative">
+                  <input
+                    id="current-pw"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    required
+                    value={currentPw}
+                    onChange={(e) => setCurrentPw(e.target.value)}
+                    className="flex h-10 w-full border border-border bg-background px-3 py-2 pr-10 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label
                   htmlFor="new-pw"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   New Password
                 </label>
-                <input
-                  id="new-pw"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="Min. 8 characters"
-                />
+                <div className="relative">
+                  <input
+                    id="new-pw"
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                    className="flex h-10 w-full border border-border bg-background px-3 py-2 pr-10 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+                    placeholder="Min. 8 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -574,6 +615,8 @@ export default function ProfilePage() {
         )}
         {pwMsg && (
           <div
+            role="alert"
+            aria-live="polite"
             className={`mx-4 mb-4 px-4 py-3 text-sm border ${pwMsg.type === 'success' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
           >
             {pwMsg.text}
@@ -583,11 +626,11 @@ export default function ProfilePage() {
 
       {/* Active Sessions */}
       {sessions.length > 0 && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '250ms' }}>
+        <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Active Sessions ({sessions.length})
-            </p>
+            </h2>
           </div>
           <div className="divide-y divide-border">
             {sessions.map((s) => (
@@ -597,7 +640,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">{parseBrowser(s.userAgent)}</p>
                     {s.isCurrent && (
-                      <span className="text-[10px] uppercase tracking-[0.1em] bg-primary/10 text-primary px-1.5 py-0.5 font-medium">
+                      <span className="text-xs uppercase tracking-[0.1em] bg-primary/10 text-primary px-1.5 py-0.5 font-medium">
                         Current
                       </span>
                     )}

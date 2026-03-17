@@ -1,5 +1,7 @@
 FROM node:18-alpine AS builder
 
+ARG APP_VERSION=0.0.0
+
 # Set working directory
 WORKDIR /app
 
@@ -24,6 +26,9 @@ RUN npx tsc --project packages/shared/tsconfig.json && \
 # --- Production stage ---
 FROM node:18-alpine
 
+ARG APP_VERSION=0.0.0
+ENV APP_VERSION=${APP_VERSION}
+
 WORKDIR /app
 
 # Install dependencies for native modules and curl for health checks
@@ -41,10 +46,9 @@ RUN npm ci --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
-# Copy runtime files (public assets, configs, non-TS source for JS routes still in migration)
+# Copy runtime files (configs, non-TS source for JS routes still in migration)
 COPY backend/src ./backend/src
 COPY packages/shared/src ./packages/shared/src
-COPY public ./public
 
 # Create directories for uploads and APKs
 RUN mkdir -p uploads apks && \

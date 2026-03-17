@@ -72,9 +72,9 @@ export function LanguageStep({ selectedLanguages, onToggleLanguage }: LanguageSt
   }, [search, showAll]);
 
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 3</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 3</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Preferred Languages
         </h2>
@@ -88,23 +88,25 @@ export function LanguageStep({ selectedLanguages, onToggleLanguage }: LanguageSt
         <input
           type="text"
           placeholder="Search languages..."
+          aria-label="Search languages"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             if (e.target.value) setShowAll(true);
           }}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
         />
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Language selection">
         {filtered.map((lang) => {
           const isSelected = selectedLanguages.includes(lang.code);
           return (
             <button
               key={lang.code}
               onClick={() => onToggleLanguage(lang.code)}
-              className={`px-3 py-1.5 text-xs border transition-all ${
+              aria-pressed={isSelected}
+              className={`px-3 py-2 text-xs border transition-colors ${
                 isSelected
                   ? 'border-primary bg-primary/10 text-primary font-medium'
                   : 'border-border bg-card hover:border-primary/40'

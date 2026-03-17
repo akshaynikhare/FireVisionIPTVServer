@@ -23,10 +23,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Only log minimal info in production to avoid leaking internals
-    if (process.env.NODE_ENV === 'production') {
-      console.error('ErrorBoundary caught an error');
-    } else {
+    if (process.env.NODE_ENV !== 'production') {
       console.error('ErrorBoundary caught:', error, info.componentStack);
     }
   }
@@ -35,18 +32,44 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
 
+      const isNetworkError =
+        this.state.error?.message?.toLowerCase().includes('network') ||
+        this.state.error?.message?.toLowerCase().includes('fetch');
+
       return (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <p className="text-sm font-medium text-destructive">Something went wrong</p>
-          <p className="text-xs text-muted-foreground max-w-md text-center">
-            An unexpected error occurred. Please try again.
+        <div className="flex flex-col items-center justify-center py-20 gap-4" role="alert">
+          <p className="text-sm font-medium text-destructive">
+            {isNetworkError ? 'Connection Error' : 'Something went wrong'}
           </p>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] border border-border hover:border-primary/40 transition-colors"
-          >
-            Try Again
-          </button>
+          <p className="text-xs text-muted-foreground max-w-md text-center">
+            {isNetworkError
+              ? 'Check your internet connection and try again.'
+              : 'An unexpected error occurred. Try refreshing the page or contact support if the problem persists.'}
+          </p>
+          {process.env.NODE_ENV !== 'production' && this.state.error?.message && (
+            <details className="text-xs text-muted-foreground max-w-md w-full">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">
+                Error details
+              </summary>
+              <pre className="mt-2 p-3 bg-muted text-xs overflow-auto border border-border">
+                {this.state.error.message}
+              </pre>
+            </details>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] border border-border hover:border-primary/40 transition-colors"
+            >
+              Refresh Page
+            </button>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] border border-border hover:border-primary/40 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       );
     }

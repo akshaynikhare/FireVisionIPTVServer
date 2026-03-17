@@ -47,9 +47,9 @@ export function CategoryStep({ selectedCategories, onToggleCategory }: CategoryS
   const displayed = showAll ? CATEGORIES : CATEGORIES.slice(0, PROMINENT_COUNT);
 
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 4</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 4</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Pick Categories
         </h2>
@@ -58,14 +58,15 @@ export function CategoryStep({ selectedCategories, onToggleCategory }: CategoryS
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Category selection">
         {displayed.map((cat) => {
           const isSelected = selectedCategories.includes(cat.id);
           return (
             <button
               key={cat.id}
               onClick={() => onToggleCategory(cat.id)}
-              className={`px-4 py-2 text-sm border-2 transition-all ${
+              aria-pressed={isSelected}
+              className={`px-4 py-2.5 text-sm border-2 transition-colors ${
                 isSelected
                   ? 'border-primary bg-primary/10 text-primary font-medium'
                   : 'border-border bg-card hover:border-primary/40'

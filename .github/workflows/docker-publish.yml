@@ -1,10 +1,13 @@
-name: Build and Publish FireVisionIPTVServer Docker image
+name: Build, Publish & Deploy
 
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/firevisioniptvserver
 
 jobs:
   build-and-push:
@@ -12,32 +15,34 @@ jobs:
 
     permissions:
       contents: write
+      packages: write
 
-    env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/firevision-iptv-server
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
+      image_tag: ${{ steps.vars.outputs.image_tag }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract version from tag
+        id: vars
+        run: |
+          # Tag is like v1.2.3 — strip the 'v' prefix
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Extract version
-        id: vars
-        run: |
-          if [ -f "versions.json" ]; then
-            VERSION=$(jq -r '.current' versions.json)
-          else
-            VERSION=${GITHUB_SHA::7}
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -45,18 +50,144 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            APP_VERSION=${{ steps.vars.outputs.version }}
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Create or update GitHub Release (tags only)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
+          generate_release_notes: true
           body: |
-            Docker image published for this release:
+            ## Docker Image
 
-            - `${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}`
-            - `${{ env.IMAGE_NAME }}:latest`
+            ```
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}
+            ```
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare production docker-compose
+        env:
+          DOCKER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.version }}
+          APP_VERSION: ${{ needs.build-and-push.outputs.version }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          OAUTH_GOOGLE_CLIENT_ID: ${{ vars.OAUTH_GOOGLE_CLIENT_ID }}
+          OAUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+          OAUTH_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          BREVO_HOST: ${{ vars.BREVO_HOST }}
+          BREVO_PORT: ${{ vars.BREVO_PORT }}
+          BREVO_USER: ${{ vars.BREVO_USER }}
+          BREVO_PASSWORD: ${{ secrets.BREVO_PASSWORD }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          # Substitute env vars into the production compose file
+          envsubst < docker-compose.production.yml > docker-compose.deploy.yml
+
+      - name: Resolve Portainer stack ID
+        id: stack
+        run: |
+          STACKS=$(curl -s \
+            "${{ vars.PORTAINER_URL }}/api/stacks" \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}")
+
+          STACK_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name == "FireVisionTV_Prod") | .Id')
+          ENDPOINT_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name == "FireVisionTV_Prod") | .EndpointId')
+
+          if [ -z "$STACK_ID" ] || [ "$STACK_ID" = "null" ]; then
+            echo "Stack 'FireVisionTV_Prod' not found in Portainer"
+            exit 1
+          fi
+
+          echo "stack_id=$STACK_ID" >> $GITHUB_OUTPUT
+          echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
+          echo "Found stack ID: $STACK_ID (endpoint: $ENDPOINT_ID)"
+
+      - name: Deploy to Portainer
+        id: deploy
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg stackFile "$(cat docker-compose.deploy.yml)" \
+            --argjson endpointId ${{ steps.stack.outputs.endpoint_id }} \
+            '{
+              stackFileContent: $stackFile,
+              env: [],
+              prune: false,
+              pullImage: true
+            }')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+            "${{ vars.PORTAINER_URL }}/api/stacks/${{ steps.stack.outputs.stack_id }}?endpointId=${{ steps.stack.outputs.endpoint_id }}" \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "Stack updated successfully"
+            echo "deployment_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "Stack update failed: $RESPONSE_BODY"
+            echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Wait for containers
+        run: sleep 30
+
+      - name: Health check
+        id: health_check
+        run: |
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          HEALTH_URL="https://tv.cadnative.com/health"
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Health check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES"
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" "$HEALTH_URL" 2>/dev/null || echo -e "\n000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+
+            if [ "$HTTP_CODE" -eq 200 ]; then
+              echo "Health check passed"
+              echo "$RESPONSE_BODY" | jq . 2>/dev/null || echo "$RESPONSE_BODY"
+              echo "health_status=healthy" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 10
+          done
+
+          echo "Health check failed after $MAX_RETRIES attempts"
+          echo "health_status=unhealthy" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.build-and-push.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ needs.build-and-push.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy**: ${{ steps.deploy.outputs.deployment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health**: ${{ steps.health_check.outputs.health_status }}" >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
 
 export interface ColumnFilterProps {
@@ -29,6 +29,7 @@ export default function ColumnFilter({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive = selected.length > 0 && selected.length < options.length;
+  const dropdownId = `filter-dropdown-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
   // Close on outside click
   useEffect(() => {
@@ -43,16 +44,23 @@ export default function ColumnFilter({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Reposition dropdown if it goes off-screen
+  // Reposition dropdown if it goes off-screen (batched reads then writes)
   useEffect(() => {
     if (!open || !dropdownRef.current || !containerRef.current) return;
     const dropdown = dropdownRef.current;
+    const minMargin = 8;
+
+    // Batch all reads first
     const rect = dropdown.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
+    const isOffRight = rect.right > window.innerWidth - minMargin;
+    const isOffBottom = rect.bottom > window.innerHeight - minMargin;
+
+    // Batch all writes
+    if (isOffRight) {
       dropdown.style.left = 'auto';
       dropdown.style.right = '0';
     }
-    if (rect.bottom > window.innerHeight) {
+    if (isOffBottom) {
       dropdown.style.top = 'auto';
       dropdown.style.bottom = '100%';
       dropdown.style.marginBottom = '2px';
@@ -60,9 +68,27 @@ export default function ColumnFilter({
     }
   }, [open]);
 
-  const filteredOptions = filterSearch
-    ? options.filter((o) => o.toLowerCase().includes(filterSearch.toLowerCase()))
-    : options;
+  // Close on Escape key
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setFilterSearch('');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleKeyDown]);
+
+  const filteredOptions = useMemo(
+    () =>
+      filterSearch
+        ? options.filter((o) => o.toLowerCase().includes(filterSearch.toLowerCase()))
+        : options,
+    [options, filterSearch],
+  );
 
   function toggleOption(opt: string) {
     if (selected.includes(opt)) {
@@ -83,7 +109,7 @@ export default function ColumnFilter({
   return (
     <div ref={containerRef} className="relative inline-flex items-center gap-1">
       {label && (
-        <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+        <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
           {label}
         </span>
       )}
@@ -92,12 +118,14 @@ export default function ColumnFilter({
           setOpen((prev) => !prev);
           setFilterSearch('');
         }}
-        className={`flex items-center justify-center h-5 w-5 rounded-sm transition-colors ${
+        className={`flex items-center justify-center h-10 w-10 rounded-sm transition-colors ${
           isActive
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground/50 hover:text-muted-foreground'
         }`}
         aria-label={`Filter by ${label}`}
+        aria-expanded={open}
+        aria-controls={dropdownId}
         title={
           isActive ? `Filtered: ${selected.length} of ${options.length}` : `Filter by ${label}`
         }
@@ -108,12 +136,15 @@ export default function ColumnFilter({
       {open && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-w-[280px] bg-card border-2 border-border shadow-lg animate-fade-up"
+          id={dropdownId}
+          role="dialog"
+          aria-label={`${label} filter options`}
+          className="absolute top-full left-0 mt-1 z-50 min-w-[min(200px,calc(100vw-2rem))] max-w-[280px] bg-card border-2 border-border shadow-lg animate-fade-up"
           style={{ animationDuration: '100ms' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Filter: {label}
             </span>
             <button
@@ -122,6 +153,7 @@ export default function ColumnFilter({
                 setFilterSearch('');
               }}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -137,7 +169,9 @@ export default function ColumnFilter({
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
                   placeholder="Search..."
-                  className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary"
+                  aria-label={`Search ${label} options`}
+                  aria-controls={`${dropdownId}-options`}
+                  className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary"
                   autoFocus
                 />
               </div>
@@ -148,26 +182,31 @@ export default function ColumnFilter({
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
             <button
               onClick={selectAll}
-              className="text-[10px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Select All
             </button>
             <span className="text-muted-foreground/30">|</span>
             <button
               onClick={clearAll}
-              className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+              className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
             >
               Clear
             </button>
             {isActive && (
-              <span className="ml-auto text-[10px] text-muted-foreground">
+              <span className="ml-auto text-xs text-muted-foreground">
                 {selected.length}/{options.length}
               </span>
             )}
           </div>
 
           {/* Options list */}
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div
+            id={`${dropdownId}-options`}
+            className="max-h-[240px] overflow-y-auto py-1"
+            role="group"
+            aria-label={`${label} options`}
+          >
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
             ) : (
@@ -182,7 +221,7 @@ export default function ColumnFilter({
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleOption(opt)}
-                      className="accent-primary h-3.5 w-3.5 shrink-0"
+                      className="accent-primary h-4 w-4 shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
                     />
                     <span className="text-xs truncate" title={opt}>
                       {opt || '(empty)'}

@@ -100,7 +100,7 @@ export default function PairDevicePage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
           Pair TV Device
         </h1>
@@ -108,9 +108,9 @@ export default function PairDevicePage() {
       </div>
 
       {/* PIN Confirmation */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Enter TV PIN
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function PairDevicePage() {
             <div className="space-y-1.5 flex-1 max-w-xs">
               <label
                 htmlFor="pairing-pin"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
               >
                 PIN Code
               </label>
@@ -136,7 +136,7 @@ export default function PairDevicePage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
-                className="flex h-12 w-full border border-border bg-background px-4 py-2 text-2xl font-mono font-bold tracking-[0.3em] text-center focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/30"
+                className="flex h-12 w-full border border-border bg-background px-4 py-2 text-2xl font-mono font-bold tracking-[0.3em] text-center focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary placeholder:text-muted-foreground/80"
               />
             </div>
             <button
@@ -158,6 +158,8 @@ export default function PairDevicePage() {
 
           {result && (
             <div
+              role="alert"
+              aria-live="polite"
               className={`mt-4 px-4 py-3 text-sm border ${
                 result.success
                   ? 'border-primary/40 bg-primary/10 text-primary'
@@ -171,9 +173,9 @@ export default function PairDevicePage() {
       </div>
 
       {/* Channel List Code */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Your Channel List Code
           </p>
         </div>
@@ -189,7 +191,7 @@ export default function PairDevicePage() {
               <button
                 onClick={handleCopyCode}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Copy code"
+                aria-label="Copy to clipboard"
               >
                 {copiedCode ? (
                   <>
@@ -206,7 +208,7 @@ export default function PairDevicePage() {
 
           {user?.channelListCode && origin && (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium mb-2">
+              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium mb-2">
                 M3U Playlist URL
               </p>
               <div className="flex items-center gap-3">
@@ -216,7 +218,7 @@ export default function PairDevicePage() {
                 <button
                   onClick={handleCopyUrl}
                   className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                  aria-label="Copy URL"
+                  aria-label="Copy to clipboard"
                 >
                   {copiedUrl ? (
                     <>
@@ -235,9 +237,9 @@ export default function PairDevicePage() {
       </div>
 
       {/* Last Paired Device */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Last Paired Device
           </p>
         </div>
@@ -259,8 +261,7 @@ export default function PairDevicePage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No device paired yet. Open the FireVision app on your TV and follow the pairing
-              instructions.
+              No paired devices yet. Open FireVision on your Android TV to start pairing.
             </p>
           )}
         </div>

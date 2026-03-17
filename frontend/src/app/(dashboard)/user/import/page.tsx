@@ -128,7 +128,7 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between animate-fade-up">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
             Import from IPTV-org
@@ -139,22 +139,22 @@ export default function ImportPage() {
         </div>
         <button
           onClick={handleClearCache}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
         >
           <RefreshCw className="h-4 w-4" /> Clear Cache
         </button>
       </div>
 
-      <div className="animate-fade-up" style={{ animationDelay: '50ms' }}>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
-        </p>
+        </h2>
         <div className="flex flex-wrap gap-2">
           {playlists.map((pl) => (
             <button
               key={pl.id}
               onClick={() => handleSelectPlaylist(pl)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
                 selectedPlaylist === pl.id
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
@@ -175,15 +175,15 @@ export default function ImportPage() {
       )}
 
       {!fetchingChannels && channels.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
+        <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {channels.length} channels found &middot; {selectedIds.size} selected
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleAll}
-                className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 {selectedIds.size === channels.length ? 'Deselect All' : 'Select All'}
               </button>
@@ -198,7 +198,11 @@ export default function ImportPage() {
           </div>
 
           {importResult && (
-            <div className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary mb-4">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary mb-4"
+            >
               {importResult}
             </div>
           )}
@@ -228,7 +232,8 @@ export default function ImportPage() {
                   {ch.tvgLogo ? (
                     <img
                       src={proxyImageUrl(ch.tvgLogo)}
-                      alt=""
+                      alt={`${ch.channelName} logo`}
+                      loading="lazy"
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                     />
                   ) : (

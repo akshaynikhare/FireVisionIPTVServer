@@ -1,15 +1,17 @@
 const express = require('express');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/User');
 const { signAccessToken, signRefreshToken, persistRefreshToken } = require('../utils/jwtUtil');
+const { sendWelcomeEmail, sendVerificationEmail } = require('../services/email');
 
 // Rate limiter for signup to mitigate abuse
 const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: parseInt(process.env.SIGNUP_RATE_LIMIT_MAX || '10'),
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 
 // Basic validators
@@ -34,13 +36,20 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: 'username, email, password required' });
     }
     if (!validateUsername(username)) {
-      return res.status(400).json({ success: false, error: 'Invalid username (3-50 chars, alphanumeric + underscore)' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Invalid username (3-50 chars, alphanumeric + underscore)',
+        });
     }
     if (!validateEmail(email)) {
       return res.status(400).json({ success: false, error: 'Invalid email format' });
     }
     if (!validatePassword(password)) {
-      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+      return res
+        .status(400)
+        .json({ success: false, error: 'Password must be at least 8 characters' });
     }
 
     // Prevent creating reserved super admin username if defined
@@ -65,9 +74,24 @@ router.post('/signup', signupLimiter, async (req, res) => {
       password,
       role: 'User',
       channelListCode,
-      channels: []
+      channels: [],
     });
     await user.save();
+
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    // Fire-and-forget emails
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+    sendVerificationEmail(email, { username, verificationUrl });
+    sendWelcomeEmail(email, { username });
 
     // Issue JWT tokens
     const accessToken = signAccessToken(user);
@@ -81,9 +105,9 @@ router.post('/signup', signupLimiter, async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        channelListCode: user.channelListCode
+        channelListCode: user.channelListCode,
       },
-      tokens: { accessToken, refreshToken }
+      tokens: { accessToken, refreshToken },
     });
   } catch (err) {
     console.error('Signup error', err);

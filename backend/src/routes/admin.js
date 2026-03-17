@@ -7,6 +7,8 @@ const Session = require('../models/Session');
 const PairingRequest = require('../models/PairingRequest');
 const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { audit } = require('../services/audit-log');
+const AuditLog = require('../models/AuditLog');
 
 // Apply session authentication and admin role check to all admin routes
 router.use(requireAuth);
@@ -17,23 +19,53 @@ router.use(requireAdmin);
 // Create new channel (with field whitelist to prevent mass assignment)
 router.post('/channels', async (req, res) => {
   try {
-    const { channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
-            channelGroup, channelDrmKey, order, isActive, metadata } = req.body;
+    const {
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
+    } = req.body;
     const channel = new Channel({
-      channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
-      channelGroup, channelDrmKey, order, isActive, metadata
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
     });
     await channel.save();
+    audit({
+      userId: req.user.id,
+      action: 'create_channel',
+      resource: 'channel',
+      resourceId: channel.channelId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.status(201).json({
       success: true,
-      data: channel
+      data: channel,
     });
   } catch (error) {
     console.error('Error creating channel:', error);
     res.status(400).json({
       success: false,
-      error: 'Failed to create channel'
+      error: 'Failed to create channel',
     });
   }
 });
@@ -41,8 +73,20 @@ router.post('/channels', async (req, res) => {
 // Update channel
 router.put('/channels/:id', async (req, res) => {
   try {
-    const { channelId, channelName, channelUrl, channelImg, tvgLogo, tvgName, tvgId,
-            channelGroup, channelDrmKey, order, isActive, metadata } = req.body;
+    const {
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
+    } = req.body;
     const allowedUpdates = {};
     if (channelId !== undefined) allowedUpdates.channelId = channelId;
     if (channelName !== undefined) allowedUpdates.channelName = channelName;
@@ -55,30 +99,44 @@ router.put('/channels/:id', async (req, res) => {
     if (channelDrmKey !== undefined) allowedUpdates.channelDrmKey = channelDrmKey;
     if (order !== undefined) allowedUpdates.order = order;
     if (isActive !== undefined) allowedUpdates.isActive = isActive;
-    if (metadata !== undefined) allowedUpdates.metadata = metadata;
+    if (metadata !== undefined) {
+      // Merge metadata fields individually to preserve existing values (e.g. isWorking, lastTested)
+      for (const [key, value] of Object.entries(metadata)) {
+        allowedUpdates[`metadata.${key}`] = value;
+      }
+    }
 
     const channel = await Channel.findByIdAndUpdate(
       req.params.id,
-      allowedUpdates,
-      { new: true, runValidators: true }
+      { $set: allowedUpdates },
+      { new: true, runValidators: true },
     );
 
     if (!channel) {
       return res.status(404).json({
         success: false,
-        error: 'Channel not found'
+        error: 'Channel not found',
       });
     }
 
+    audit({
+      userId: req.user.id,
+      action: 'update_channel',
+      resource: 'channel',
+      resourceId: channel.channelId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
-      data: channel
+      data: channel,
     });
   } catch (error) {
     console.error('Error updating channel:', error);
     res.status(400).json({
       success: false,
-      error: 'Failed to update channel'
+      error: 'Failed to update channel',
     });
   }
 });
@@ -91,19 +149,28 @@ router.delete('/channels/:id', async (req, res) => {
     if (!channel) {
       return res.status(404).json({
         success: false,
-        error: 'Channel not found'
+        error: 'Channel not found',
       });
     }
 
+    audit({
+      userId: req.user.id,
+      action: 'delete_channel',
+      resource: 'channel',
+      resourceId: channel.channelId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
-      message: 'Channel deleted successfully'
+      message: 'Channel deleted successfully',
     });
   } catch (error) {
     console.error('Error deleting channel:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete channel'
+      error: 'Failed to delete channel',
     });
   }
 });
@@ -113,16 +180,25 @@ router.delete('/channels', async (req, res) => {
   try {
     const deleteResult = await Channel.deleteMany({});
 
+    audit({
+      userId: req.user.id,
+      action: 'delete_all_channels',
+      resource: 'channel',
+      resourceId: `${deleteResult.deletedCount} channels`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
       message: `Successfully deleted ${deleteResult.deletedCount} channels`,
-      deletedCount: deleteResult.deletedCount
+      deletedCount: deleteResult.deletedCount,
     });
   } catch (error) {
     console.error('Error deleting all channels:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete all channels'
+      error: 'Failed to delete all channels',
     });
   }
 });
@@ -135,7 +211,7 @@ router.post('/channels/import-m3u', async (req, res) => {
     if (!m3uContent) {
       return res.status(400).json({
         success: false,
-        error: 'M3U content is required'
+        error: 'M3U content is required',
       });
     }
 
@@ -167,7 +243,7 @@ router.post('/channels/import-m3u', async (req, res) => {
           tvgLogo: tvgLogoMatch ? tvgLogoMatch[1] : '',
           channelGroup: groupTitleMatch ? groupTitleMatch[1] : 'Uncategorized',
           channelName: channelNameMatch ? channelNameMatch[1].trim() : 'Unknown',
-          order: channels.length
+          order: channels.length,
         };
       } else if (line && !line.startsWith('#') && currentChannel) {
         // This is the stream URL
@@ -180,16 +256,25 @@ router.post('/channels/import-m3u', async (req, res) => {
     // Insert channels into database
     const insertedChannels = await Channel.insertMany(channels, { ordered: false });
 
+    audit({
+      userId: req.user.id,
+      action: 'import_m3u',
+      resource: 'channel',
+      resourceId: `${insertedChannels.length} channels`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
       message: `Successfully imported ${insertedChannels.length} channels`,
-      count: insertedChannels.length
+      count: insertedChannels.length,
     });
   } catch (error) {
     console.error('Error importing M3U:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to import M3U'
+      error: 'Failed to import M3U',
     });
   }
 });
@@ -211,7 +296,7 @@ router.get('/channels/filter-options', async (req, res) => {
         status: statuses,
         language: languages.filter(Boolean).sort((a, b) => a.localeCompare(b)),
         country: countries.filter(Boolean).sort((a, b) => a.localeCompare(b)),
-      }
+      },
     });
   } catch (error) {
     console.error('Error fetching channel filter options:', error);
@@ -227,13 +312,19 @@ router.get('/channels', async (req, res) => {
 
     // Multi-value group filter (comma-separated)
     if (group) {
-      const groups = group.split(',').map(g => g.trim()).filter(Boolean);
+      const groups = group
+        .split(',')
+        .map((g) => g.trim())
+        .filter(Boolean);
       if (groups.length > 0) filter.channelGroup = { $in: groups };
     }
 
     // Status filter: Active = isWorking !== false, Down = isWorking === false
     if (status) {
-      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      const statuses = status
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       if (statuses.length === 1) {
         if (statuses[0] === 'Dead') {
           filter['metadata.isWorking'] = false;
@@ -246,24 +337,26 @@ router.get('/channels', async (req, res) => {
 
     // Language filter
     if (language) {
-      const langs = language.split(',').map(l => l.trim()).filter(Boolean);
+      const langs = language
+        .split(',')
+        .map((l) => l.trim())
+        .filter(Boolean);
       if (langs.length > 0) filter['metadata.language'] = { $in: langs };
     }
 
     // Country filter
     if (country) {
-      const countries = country.split(',').map(c => c.trim()).filter(Boolean);
+      const countries = country
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
       if (countries.length > 0) filter['metadata.country'] = { $in: countries };
     }
 
     // Text search across name and group
     if (search) {
       const regex = new RegExp(escapeRegex(search), 'i');
-      filter.$or = [
-        { channelName: regex },
-        { name: regex },
-        { channelGroup: regex },
-      ];
+      filter.$or = [{ channelName: regex }, { name: regex }, { channelGroup: regex }];
     }
 
     const p = parseInt(page) || 1;
@@ -283,13 +376,13 @@ router.get('/channels', async (req, res) => {
       totalCount,
       page: p,
       pageSize: ps,
-      data: channels
+      data: channels,
     });
   } catch (error) {
     console.error('Error fetching channels:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch channels'
+      error: 'Failed to fetch channels',
     });
   }
 });
@@ -305,7 +398,7 @@ router.get('/stats/detailed', async (req, res) => {
     const inactiveChannels = await Channel.countDocuments({ isActive: false });
     const channelsByGroup = await Channel.aggregate([
       { $group: { _id: '$channelGroup', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
+      { $sort: { count: -1 } },
     ]);
 
     // App version statistics
@@ -328,7 +421,7 @@ router.get('/stats/detailed', async (req, res) => {
       .sort({ lastActivity: -1 })
       .limit(20)
       .lean();
-    
+
     const totalSessions = await Session.countDocuments();
     const activeSessionCount = await Session.countDocuments({ expiresAt: { $gt: now } });
 
@@ -337,18 +430,23 @@ router.get('/stats/detailed', async (req, res) => {
       { $match: { expiresAt: { $gt: now } } },
       { $group: { _id: { $ifNull: ['$location', 'Unknown'] }, count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     // Pairing statistics
     const totalPairings = await PairingRequest.countDocuments();
-    const pendingPairings = await PairingRequest.countDocuments({ status: 'pending', expiresAt: { $gt: now } });
+    const pendingPairings = await PairingRequest.countDocuments({
+      status: 'pending',
+      expiresAt: { $gt: now },
+    });
     const completedPairings = await PairingRequest.countDocuments({ status: 'completed' });
-    
+
     // Today's pairings count
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    const todayPairingsCount = await PairingRequest.countDocuments({ createdAt: { $gte: startOfToday } });
+    const todayPairingsCount = await PairingRequest.countDocuments({
+      createdAt: { $gte: startOfToday },
+    });
 
     // Recent pairings
     const recentPairings = await PairingRequest.find()
@@ -357,72 +455,39 @@ router.get('/stats/detailed', async (req, res) => {
       .limit(10)
       .lean();
 
-    // Recent activity (combine various activities)
-    const activities = [];
-
-    // Add recent logins
-    const recentLogins = await Session.find()
+    // Recent activity from audit log
+    const auditLogs = await AuditLog.find()
       .populate('userId', 'username')
-      .sort({ createdAt: -1 })
-      .limit(5)
+      .sort({ timestamp: -1 })
+      .limit(15)
       .lean();
-    
-    recentLogins.forEach(session => {
-      activities.push({
-        type: 'login',
-        title: 'User Login',
-        description: `${session.username || session.userId?.username || 'Unknown'} logged in`,
-        timestamp: session.createdAt
-      });
-    });
 
-    // Add recent registrations
-    const recentRegistrations = await User.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
-    
-    recentRegistrations.forEach(user => {
-      activities.push({
-        type: 'register',
-        title: 'New User',
-        description: `${user.username} registered`,
-        timestamp: user.createdAt
-      });
-    });
-
-    // Add recent pairings to activity
-    recentPairings.slice(0, 5).forEach(pairing => {
-      activities.push({
-        type: 'pairing',
-        title: 'Device Pairing',
-        description: `${pairing.deviceName || 'Device'} ${pairing.status} by ${pairing.userId?.username || 'Unknown'}`,
-        timestamp: pairing.createdAt
-      });
-    });
-
-    // Sort activities by timestamp
-    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const activities = auditLogs.map((log) => ({
+      type: log.action,
+      title: log.action,
+      description: `${log.userId?.username || 'System'} — ${log.action.replace(/_/g, ' ')} (${log.resource}${log.resourceId ? ': ' + log.resourceId : ''})`,
+      timestamp: log.timestamp,
+    }));
 
     // Format active sessions with user info
-    const formattedSessions = activeSessions.map(session => ({
+    const formattedSessions = activeSessions.map((session) => ({
       username: session.userId?.username || session.username,
       email: session.userId?.email || session.email,
       profilePicture: session.userId?.profilePicture,
       lastActivity: session.lastActivity,
       ipAddress: session.ipAddress,
       userAgent: session.userAgent,
-      location: session.location || 'Unknown'
+      location: session.location || 'Unknown',
     }));
 
     // Format recent pairings with user info
-    const formattedPairings = recentPairings.map(pairing => ({
+    const formattedPairings = recentPairings.map((pairing) => ({
       deviceName: pairing.deviceName,
       deviceModel: pairing.deviceModel,
       status: pairing.status,
       username: pairing.userId?.username,
       createdAt: pairing.createdAt,
-      pairedAt: pairing.updatedAt
+      pairedAt: pairing.updatedAt,
     }));
 
     res.json({
@@ -432,38 +497,38 @@ router.get('/stats/detailed', async (req, res) => {
           total: totalChannels,
           active: activeChannels,
           inactive: inactiveChannels,
-          byGroup: channelsByGroup
+          byGroup: channelsByGroup,
         },
         app: {
           totalVersions,
-          latestVersion
+          latestVersion,
         },
         users: {
           total: totalUsers,
           active: activeUsers,
-          recent: recentUsers
+          recent: recentUsers,
         },
         sessions: {
           total: totalSessions,
           active: activeSessionCount,
           activeSessions: formattedSessions,
-          byLocation: sessionsByLocation
+          byLocation: sessionsByLocation,
         },
         pairings: {
           total: totalPairings,
           pending: pendingPairings,
           completed: completedPairings,
           todayCount: todayPairingsCount,
-          recent: formattedPairings
+          recent: formattedPairings,
         },
-        activity: activities.slice(0, 15)
-      }
+        activity: activities.slice(0, 15),
+      },
     });
   } catch (error) {
     console.error('Error fetching detailed stats:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch detailed statistics'
+      error: 'Failed to fetch detailed statistics',
     });
   }
 });
@@ -477,12 +542,12 @@ router.get('/stats', async (req, res) => {
       {
         $group: {
           _id: '$channelGroup',
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
-        $sort: { count: -1 }
-      }
+        $sort: { count: -1 },
+      },
     ]);
 
     const totalVersions = await AppVersion.countDocuments();
@@ -495,19 +560,19 @@ router.get('/stats', async (req, res) => {
           total: totalChannels,
           active: activeChannels,
           inactive: inactiveChannels,
-          byGroup: channelsByGroup
+          byGroup: channelsByGroup,
         },
         app: {
           totalVersions,
-          latestVersion
-        }
-      }
+          latestVersion,
+        },
+      },
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch statistics'
+      error: 'Failed to fetch statistics',
     });
   }
 });

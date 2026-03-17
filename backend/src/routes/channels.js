@@ -1,34 +1,39 @@
 const express = require('express');
 const router = express.Router();
 const Channel = require('../models/Channel');
+const { requireAuth, requireAdmin } = require('./auth');
+const { escapeRegex } = require('../utils/escapeRegex');
+const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const { audit } = require('../services/audit-log');
 
-// Get all channels (for Android app sync)
-router.get('/', async (req, res) => {
+// Get all channels (for Android app sync) — requires auth, excludes DRM keys
+router.get('/', requireAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
-      .select('-__v -createdAt -updatedAt')
+      .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
 
     res.json({
       success: true,
       count: channels.length,
-      data: channels
+      data: channels,
     });
   } catch (error) {
     console.error('Error fetching channels:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch channels'
+      error: 'Failed to fetch channels',
     });
   }
 });
 
 // Get channels grouped by category
-router.get('/grouped', async (req, res) => {
+router.get('/grouped', requireAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
+      .select('-channelDrmKey')
       .lean();
 
     // Group by channelGroup
@@ -43,226 +48,245 @@ router.get('/grouped', async (req, res) => {
 
     res.json({
       success: true,
-      data: grouped
+      data: grouped,
     });
   } catch (error) {
     console.error('Error fetching grouped channels:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch grouped channels'
+      error: 'Failed to fetch grouped channels',
     });
   }
 });
 
 // Get M3U playlist (requires global playlist code - LEGACY ENDPOINT)
-// Note: This is a legacy global playlist endpoint. 
-// Users should use /api/v1/user-playlist/me/playlist.m3u with authentication instead.
-// This endpoint uses PLAYLIST_CODE for backward compatibility.
 router.get('/playlist.m3u', async (req, res) => {
   try {
-    // Check for playlist code in query parameter or header
     const providedCode = req.query.code || req.headers['x-playlist-code'];
     const requiredCode = process.env.PLAYLIST_CODE || process.env.SUPER_ADMIN_CHANNEL_LIST_CODE;
 
-    // Validate playlist code
     if (!requiredCode) {
-      console.error('PLAYLIST_CODE or SUPER_ADMIN_CHANNEL_LIST_CODE not configured in environment variables');
-      return res.status(500).json({
-        success: false,
-        error: 'Playlist access not configured'
-      });
+      return res.status(500).json({ success: false, error: 'Playlist access not configured' });
     }
-
     if (!providedCode) {
-      return res.status(401).json({
-        success: false,
-        error: 'Playlist code required. Provide code via ?code=YOUR_CODE or X-Playlist-Code header'
-      });
+      return res.status(401).json({ success: false, error: 'Playlist code required' });
     }
-
     if (providedCode !== requiredCode) {
-      return res.status(403).json({
-        success: false,
-        error: 'Invalid playlist code'
-      });
+      return res.status(403).json({ success: false, error: 'Invalid playlist code' });
     }
 
-    // Generate and send playlist
     const m3uContent = await Channel.generateM3UPlaylist();
-
     res.setHeader('Content-Type', 'application/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
     res.send(m3uContent);
   } catch (error) {
     console.error('Error generating M3U playlist:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate M3U playlist'
-    });
+    res.status(500).json({ success: false, error: 'Failed to generate M3U playlist' });
   }
 });
 
-// Search channels
-router.get('/search', async (req, res) => {
+// Search channels (with regex escaping to prevent ReDoS)
+router.get('/search', requireAuth, async (req, res) => {
   try {
     const { q } = req.query;
 
     if (!q || q.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Search query is required'
-      });
+      return res.status(400).json({ success: false, error: 'Search query is required' });
     }
 
+    const escaped = escapeRegex(q);
     const channels = await Channel.find({
       $or: [
-        { channelName: { $regex: q, $options: 'i' } },
-        { channelGroup: { $regex: q, $options: 'i' } },
-        { channelId: { $regex: q, $options: 'i' } }
-      ]
+        { channelName: { $regex: escaped, $options: 'i' } },
+        { channelGroup: { $regex: escaped, $options: 'i' } },
+        { channelId: { $regex: escaped, $options: 'i' } },
+      ],
     })
       .sort({ channelGroup: 1, order: 1 })
-      .select('-__v -createdAt -updatedAt')
+      .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
 
-    res.json({
-      success: true,
-      count: channels.length,
-      data: channels
-    });
+    res.json({ success: true, count: channels.length, data: channels });
   } catch (error) {
     console.error('Error searching channels:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to search channels'
-    });
+    res.status(500).json({ success: false, error: 'Failed to search channels' });
+  }
+});
+
+// Get test status (must be BEFORE /:id to avoid route shadowing)
+router.get('/test-status', requireAuth, async (req, res) => {
+  try {
+    res.json({ success: true, isLocked: false });
+  } catch (_error) {
+    res.status(500).json({ success: false, error: 'Failed to check test status' });
   }
 });
 
 // Get channel by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const channel = await Channel.findById(req.params.id).lean();
-
+    const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
     if (!channel) {
-      return res.status(404).json({
-        success: false,
-        error: 'Channel not found'
-      });
+      return res.status(404).json({ success: false, error: 'Channel not found' });
     }
-
-    res.json({
-      success: true,
-      data: channel
-    });
+    res.json({ success: true, data: channel });
   } catch (error) {
     console.error('Error fetching channel:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch channel'
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch channel' });
   }
 });
 
-// Create new channel
-router.post('/', async (req, res) => {
+// Create new channel (admin only, field whitelist)
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const channelData = req.body;
-    
-    // Check if channel with same ID already exists
-    if (channelData.channelId) {
-      const existing = await Channel.findOne({ channelId: channelData.channelId });
+    const {
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
+    } = req.body;
+
+    if (channelId) {
+      const existing = await Channel.findOne({ channelId });
       if (existing) {
-        return res.status(400).json({
-          success: false,
-          error: 'Channel with this ID already exists'
-        });
+        return res
+          .status(400)
+          .json({ success: false, error: 'Channel with this ID already exists' });
       }
     }
 
-    const channel = new Channel(channelData);
-    await channel.save();
-
-    res.status(201).json({
-      success: true,
-      data: channel
+    const channel = new Channel({
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
     });
+    await channel.save();
+    audit({
+      userId: req.user.id,
+      action: 'create_channel',
+      resource: 'channel',
+      resourceId: String(channel._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.status(201).json({ success: true, data: channel });
   } catch (error) {
     console.error('Error creating channel:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create channel'
-    });
+    res.status(500).json({ success: false, error: 'Failed to create channel' });
   }
 });
 
-// Update channel
-router.put('/:id', async (req, res) => {
+// Update channel (admin only, field whitelist)
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const {
+      channelId,
+      channelName,
+      channelUrl,
+      channelImg,
+      tvgLogo,
+      tvgName,
+      tvgId,
+      channelGroup,
+      channelDrmKey,
+      order,
+      isActive,
+      metadata,
+    } = req.body;
+
+    const allowedUpdates = {};
+    if (channelId !== undefined) allowedUpdates.channelId = channelId;
+    if (channelName !== undefined) allowedUpdates.channelName = channelName;
+    if (channelUrl !== undefined) allowedUpdates.channelUrl = channelUrl;
+    if (channelImg !== undefined) allowedUpdates.channelImg = channelImg;
+    if (tvgLogo !== undefined) allowedUpdates.tvgLogo = tvgLogo;
+    if (tvgName !== undefined) allowedUpdates.tvgName = tvgName;
+    if (tvgId !== undefined) allowedUpdates.tvgId = tvgId;
+    if (channelGroup !== undefined) allowedUpdates.channelGroup = channelGroup;
+    if (channelDrmKey !== undefined) allowedUpdates.channelDrmKey = channelDrmKey;
+    if (order !== undefined) allowedUpdates.order = order;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (metadata !== undefined) allowedUpdates.metadata = metadata;
+
     const channel = await Channel.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
+      { $set: allowedUpdates },
+      { new: true, runValidators: true },
     );
 
     if (!channel) {
-      return res.status(404).json({
-        success: false,
-        error: 'Channel not found'
-      });
+      return res.status(404).json({ success: false, error: 'Channel not found' });
     }
-
-    res.json({
-      success: true,
-      data: channel
+    audit({
+      userId: req.user.id,
+      action: 'update_channel',
+      resource: 'channel',
+      resourceId: String(channel._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     });
+    res.json({ success: true, data: channel });
   } catch (error) {
     console.error('Error updating channel:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update channel'
-    });
+    res.status(500).json({ success: false, error: 'Failed to update channel' });
   }
 });
 
-// Delete channel
-router.delete('/:id', async (req, res) => {
+// Delete channel (admin only)
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const channel = await Channel.findByIdAndDelete(req.params.id);
-
     if (!channel) {
-      return res.status(404).json({
-        success: false,
-        error: 'Channel not found'
-      });
+      return res.status(404).json({ success: false, error: 'Channel not found' });
     }
-
-    res.json({
-      success: true,
-      message: 'Channel deleted successfully'
+    audit({
+      userId: req.user.id,
+      action: 'delete_channel',
+      resource: 'channel',
+      resourceId: req.params.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     });
+    res.json({ success: true, message: 'Channel deleted successfully' });
   } catch (error) {
     console.error('Error deleting channel:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete channel'
-    });
+    res.status(500).json({ success: false, error: 'Failed to delete channel' });
   }
 });
 
-// Test channel stream
-router.post('/:id/test', async (req, res) => {
+// Test channel stream (admin only, with SSRF protection)
+router.post('/:id/test', requireAuth, requireAdmin, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id);
-
     if (!channel) {
-      return res.status(404).json({
-        success: false,
-        error: 'Channel not found'
-      });
+      return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
-    // Test the channel stream
+    const ssrfCheck = await validateUrlForSSRF(channel.channelUrl);
+    if (!ssrfCheck.safe) {
+      return res
+        .status(403)
+        .json({ success: false, error: 'Stream URL blocked by security policy' });
+    }
+
     const axios = require('axios');
     let isWorking = false;
     let error = null;
@@ -271,16 +295,23 @@ router.post('/:id/test', async (req, res) => {
       const response = await axios.head(channel.channelUrl, {
         timeout: 10000,
         maxRedirects: 5,
-        validateStatus: (status) => status < 500
+        validateStatus: (status) => status < 500,
+        beforeRedirect: (options) => {
+          const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
+          if (
+            isPrivateIP(hostname) ||
+            ['localhost', 'metadata.google.internal'].includes(hostname.toLowerCase())
+          ) {
+            throw new Error('Redirect to private/internal address blocked');
+          }
+        },
       });
-      
       isWorking = response.status >= 200 && response.status < 400;
     } catch (err) {
       error = err.message;
       isWorking = false;
     }
 
-    // Update channel test status
     channel.metadata = channel.metadata || {};
     channel.metadata.isWorking = isWorking;
     channel.metadata.lastTested = new Date();
@@ -289,8 +320,15 @@ router.post('/:id/test', async (req, res) => {
     } else {
       delete channel.metadata.testError;
     }
-    
     await channel.save();
+    audit({
+      userId: req.user.id,
+      action: 'test_channel',
+      resource: 'channel',
+      resourceId: String(channel._id),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       success: true,
@@ -299,32 +337,12 @@ router.post('/:id/test', async (req, res) => {
         channelName: channel.channelName,
         isWorking,
         testedAt: channel.metadata.lastTested,
-        error: error || undefined
-      }
+        error: error || undefined,
+      },
     });
   } catch (error) {
     console.error('Error testing channel:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to test channel'
-    });
-  }
-});
-
-// Get test status (for lock checking)
-router.get('/test-status', async (req, res) => {
-  try {
-    // Simple implementation - can be enhanced with Redis for multi-instance deployments
-    res.json({
-      success: true,
-      isLocked: false
-    });
-  } catch (error) {
-    console.error('Error checking test status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to check test status'
-    });
+    res.status(500).json({ success: false, error: 'Failed to test channel' });
   }
 });
 

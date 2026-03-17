@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 
 interface Channel {
   _id: string;
@@ -35,7 +36,7 @@ export default function UserChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [allChannels, setAllChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
   const [showAdd, setShowAdd] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -139,8 +140,8 @@ export default function UserChannelsPage() {
 
   const filtered = channels.filter(
     (c) =>
-      getName(c).toLowerCase().includes(search.toLowerCase()) ||
-      c.channelGroup?.toLowerCase().includes(search.toLowerCase()),
+      getName(c).toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      c.channelGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const myIds = new Set(channels.map((c) => c._id));
@@ -161,7 +162,7 @@ export default function UserChannelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between animate-fade-up">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Channels</h1>
           <p className="text-sm text-muted-foreground mt-1">{channels.length} channels</p>
@@ -169,7 +170,7 @@ export default function UserChannelsPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/user/quick-pick"
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-all hover:bg-primary/20"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
           >
             <Zap className="h-4 w-4" /> Quick Pick
           </Link>
@@ -186,7 +187,7 @@ export default function UserChannelsPage() {
             <>
               <button
                 onClick={handleCopyM3U}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 uppercase tracking-[0.1em]"
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-signal-green" />
@@ -197,7 +198,7 @@ export default function UserChannelsPage() {
               </button>
               <button
                 onClick={handleRemoveAll}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-destructive/30 bg-card shadow-sm transition-all hover:border-destructive/60 text-destructive uppercase tracking-[0.1em]"
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-destructive/30 bg-card shadow-sm transition-colors hover:border-destructive/60 text-destructive uppercase tracking-[0.1em]"
               >
                 <Trash2 className="h-4 w-4" /> Clear All
               </button>
@@ -207,10 +208,10 @@ export default function UserChannelsPage() {
       </div>
 
       {showAdd && (
-        <div className="border-2 border-primary/30 bg-card p-5 space-y-4 animate-fade-up">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium">
+        <div className="border-2 border-primary/30 bg-card p-5 space-y-4">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium">
             Add Channels to Your List
-          </p>
+          </h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -218,7 +219,8 @@ export default function UserChannelsPage() {
               placeholder="Search available channels..."
               value={addSearch}
               onChange={(e) => setAddSearch(e.target.value)}
-              className="w-full h-10 pl-10 pr-4 border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="w-full h-10 pl-10 pr-4 border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+              aria-label="Search available channels"
             />
           </div>
           <div className="max-h-64 overflow-y-auto border border-border divide-y divide-border">
@@ -273,26 +275,24 @@ export default function UserChannelsPage() {
         </div>
       )}
 
-      <div className="relative animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search my channels..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+          aria-label="Search channels"
         />
       </div>
 
-      <div
-        className="border border-border divide-y divide-border animate-fade-up"
-        style={{ animationDelay: '100ms' }}
-      >
+      <div className="border border-border divide-y divide-border">
         {filtered.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {search
+            {debouncedSearch
               ? 'No channels match your search'
-              : 'No channels in your list yet. Click "Add" to get started.'}
+              : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'}
           </div>
         ) : (
           filtered.map((ch) => (
@@ -300,7 +300,10 @@ export default function UserChannelsPage() {
               {getLogo(ch) ? (
                 <img
                   src={proxyImageUrl(getLogo(ch)!)}
-                  alt=""
+                  alt={getName(ch)}
+                  loading="lazy"
+                  width={28}
+                  height={28}
                   className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                 />
               ) : (
@@ -314,15 +317,21 @@ export default function UserChannelsPage() {
                 {ch.metadata?.isWorking !== undefined && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${ch.metadata.isWorking ? 'bg-signal-green' : 'bg-signal-red'}`}
+                    aria-hidden="true"
                   />
                 )}
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {ch.metadata?.isWorking === true
                     ? 'Working'
                     : ch.metadata?.isWorking === false
                       ? 'Not Working'
                       : ''}
                 </span>
+                {ch.metadata?.isWorking !== undefined && (
+                  <span className="sr-only">
+                    {ch.metadata.isWorking ? 'Stream is working' : 'Stream is not working'}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => playStream({ name: getName(ch), url: getChannelUrl(ch) })}

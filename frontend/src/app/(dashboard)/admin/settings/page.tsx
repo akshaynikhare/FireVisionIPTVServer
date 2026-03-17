@@ -42,8 +42,8 @@ export default function SettingsPage() {
             `${window.location.origin}/api/v1/channels/playlist.m3u?code=${config.defaultTvCode}`,
           );
         }
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error('Failed to load settings data:', err);
       } finally {
         setLoading(false);
       }
@@ -68,8 +68,8 @@ export default function SettingsPage() {
           })),
         );
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('Failed to fetch cache status:', err);
     }
   }
 
@@ -109,60 +109,60 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Server configuration and info</p>
       </div>
 
       {info && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+        <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Server Info
-            </p>
+            </h2>
           </div>
-          <div className="divide-y divide-border">
+          <dl className="divide-y divide-border">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Name</span>
-              <span className="text-sm font-medium">{info.name}</span>
+              <dt className="text-sm text-muted-foreground">Name</dt>
+              <dd className="text-sm font-medium">{info.name}</dd>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Version</span>
-              <span className="text-sm font-medium">{info.version}</span>
+              <dt className="text-sm text-muted-foreground">Version</dt>
+              <dd className="text-sm font-medium">{info.version}</dd>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Status</span>
-              <div className="flex items-center gap-1.5">
+              <dt className="text-sm text-muted-foreground">Status</dt>
+              <dd className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
                 <span className="text-sm font-medium capitalize">{info.status}</span>
-              </div>
+              </dd>
             </div>
             {info.features && Object.keys(info.features).length > 0 && (
               <div className="px-4 py-3">
-                <p className="text-sm text-muted-foreground mb-2">Features</p>
-                <div className="flex flex-wrap gap-2">
+                <dt className="text-sm text-muted-foreground mb-2">Features</dt>
+                <dd className="flex flex-wrap gap-2">
                   {Object.entries(info.features).map(([key, enabled]) => (
                     <span
                       key={key}
-                      className={`text-[11px] uppercase tracking-[0.1em] px-2 py-1 border border-border ${enabled ? 'bg-muted/50' : 'bg-muted/20 line-through text-muted-foreground/50'}`}
+                      className={`text-xs uppercase tracking-[0.1em] px-2 py-1 border border-border ${enabled ? 'bg-muted/50' : 'bg-muted/20 line-through text-muted-foreground/50'}`}
                     >
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </span>
                   ))}
-                </div>
+                </dd>
               </div>
             )}
-          </div>
+          </dl>
         </div>
       )}
 
       {/* Global M3U Playlist */}
       {playlistUrl && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '75ms' }}>
+        <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Global Playlist
-            </p>
+            </h2>
           </div>
           <div className="px-4 py-4 space-y-3">
             <p className="text-sm text-muted-foreground">
@@ -174,6 +174,7 @@ export default function SettingsPage() {
               </code>
               <button
                 onClick={handleCopy}
+                aria-label="Copy to clipboard"
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors shrink-0"
               >
                 {copied ? (
@@ -189,11 +190,11 @@ export default function SettingsPage() {
       )}
 
       {/* Session Management */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Session Management
-          </p>
+          </h2>
         </div>
         <div className="px-4 py-4">
           <p className="text-sm text-muted-foreground mb-3">
@@ -208,7 +209,7 @@ export default function SettingsPage() {
                 toast('Failed to clean up sessions', 'error');
               }
             }}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md active:shadow-none active:bg-muted"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 active:bg-muted"
           >
             Clean Up Expired Sessions
           </button>
@@ -216,15 +217,16 @@ export default function SettingsPage() {
       </div>
 
       {/* IPTV-Org Cache Management */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             IPTV-Org Cache
-          </p>
+          </h2>
           <button
             onClick={handleClearCache}
             disabled={cacheLoading}
-            className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-destructive hover:text-destructive/80 transition-colors font-medium disabled:opacity-50"
+            aria-label="Clear IPTV-Org cache"
+            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.1em] text-destructive hover:text-destructive/80 transition-colors font-medium disabled:opacity-50"
           >
             {cacheLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -250,7 +252,7 @@ export default function SettingsPage() {
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${entry.cached ? 'bg-signal-green' : 'bg-muted-foreground/30'}`}
                     />
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {entry.cached ? 'Cached' : 'Empty'}
                     </span>
                   </div>

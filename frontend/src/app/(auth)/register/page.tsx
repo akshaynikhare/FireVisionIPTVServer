@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function RegisterPage() {
@@ -10,11 +11,19 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
@@ -38,52 +47,78 @@ export default function RegisterPage() {
       <div className="hidden lg:flex lg:w-[420px] flex-col justify-between border-r border-border bg-card p-10">
         <div>
           <Link href="/" className="inline-block">
-            <h2 className="text-lg font-display font-bold tracking-tight">
+            <span className="text-lg font-display font-bold tracking-tight">
               FIRE<span className="text-primary">VISION</span>
-            </h2>
+            </span>
           </Link>
-          <div className="w-8 h-[2px] bg-primary mt-4" />
-          <p className="mt-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
             IPTV Management Console
           </p>
+
+          <div className="mt-10 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                01
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Stream Management</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Import, organize, and monitor live IPTV channels with real-time health checks.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                02
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Device Provisioning</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Pair and manage connected devices across your network with ease.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                03
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">EPG & Scheduling</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Deliver electronic program guides and schedule content for your viewers.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse-dot" />
-            <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-              System Active
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Create an account to access stream management and device provisioning tools.
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Create an account to access stream management and device provisioning tools.
+        </p>
       </div>
 
       <div className="flex-1 flex items-center justify-center px-6 bg-background">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-10">
             <Link href="/">
-              <h2 className="text-lg font-display font-bold tracking-tight">
+              <span className="text-lg font-display font-bold tracking-tight">
                 FIRE<span className="text-primary">VISION</span>
-              </h2>
+              </span>
             </Link>
-            <div className="w-8 h-[2px] bg-primary mt-3" />
           </div>
 
-          <div className="mb-8 animate-fade-up">
-            <h1 className="text-xl font-display font-bold uppercase tracking-[0.1em]">Register</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Create a new operator account</p>
+          <div className="mb-8">
+            <h1 className="text-xl font-display font-bold uppercase tracking-wider">Register</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Set up your operator account</p>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5 animate-fade-up"
-            style={{ animationDelay: '50ms' }}
-          >
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+              >
                 {error}
               </div>
             )}
@@ -91,7 +126,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="username"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
               >
                 Username
               </label>
@@ -108,15 +143,16 @@ export default function RegisterPage() {
                 minLength={3}
                 maxLength={50}
                 autoComplete="username"
-                className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-                placeholder="Choose a username"
+                aria-required="true"
+                className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
+                aria-label="Username"
               />
             </div>
 
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
               >
                 Email
               </label>
@@ -131,56 +167,130 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
                 autoComplete="email"
-                className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-                placeholder="Enter your email"
+                aria-required="true"
+                className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
+                aria-label="Email address"
               />
             </div>
 
             <div className="space-y-1.5">
               <label
                 htmlFor="password"
-                className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
               >
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  clearError();
-                }}
-                required
-                disabled={loading}
-                minLength={8}
-                autoComplete="new-password"
-                className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-                placeholder="Min. 8 characters"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearError();
+                  }}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-required="true"
+                  className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
+                  placeholder="8+ characters"
+                  aria-label="Password"
+                  aria-describedby="password-hint"
+                />
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  )}
+                </button>
+              </div>
+              <p id="password-hint" className="text-xs text-muted-foreground mt-1">
+                Minimum 8 characters
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="confirmPassword"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    clearError();
+                  }}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-required="true"
+                  className={`flex h-10 w-full border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground ${
+                    confirmPassword && confirmPassword !== password
+                      ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive'
+                      : 'border-border'
+                  }`}
+                  placeholder="Re-enter your password"
+                  aria-label="Confirm password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={
+                    showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                  }
+                  title={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  )}
+                </button>
+              </div>
+              {confirmPassword && confirmPassword !== password && (
+                <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex h-10 w-full items-center justify-center bg-primary text-sm font-semibold text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:pointer-events-none disabled:opacity-50"
+              aria-busy={loading}
+              className="flex h-10 w-full items-center justify-center bg-primary text-sm font-semibold text-primary-foreground uppercase tracking-wider transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:pointer-events-none disabled:opacity-50"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-6 space-y-3 animate-fade-up" style={{ animationDelay: '100ms' }}>
+          <div className="mt-6 space-y-3">
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-border" />
               </div>
-              <span className="relative bg-background px-3 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              <span className="relative bg-background px-3 text-xs text-muted-foreground">
                 Or sign up with
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <a
                 href="/api/v1/auth/google"
+                aria-label="Sign up with Google"
                 className="flex h-10 items-center justify-center gap-2 border border-border bg-card text-sm font-medium transition-colors hover:bg-muted"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -205,6 +315,7 @@ export default function RegisterPage() {
               </a>
               <a
                 href="/api/v1/auth/github"
+                aria-label="Sign up with GitHub"
                 className="flex h-10 items-center justify-center gap-2 border border-border bg-card text-sm font-medium transition-colors hover:bg-muted"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -215,10 +326,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <p
-            className="mt-6 text-sm text-muted-foreground animate-fade-up"
-            style={{ animationDelay: '150ms' }}
-          >
+          <p className="mt-6 text-sm text-muted-foreground">
             Already registered?{' '}
             <Link
               href="/login"

@@ -1,0 +1,35 @@
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy workspace root and package files
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install all dependencies
+RUN npm ci --ignore-scripts && npm cache clean --force
+
+# Build shared package
+COPY packages/shared/tsconfig.json ./packages/shared/
+COPY packages/shared/src ./packages/shared/src
+RUN npx -w @firevision/shared tsc
+
+# Copy frontend source and build
+COPY frontend/ ./frontend/
+RUN npm run build -w @firevision/frontend
+
+# --- Production stage ---
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy standalone output from Next.js build
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
+COPY --from=builder /app/frontend/public ./frontend/public
+
+EXPOSE 3000
+
+# Next.js standalone server
+CMD ["node", "frontend/server.js"]

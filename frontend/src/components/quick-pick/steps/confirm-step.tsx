@@ -120,7 +120,7 @@ export function ConfirmStep({
   // Success state
   if (result?.success) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-4 animate-fade-up">
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
         <CheckCircle className="h-12 w-12 text-primary" />
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Channels Added!
@@ -129,7 +129,7 @@ export function ConfirmStep({
         <div className="flex items-center gap-3 mt-4">
           <button
             onClick={onReset}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Pick More
           </button>
@@ -146,9 +146,9 @@ export function ConfirmStep({
   }
 
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 6</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 6</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Confirm Selection
         </h2>
@@ -158,7 +158,10 @@ export function ConfirmStep({
       </div>
 
       {result && !result.success && (
-        <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           {result.message}
         </div>
       )}
@@ -168,30 +171,40 @@ export function ConfirmStep({
         {Object.entries(groupedBySource).map(([source, channels]) => (
           <div key={source} className="border border-border">
             <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50">
-              <span className="text-xs font-medium uppercase tracking-[0.1em]">
+              <h3 className="text-xs font-medium uppercase tracking-[0.1em]">
                 {SOURCE_LABELS[source] || source}
-              </span>
+              </h3>
               <span className="text-xs text-muted-foreground">
                 {channels.length} channel{channels.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="divide-y divide-border max-h-[200px] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[40vh] sm:max-h-[200px] overflow-y-auto">
               {channels.map((ch) => (
                 <div key={ch.uid} className="flex items-center gap-3 px-4 py-2">
                   {ch.tvgLogo ? (
                     <img
                       src={proxyImageUrl(ch.tvgLogo)}
-                      alt=""
+                      alt={ch.channelName}
+                      loading="lazy"
+                      width={24}
+                      height={24}
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        const img = e.target as HTMLImageElement;
+                        const fallback = document.createElement('div');
+                        fallback.className =
+                          'h-6 w-6 rounded-sm bg-muted shrink-0 flex items-center justify-center text-xs font-bold text-muted-foreground';
+                        fallback.textContent = ch.channelName.charAt(0).toUpperCase();
+                        img.parentElement?.replaceChild(fallback, img);
                       }}
                     />
                   ) : (
-                    <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
+                    <div className="h-6 w-6 rounded-sm bg-muted shrink-0 flex items-center justify-center text-xs font-bold text-muted-foreground">
+                      {ch.channelName.charAt(0).toUpperCase()}
+                    </div>
                   )}
                   <span className="text-sm truncate flex-1">{ch.channelName}</span>
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
+                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
                     {ch.groupTitle}
                   </span>
                 </div>
@@ -201,7 +214,7 @@ export function ConfirmStep({
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-2" aria-live="polite">
         <p className="text-sm font-medium">
           Total: {selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''}
         </p>

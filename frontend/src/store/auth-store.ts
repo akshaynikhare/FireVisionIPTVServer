@@ -66,9 +66,6 @@ export const useAuthStore = create<AuthState>()(
       name: 'firevision-auth',
       partialize: (state) => ({
         user: state.user,
-        sessionId: state.sessionId,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     },

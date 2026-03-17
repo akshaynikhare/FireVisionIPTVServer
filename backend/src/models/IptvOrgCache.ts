@@ -1,4 +1,4 @@
-import mongoose, { Schema, Model } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import { IIptvOrgCacheMetaDocument, IIptvOrgChannelDocument } from '@firevision/shared';
 
 // ─── Cache Metadata (singleton) ───────────────────────────

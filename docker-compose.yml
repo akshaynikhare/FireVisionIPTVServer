@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MongoDB Database
   mongodb:
@@ -53,6 +51,17 @@ services:
     networks:
       - firevision-network
 
+  # MailHog (email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: firevision-mailhog
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:1025:1025' # SMTP
+      - '127.0.0.1:8025:8025' # Web UI
+    networks:
+      - firevision-network
+
   # Node.js API Server
   api:
     build:
@@ -67,7 +76,6 @@ services:
       PORT: 3000
       MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
       REDIS_URL: redis://redis:6379
-      API_KEY: ${API_KEY:-change-this-secret-key}
       ALLOWED_ORIGINS: '*'
       UPLOAD_DIR: /app/uploads
       # Super Admin Initial Credentials
@@ -78,10 +86,15 @@ services:
       FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
       # Session Configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
+      # Email
+      MAIL_PROVIDER: mailhog
+      MAILHOG_HOST: mailhog
+      MAILHOG_PORT: 1025
+      MAIL_FROM: noreply@firevision.local
+      APP_URL: http://localhost:8009
     volumes:
       - ./backend/src:/app/backend/src
       - ./packages/shared/src:/app/packages/shared/src
-      - ./public:/app/public
       - ./uploads:/app/uploads
     depends_on:
       mongodb:
@@ -96,12 +109,33 @@ services:
           'CMD',
           'node',
           '-e',
-          "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+          "require('http').get('http://127.0.0.1:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
         ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend.dev
+    container_name: firevision-frontend
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3000
+      WATCHPACK_POLLING: 'true'
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/public:/app/frontend/public
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - firevision-network
 
 volumes:
   mongodb_data:

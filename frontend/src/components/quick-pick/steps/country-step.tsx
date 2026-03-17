@@ -45,6 +45,12 @@ interface Region {
   channelCount?: number;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  'iptv-org': 'IPTV-org',
+  'pluto-tv': 'Pluto TV',
+  'samsung-tv-plus': 'Samsung TV Plus',
+};
+
 interface CountryStepProps {
   selectedSources: SourceType[];
   countrySelections: Record<string, string>;
@@ -104,12 +110,6 @@ export function CountryStep({
     fetchRegions();
   }, [selectedSources]);
 
-  const SOURCE_LABELS: Record<string, string> = {
-    'iptv-org': 'IPTV-org',
-    'pluto-tv': 'Pluto TV',
-    'samsung-tv-plus': 'Samsung TV Plus',
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -120,9 +120,9 @@ export function CountryStep({
   }
 
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-6">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 2</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 2</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Select Country / Region
         </h2>
@@ -145,9 +145,9 @@ export function CountryStep({
 
         return (
           <div key={source} className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {SOURCE_LABELS[source]}
-            </p>
+            </h3>
 
             {sourceRegions.length > 8 && (
               <div className="relative">
@@ -155,23 +155,29 @@ export function CountryStep({
                 <input
                   type="text"
                   placeholder="Search countries..."
+                  aria-label="Search countries"
                   value={search}
                   onChange={(e) =>
                     setSearchTerms((prev) => ({ ...prev, [source]: e.target.value }))
                   }
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
             )}
 
-            <div className="flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto">
+            <div
+              className="flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto"
+              role="group"
+              aria-label={`${SOURCE_LABELS[source]} country selection`}
+            >
               {filtered.map((r) => {
                 const isActive = selected === r.code;
                 return (
                   <button
                     key={r.code}
                     onClick={() => onSetCountry(source, isActive ? '' : r.code)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border transition-all ${
+                    aria-pressed={isActive}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs border transition-colors ${
                       isActive
                         ? 'border-primary bg-primary/10 text-primary font-medium'
                         : 'border-border bg-card hover:border-primary/40'

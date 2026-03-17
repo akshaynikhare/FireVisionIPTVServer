@@ -127,7 +127,7 @@ export default function AdminSourcesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Other Sources</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Import channels from free, ad-supported streaming services
@@ -135,16 +135,15 @@ export default function AdminSourcesPage() {
       </div>
 
       {/* Tabs */}
-      <div
-        className="flex gap-1 border-b border-border animate-fade-up"
-        style={{ animationDelay: '50ms' }}
-      >
+      <div role="tablist" className="flex gap-1 border-b border-border">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium uppercase tracking-[0.1em] transition-colors border-b-2 -mb-px ${
                 isActive
@@ -160,7 +159,7 @@ export default function AdminSourcesPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div role="tabpanel">
         {activeTab === 'pluto-tv' && <PlutoTVTab onPlay={handlePlay} onDetail={setDetailChannel} />}
         {activeTab === 'samsung-tv-plus' && (
           <SamsungTVPlusTab onPlay={handlePlay} onDetail={setDetailChannel} />
@@ -223,9 +222,7 @@ function PlutoTVTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Select Region
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Select Region</p>
       </div>
       {regionsLoading ? (
         <Spinner />
@@ -235,7 +232,7 @@ function PlutoTVTab({
             <button
               key={r.code}
               onClick={() => fetchChannels(r.code)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
                 selectedRegion === r.code && channels.length > 0
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
@@ -307,9 +304,7 @@ function SamsungTVPlusTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Select Region
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Select Region</p>
       </div>
       {regionsLoading ? (
         <Spinner />
@@ -319,7 +314,7 @@ function SamsungTVPlusTab({
             <button
               key={r.code}
               onClick={() => fetchChannels(r.code)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
                 selectedRegion === r.code && channels.length > 0
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
@@ -446,6 +441,7 @@ function ChannelDataTable({
     try {
       await api.post('/external-sources/check-liveness', { source, region });
       // Start polling
+      if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(fetchLivenessStats, 5000);
     } catch {
       setBatchTesting(false);
@@ -611,6 +607,8 @@ function ChannelDataTable({
         tvgLogo: c.tvgLogo || '',
         groupTitle: c.groupTitle || 'Imported',
         channelId: c.channelId || '',
+        country: c.country || '',
+        language: c.language || '',
       }));
 
     try {
@@ -657,7 +655,8 @@ function ChannelDataTable({
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            aria-label="Search channels"
+            className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -698,7 +697,7 @@ function ChannelDataTable({
 
       {/* Selection bar */}
       <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {filtered.length} channels
           {filtered.length !== channels.length &&
             ` (filtered from ${channels.length})`} &middot;{' '}
@@ -707,26 +706,26 @@ function ChannelDataTable({
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={selectPage}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Select Page
           </button>
           <button
             onClick={unselectPage}
-            className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
           >
             Unselect Page
           </button>
           <span className="w-px h-4 bg-border" />
           <button
             onClick={selectAllFiltered}
-            className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Select All ({filtered.length})
           </button>
           <button
             onClick={unselectAll}
-            className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
           >
             Unselect All
           </button>
@@ -740,215 +739,248 @@ function ChannelDataTable({
       )}
 
       {/* Table */}
-      <div className="border border-border">
-        {/* Header */}
-        <div
-          className={`hidden lg:grid gap-2 px-4 py-2 bg-muted/50 border-b border-border ${disableLiveness ? 'grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'}`}
-        >
-          <div className="flex items-center justify-center">
-            <button
-              onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Toggle page selection"
-            >
-              {pageAllSelected ? (
-                <CheckSquare className="h-4 w-4 text-primary" />
-              ) : (
-                <Square className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-          <span />
-          <button
-            onClick={() => handleSort('name')}
-            className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+      <div className="overflow-x-auto">
+        <div role="table" aria-label="Channel management table" className="border border-border">
+          {/* Header */}
+          <div
+            role="rowgroup"
+            className={`hidden lg:grid gap-2 px-4 py-2 bg-muted/50 border-b border-border ${disableLiveness ? 'grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'}`}
           >
-            Name <SortIcon field="name" />
-          </button>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleSort('category')}
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-            >
-              Category <SortIcon field="category" />
-            </button>
-            <ColumnFilter
-              label=""
-              options={categoryOptions}
-              selected={selectedCategories}
-              onChange={(v) => {
-                setSelectedCategories(v);
-                setPage(1);
-              }}
-              searchable
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleSort('country')}
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-            >
-              Country <SortIcon field="country" />
-            </button>
-            <ColumnFilter
-              label=""
-              options={countryOptions}
-              selected={selectedCountries}
-              onChange={(v) => {
-                setSelectedCountries(v);
-                setPage(1);
-              }}
-              searchable
-            />
-          </div>
-          {!disableLiveness && (
-            <ColumnFilter
-              label="Status"
-              options={['alive', 'dead', 'unknown']}
-              selected={selectedStatuses}
-              onChange={(v) => {
-                setSelectedStatuses(v);
-                setPage(1);
-              }}
-            />
-          )}
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium text-right">
-            Actions
-          </span>
-        </div>
-
-        {/* Rows */}
-        <div className="divide-y divide-border">
-          {paginated.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {search ? 'No channels match your search' : 'No channels found'}
+            <div role="columnheader" className="flex items-center justify-center">
+              <button
+                onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Toggle page selection"
+              >
+                {pageAllSelected ? (
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+              </button>
             </div>
-          ) : (
-            paginated.map((ch) => {
-              const key = getKey(ch);
-              const isSelected = selectedIds.has(key);
-              const status = ch.liveness?.status || 'unknown';
-              return (
-                <div
-                  key={key}
-                  className={`grid ${disableLiveness ? 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'} gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
-                    isSelected ? 'bg-primary/5' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-center">
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={isSelected}
-                      onClick={() => toggleOne(ch)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {isSelected ? (
-                        <CheckSquare className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Square className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+            <span role="columnheader" />
+            <button
+              role="columnheader"
+              onClick={() => handleSort('name')}
+              aria-label="Sort by name"
+              aria-sort={
+                sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+              }
+              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+            >
+              Name <SortIcon field="name" />
+            </button>
+            <div
+              role="columnheader"
+              aria-sort={
+                sortField === 'category' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+              }
+              className="flex items-center gap-1"
+            >
+              <button
+                onClick={() => handleSort('category')}
+                aria-label="Sort by category"
+                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+              >
+                Category <SortIcon field="category" />
+              </button>
+              <ColumnFilter
+                label=""
+                options={categoryOptions}
+                selected={selectedCategories}
+                onChange={(v) => {
+                  setSelectedCategories(v);
+                  setPage(1);
+                }}
+                searchable
+              />
+            </div>
+            <div
+              role="columnheader"
+              aria-sort={
+                sortField === 'country' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+              }
+              className="flex items-center gap-1"
+            >
+              <button
+                onClick={() => handleSort('country')}
+                aria-label="Sort by country"
+                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+              >
+                Country <SortIcon field="country" />
+              </button>
+              <ColumnFilter
+                label=""
+                options={countryOptions}
+                selected={selectedCountries}
+                onChange={(v) => {
+                  setSelectedCountries(v);
+                  setPage(1);
+                }}
+                searchable
+              />
+            </div>
+            {!disableLiveness && (
+              <span role="columnheader">
+                <ColumnFilter
+                  label="Status"
+                  options={['alive', 'dead', 'unknown']}
+                  selected={selectedStatuses}
+                  onChange={(v) => {
+                    setSelectedStatuses(v);
+                    setPage(1);
+                  }}
+                />
+              </span>
+            )}
+            <span
+              role="columnheader"
+              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+            >
+              Actions
+            </span>
+          </div>
 
-                  <div>
-                    {ch.tvgLogo ? (
-                      <img
-                        src={proxyImageUrl(ch.tvgLogo)}
-                        alt=""
-                        className="h-7 w-7 rounded-sm object-contain bg-muted"
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          if (!img.dataset.fallback && ch.tvgLogo && isSafeImageUrl(ch.tvgLogo)) {
-                            img.dataset.fallback = '1';
-                            img.src = ch.tvgLogo;
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="h-7 w-7 rounded-sm bg-muted" />
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <span className="text-sm font-medium truncate block">{ch.channelName}</span>
-                    {ch.summary && (
-                      <span className="text-[11px] text-muted-foreground truncate block">
-                        {ch.summary}
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="text-xs text-muted-foreground truncate">
-                    {ch.groupTitle || '—'}
-                  </span>
-
-                  <span className="text-xs text-muted-foreground truncate">
-                    {ch.country || '—'}
-                  </span>
-
-                  {/* Status badge + test button */}
-                  {!disableLiveness && (
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 ${
-                          status === 'alive'
-                            ? 'text-signal-green bg-signal-green/10'
-                            : status === 'dead'
-                              ? 'text-signal-red bg-signal-red/10'
-                              : 'text-muted-foreground bg-muted'
-                        }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            status === 'alive'
-                              ? 'bg-signal-green'
-                              : status === 'dead'
-                                ? 'bg-signal-red'
-                                : 'bg-muted-foreground'
-                          }`}
-                        />
-                        {status}
-                      </span>
+          {/* Rows */}
+          <div role="rowgroup" className="divide-y divide-border">
+            {paginated.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                {search ? 'No channels match your search' : 'No channels found'}
+              </div>
+            ) : (
+              paginated.map((ch) => {
+                const key = getKey(ch);
+                const isSelected = selectedIds.has(key);
+                const status = ch.liveness?.status || 'unknown';
+                return (
+                  <div
+                    key={key}
+                    role="row"
+                    className={`grid ${disableLiveness ? 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px]' : 'lg:grid-cols-[40px,44px,1fr,180px,120px,100px,100px]'} gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                      isSelected ? 'bg-primary/5' : ''
+                    }`}
+                  >
+                    <div role="cell" className="flex items-center justify-center">
                       <button
-                        onClick={() => handleTestChannel(ch)}
-                        disabled={testingChannelId === ch._uid}
-                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                        title="Test stream"
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        onClick={() => toggleOne(ch)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {testingChannelId === ch._uid ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                        {isSelected ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
                         ) : (
-                          <Zap className="h-3 w-3" />
+                          <Square className="h-4 w-4" />
                         )}
                       </button>
                     </div>
-                  )}
 
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => onDetail(ch)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="View details"
-                      title="Channel info"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    {ch.channelUrl && (
-                      <button
-                        onClick={() => onPlay(ch)}
-                        className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
-                        aria-label="Preview stream"
-                        title="Preview stream"
-                      >
-                        <Play className="h-4 w-4" />
-                      </button>
+                    <div role="cell">
+                      {ch.tvgLogo ? (
+                        <img
+                          src={proxyImageUrl(ch.tvgLogo)}
+                          alt={`${ch.channelName} logo`}
+                          loading="lazy"
+                          className="h-7 w-7 rounded-sm object-contain bg-muted"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (!img.dataset.fallback && ch.tvgLogo && isSafeImageUrl(ch.tvgLogo)) {
+                              img.dataset.fallback = '1';
+                              img.src = ch.tvgLogo;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="h-7 w-7 rounded-sm bg-muted" />
+                      )}
+                    </div>
+
+                    <div role="cell" className="min-w-0">
+                      <span className="text-sm font-medium truncate block">{ch.channelName}</span>
+                      {ch.summary && (
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {ch.summary}
+                        </span>
+                      )}
+                    </div>
+
+                    <span role="cell" className="text-xs text-muted-foreground truncate">
+                      {ch.groupTitle || '—'}
+                    </span>
+
+                    <span role="cell" className="text-xs text-muted-foreground truncate">
+                      {ch.country || '—'}
+                    </span>
+
+                    {/* Status badge + test button */}
+                    {!disableLiveness && (
+                      <div role="cell" className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 text-xs uppercase tracking-wider font-medium px-1.5 py-0.5 ${
+                            status === 'alive'
+                              ? 'text-signal-green bg-signal-green/10'
+                              : status === 'dead'
+                                ? 'text-signal-red bg-signal-red/10'
+                                : 'text-muted-foreground bg-muted'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              status === 'alive'
+                                ? 'bg-signal-green'
+                                : status === 'dead'
+                                  ? 'bg-signal-red'
+                                  : 'bg-muted-foreground'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          {status}
+                          <span className="sr-only">
+                            {status === 'alive' ? 'Alive' : status === 'dead' ? 'Dead' : 'Unknown'}
+                          </span>
+                        </span>
+                        <button
+                          onClick={() => handleTestChannel(ch)}
+                          disabled={testingChannelId === ch._uid}
+                          className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                          title="Test stream"
+                        >
+                          {testingChannelId === ch._uid ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Zap className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
                     )}
+
+                    <div role="cell" className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => onDetail(ch)}
+                        className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="View details"
+                        title="Channel info"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      {ch.channelUrl && (
+                        <button
+                          onClick={() => onPlay(ch)}
+                          className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                          aria-label="Preview stream"
+                          title="Preview stream"
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -980,7 +1012,8 @@ function DetailModal({
           {channel.tvgLogo ? (
             <img
               src={proxyImageUrl(channel.tvgLogo)}
-              alt=""
+              alt={`${channel.channelName} logo`}
+              loading="lazy"
               className="h-16 w-16 rounded object-contain bg-muted shrink-0"
               onError={(e) => {
                 const img = e.currentTarget;

@@ -57,7 +57,7 @@ export default function DevicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
+      <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Devices</h1>
         <p className="text-sm text-muted-foreground mt-1">Paired devices and pairing requests</p>
       </div>
@@ -70,10 +70,7 @@ export default function DevicesPage() {
 
       {stats && (
         <>
-          <div
-            className="grid grid-cols-2 lg:grid-cols-4 border border-border animate-fade-up"
-            style={{ animationDelay: '50ms' }}
-          >
+          <div className="grid grid-cols-2 md:grid-cols-4 border border-border">
             {[
               { label: 'Total', value: stats.total },
               { label: 'Completed', value: stats.completed },
@@ -81,18 +78,20 @@ export default function DevicesPage() {
               { label: 'Today', value: stats.today },
             ].map((m, i) => (
               <div key={m.label} className={`p-4 ${i > 0 ? 'border-l border-border' : ''}`}>
-                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                  {m.label}
-                </p>
-                <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">{m.value}</p>
+                <dl>
+                  <dt className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                    {m.label}
+                  </dt>
+                  <dd className="text-2xl font-display font-bold mt-1.5 tabular-nums">{m.value}</dd>
+                </dl>
               </div>
             ))}
           </div>
 
-          <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <div>
+            <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
               Recent Pairing Requests
-            </p>
+            </h2>
             <div className="border border-border divide-y divide-border">
               {stats.recent.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -101,15 +100,15 @@ export default function DevicesPage() {
               ) : (
                 stats.recent.map((req) => (
                   <div key={req._id} className="flex items-center justify-between px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
+                    <dl className="min-w-0">
+                      <dt className="text-sm font-medium truncate">
                         {req.deviceName || 'Unknown Device'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      </dt>
+                      <dd className="text-xs text-muted-foreground mt-0.5">
                         {req.deviceModel || 'Unknown Model'}
                         {req.userId?.username && ` — ${req.userId.username}`}
-                      </p>
-                    </div>
+                      </dd>
+                    </dl>
                     <div className="flex items-center gap-1.5 shrink-0 ml-4">
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
@@ -119,9 +118,15 @@ export default function DevicesPage() {
                               ? 'bg-primary'
                               : 'bg-signal-red'
                         }`}
+                        aria-hidden="true"
                       />
-                      <span className="text-[11px] text-muted-foreground capitalize">
-                        {req.status}
+                      <span className="text-xs text-muted-foreground capitalize">{req.status}</span>
+                      <span className="sr-only">
+                        {req.status === 'completed'
+                          ? 'Completed'
+                          : req.status === 'pending'
+                            ? 'Pending'
+                            : 'Expired'}
                       </span>
                     </div>
                   </div>

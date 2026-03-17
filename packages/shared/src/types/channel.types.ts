@@ -16,6 +16,9 @@ export interface IChannel {
     country?: string;
     language?: string;
     resolution?: string;
+    network?: string;
+    website?: string;
+    quality?: string;
     tags?: string[];
     lastTested?: Date;
     isWorking?: boolean;

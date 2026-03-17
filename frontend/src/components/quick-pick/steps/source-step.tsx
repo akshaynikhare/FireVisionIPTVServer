@@ -26,9 +26,9 @@ interface SourceStepProps {
 
 export function SourceStep({ selectedSources, onToggleSource }: SourceStepProps) {
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 1</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Step 1</p>
         <h2 className="text-base font-display font-bold uppercase tracking-[0.08em]">
           Choose Your Sources
         </h2>
@@ -37,7 +37,11 @@ export function SourceStep({ selectedSources, onToggleSource }: SourceStepProps)
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        role="group"
+        aria-label="Source selection"
+      >
         {SOURCES.map((source) => {
           const Icon = source.icon;
           const isSelected = selectedSources.includes(source.id);
@@ -45,7 +49,8 @@ export function SourceStep({ selectedSources, onToggleSource }: SourceStepProps)
             <button
               key={source.id}
               onClick={() => onToggleSource(source.id)}
-              className={`flex items-start gap-3 p-4 border-2 text-left transition-all ${
+              aria-pressed={isSelected}
+              className={`flex items-start gap-3 p-4 border-2 text-left transition-colors ${
                 isSelected
                   ? 'border-primary bg-primary/10'
                   : 'border-border bg-card hover:border-primary/40'

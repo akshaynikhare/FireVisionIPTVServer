@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Copy, Check, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 
 interface UserDetail {
   _id: string;
@@ -32,6 +33,7 @@ export default function UserDetailPage() {
   const [editRole, setEditRole] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   useEffect(() => {
     async function fetchUser() {
@@ -73,7 +75,6 @@ export default function UserDetailPage() {
   }
 
   async function handleRegenerateCode() {
-    if (!confirm('Regenerate channel list code? The old code will stop working.')) return;
     try {
       const res = await api.put(`/users/${params.id}/regenerate-code`);
       const newCode = res.data.channelListCode || res.data.data?.channelListCode;
@@ -82,6 +83,8 @@ export default function UserDetailPage() {
       }
     } catch {
       toast('Failed to regenerate code', 'error');
+    } finally {
+      setShowRegenerateConfirm(false);
     }
   }
 
@@ -118,7 +121,7 @@ export default function UserDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 animate-fade-up">
+      <div className="flex items-center gap-4">
         <button
           onClick={() => router.push('/admin/users')}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -134,15 +137,15 @@ export default function UserDetailPage() {
       </div>
 
       {/* User Info */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '50ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             User Details
-          </p>
+          </h2>
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+              className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Edit
             </button>
@@ -160,7 +163,7 @@ export default function UserDetailPage() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-username"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Username
                 </label>
@@ -170,13 +173,13 @@ export default function UserDetailPage() {
                   required
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-email"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Email
                 </label>
@@ -186,13 +189,13 @@ export default function UserDetailPage() {
                   required
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 />
               </div>
               <div className="space-y-1.5">
                 <label
                   htmlFor="edit-role"
-                  className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Role
                 </label>
@@ -200,7 +203,7 @@ export default function UserDetailPage() {
                   id="edit-role"
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value)}
-                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 >
                   <option value="User">User</option>
                   <option value="Admin">Admin</option>
@@ -231,22 +234,22 @@ export default function UserDetailPage() {
             </div>
           </form>
         ) : (
-          <div className="divide-y divide-border">
+          <dl className="divide-y divide-border">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Username</span>
-              <span className="text-sm font-medium">{user.username}</span>
+              <dt className="text-sm text-muted-foreground">Username</dt>
+              <dd className="text-sm font-medium">{user.username}</dd>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Email</span>
-              <span className="text-sm font-medium">{user.email}</span>
+              <dt className="text-sm text-muted-foreground">Email</dt>
+              <dd className="text-sm font-medium">{user.email}</dd>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Role</span>
-              <span className="text-sm font-medium">{user.role}</span>
+              <dt className="text-sm text-muted-foreground">Role</dt>
+              <dd className="text-sm font-medium">{user.role}</dd>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">Status</span>
-              <div className="flex items-center gap-2">
+              <dt className="text-sm text-muted-foreground">Status</dt>
+              <dd className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
@@ -264,38 +267,34 @@ export default function UserDetailPage() {
                       toast('Failed to update status', 'error');
                     }
                   }}
-                  className="text-[11px] uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
+                  className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 transition-colors font-medium"
                 >
                   {user.isActive ? 'Deactivate' : 'Activate'}
                 </button>
-              </div>
+              </dd>
             </div>
             {user.lastLogin && (
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted-foreground">Last Login</span>
-                <span className="text-sm font-medium">
-                  {new Date(user.lastLogin).toLocaleString()}
-                </span>
+                <dt className="text-sm text-muted-foreground">Last Login</dt>
+                <dd className="text-sm font-medium">{new Date(user.lastLogin).toLocaleString()}</dd>
               </div>
             )}
             {user.createdAt && (
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted-foreground">Created</span>
-                <span className="text-sm font-medium">
-                  {new Date(user.createdAt).toLocaleString()}
-                </span>
+                <dt className="text-sm text-muted-foreground">Created</dt>
+                <dd className="text-sm font-medium">{new Date(user.createdAt).toLocaleString()}</dd>
               </div>
             )}
-          </div>
+          </dl>
         )}
       </div>
 
       {/* Channel List Code */}
-      <div className="border border-border animate-fade-up" style={{ animationDelay: '100ms' }}>
+      <div className="border border-border">
         <div className="px-4 py-2 bg-muted/50 border-b border-border">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+          <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
             Channel List Code
-          </p>
+          </h2>
         </div>
         <div className="px-4 py-4">
           <div className="flex items-center gap-3">
@@ -306,7 +305,7 @@ export default function UserDetailPage() {
               <button
                 onClick={handleCopyCode}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Copy code"
+                aria-label="Copy to clipboard"
               >
                 {copiedCode ? (
                   <>
@@ -320,7 +319,7 @@ export default function UserDetailPage() {
               </button>
             )}
             <button
-              onClick={handleRegenerateCode}
+              onClick={() => setShowRegenerateConfirm(true)}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors ml-2"
             >
               <RefreshCw className="h-4 w-4" /> Regenerate
@@ -334,22 +333,32 @@ export default function UserDetailPage() {
 
       {/* Assigned Channels */}
       {user.channels && user.channels.length > 0 && (
-        <div className="border border-border animate-fade-up" style={{ animationDelay: '150ms' }}>
+        <div className="border border-border">
           <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Assigned Channels ({user.channels.length})
-            </p>
+            </h2>
           </div>
-          <div className="divide-y divide-border">
+          <ul className="divide-y divide-border">
             {user.channels.map((ch) => (
-              <div key={ch._id} className="flex items-center justify-between px-4 py-3">
+              <li key={ch._id} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm font-medium">{ch.name}</span>
                 <span className="text-xs text-muted-foreground">{ch.channelGroup || '—'}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showRegenerateConfirm}
+        onCancel={() => setShowRegenerateConfirm(false)}
+        onConfirm={handleRegenerateCode}
+        title="Regenerate Code"
+        message="Regenerate channel list code? The old code will stop working."
+        confirmLabel="Regenerate"
+        variant="destructive"
+      />
     </div>
   );
 }
