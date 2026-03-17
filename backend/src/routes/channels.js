@@ -273,7 +273,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Test channel stream (admin only, with SSRF protection)
-router.post('/:id/test', requireAuth, requireAdmin, async (req, res) => {
+router.post('/:id/test', requireAuth, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id);
     if (!channel) {

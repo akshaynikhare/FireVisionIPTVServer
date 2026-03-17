@@ -143,16 +143,21 @@ typecheck: ## Run TypeScript type checking
 	npm run typecheck
 
 # ─── Release Tagging ────────────────────────────────────────
-tag: ## Create a release tag (usage: make tag v=v1.0.2)
+tag: ## Create & push a release tag (usage: make tag v=v1.0.3)
 	@if [ -z "$(v)" ]; then \
-		echo "\033[1;31mError:\033[0m version required — usage: make tag v=v1.0.2"; \
+		echo "\033[1;31mError:\033[0m version required — usage: make tag v=v1.0.3"; \
+		exit 1; \
+	fi
+	@if ! echo "$(v)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "\033[1;31mError:\033[0m tag must match vX.Y.Z (e.g. v1.0.3), got: $(v)"; \
 		exit 1; \
 	fi
 	@echo "\033[1;36mLatest tags:\033[0m"
 	@git tag --sort=-creatordate | head -5
 	@echo ""
 	git tag -a $(v) -m "Release $(v)"
-	@echo "\033[1;32mTagged $(v)\033[0m — push with: git push origin $(v)"
+	git push origin $(v)
+	@echo "\033[1;32mTagged & pushed $(v)\033[0m"
 
 tags: ## List recent release tags
 	@git tag --sort=-creatordate | head -10

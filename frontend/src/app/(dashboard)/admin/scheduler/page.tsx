@@ -160,13 +160,13 @@ export default function SchedulerPage() {
     setTriggeringTask(taskName);
     try {
       await api.post(`/scheduler/trigger/${taskName}`);
-      toast({ type: 'success', message: `Task '${taskName}' triggered` });
+      toast(`Task '${taskName}' triggered`, 'success');
       // Refresh immediately
       await fetchTasks();
       await fetchRuns();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to trigger task';
-      toast({ type: 'error', message: msg });
+      toast(msg, 'error');
     } finally {
       setTriggeringTask(null);
     }

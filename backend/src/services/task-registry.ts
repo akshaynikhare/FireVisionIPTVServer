@@ -9,6 +9,8 @@ export interface SubtaskResult {
   durationMs: number;
   result?: any;
   error?: string;
+  startedAt?: Date;
+  completedAt?: Date;
 }
 
 export interface TaskResult {

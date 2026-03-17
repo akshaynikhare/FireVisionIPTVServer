@@ -46,7 +46,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen overflow-y-auto flex">
       <div className="hidden lg:flex lg:w-[420px] flex-col justify-between border-r border-border bg-card p-10">
         <div>
           <Link href="/" className="inline-block">

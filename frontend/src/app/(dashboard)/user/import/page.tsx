@@ -1,18 +1,29 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Globe, RefreshCw, Eye, Play } from 'lucide-react';
+import {
+  Loader2,
+  Globe,
+  RefreshCw,
+  CheckSquare,
+  Square,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { useClientSideTable } from '@/hooks/use-client-side-table';
 import { useStreamPlayer } from '@/components/stream-player-context';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import SearchInput from '@/components/ui/search-input';
 import ChannelLogo from '@/components/ui/channel-logo';
 import Pagination from '@/components/ui/pagination';
 import ColumnFilter from '@/components/ui/column-filter';
-import ChannelDetailModal from '@/components/channel-detail-modal';
+import SelectionToolbar from '@/components/ui/selection-toolbar';
+import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
+import ChannelRowActions from '@/components/ui/channel-row-actions';
 
 interface Playlist {
   id: string;
@@ -34,6 +45,8 @@ interface EnrichedChannel {
   country?: string;
 }
 
+type SortField = 'name' | 'category' | 'language';
+type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 50;
 
 export default function ImportPage() {
@@ -46,18 +59,25 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
 
-  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
+  // Search + sort + filter state
+  const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(1);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+
+  const { playStream } = useStreamPlayer();
+  const [detailChannel, setDetailChannel] = useState<EnrichedChannel | null>(null);
   const {
     isSelected,
     toggleOne,
     selectMany,
+    unselectMany,
     unselectAll,
     count: selectedCount,
   } = useBulkSelection();
-  const [page, setPage] = useState(1);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const { playStream } = useStreamPlayer();
-  const [detailChannel, setDetailChannel] = useState<EnrichedChannel | null>(null);
 
   const handlePlay = useCallback(
     (ch: EnrichedChannel) => {
@@ -94,9 +114,11 @@ export default function ImportPage() {
     setChannels([]);
     unselectAll();
     setImportResult(null);
-    handleSearchChange('');
+    setSearch('');
     setPage(1);
     setSelectedCategories([]);
+    setSelectedLanguages([]);
+    setSelectedCountries([]);
 
     try {
       const params = new URLSearchParams();
@@ -111,7 +133,6 @@ export default function ImportPage() {
         _uid: String(i),
       }));
       setChannels(data);
-      // Auto-select all
       selectMany(data.map((c: EnrichedChannel) => c._uid));
     } catch {
       toast('Failed to fetch channels', 'error');
@@ -120,7 +141,7 @@ export default function ImportPage() {
     }
   }
 
-  // Category options for filter
+  // Filter options from data
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
     channels.forEach((c) => {
@@ -130,38 +151,112 @@ export default function ImportPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [channels]);
 
-  // Filtered + paginated channels
-  const filtered = useMemo(() => {
-    let result = channels;
-
-    // Text search
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.channelName?.toLowerCase().includes(q) ||
-          c.groupTitle?.toLowerCase().includes(q) ||
-          c.channelCategories?.some((cat) => cat.toLowerCase().includes(q)),
-      );
-    }
-
-    // Category filter
-    if (selectedCategories.length > 0 && selectedCategories.length < categoryOptions.length) {
-      result = result.filter((c) => {
-        const cat = c.groupTitle || c.channelCategories?.[0] || '';
-        return selectedCategories.includes(cat);
+  const languageOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      c.languages?.forEach((l) => {
+        if (l) set.add(l);
       });
-    }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
 
-    return result;
-  }, [channels, debouncedSearch, selectedCategories, categoryOptions]);
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      if (c.country) set.add(c.country);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
 
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  // Reset page when filters change
+  // Reset filters when channels change
   useEffect(() => {
+    setSelectedCategories([]);
+    setSelectedLanguages([]);
+    setSelectedCountries([]);
+  }, [channels]);
+
+  // Sort accessor
+  const sortAccessor = useCallback(
+    (ch: EnrichedChannel) => {
+      switch (sortField) {
+        case 'name':
+          return ch.channelName || '';
+        case 'category':
+          return ch.groupTitle || ch.channelCategories?.[0] || '';
+        case 'language':
+          return ch.languages?.[0] || '';
+      }
+    },
+    [sortField],
+  );
+
+  const searchFields = useMemo(
+    () => [
+      (c: EnrichedChannel) => c.channelName,
+      (c: EnrichedChannel) => c.channelId,
+      (c: EnrichedChannel) => c.groupTitle,
+      (c: EnrichedChannel) => c.channelCategories?.join(' '),
+      (c: EnrichedChannel) => c.languages?.join(' '),
+    ],
+    [],
+  );
+
+  const filters = useMemo(
+    () => [
+      {
+        accessor: (c: EnrichedChannel) => c.groupTitle || c.channelCategories?.[0] || '',
+        selected: selectedCategories,
+        allOptions: categoryOptions,
+      },
+      {
+        accessor: (c: EnrichedChannel) => c.languages || [],
+        selected: selectedLanguages,
+        allOptions: languageOptions,
+      },
+      {
+        accessor: (c: EnrichedChannel) => c.country || '',
+        selected: selectedCountries,
+        allOptions: countryOptions,
+      },
+    ],
+    [
+      selectedCategories,
+      categoryOptions,
+      selectedLanguages,
+      languageOptions,
+      selectedCountries,
+      countryOptions,
+    ],
+  );
+
+  const { filtered, paginated } = useClientSideTable({
+    data: channels,
+    search,
+    searchFields,
+    filters,
+    sortAccessor,
+    sortDir,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
+  const pageAllSelected = paginated.length > 0 && paginated.every((ch) => isSelected(ch._uid));
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
     setPage(1);
-  }, [debouncedSearch, selectedCategories]);
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  }
 
   async function handleImportToMyList() {
     if (channels.length === 0) return;
@@ -197,13 +292,18 @@ export default function ImportPage() {
     }
   }
 
-  function toggleAll() {
-    if (selectedCount === filtered.length) {
-      unselectAll();
-    } else {
-      selectMany(filtered.map((c) => c._uid));
-    }
-  }
+  // Detail modal fields
+  const detailFields: ChannelField[] = detailChannel
+    ? [
+        { label: 'Stream URL', value: detailChannel.channelUrl },
+        {
+          label: 'Category',
+          value: detailChannel.groupTitle || detailChannel.channelCategories?.join(', '),
+        },
+        { label: 'Country', value: detailChannel.country },
+        { label: 'Languages', value: detailChannel.languages?.join(', ') },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -215,6 +315,7 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
@@ -232,6 +333,7 @@ export default function ImportPage() {
         </button>
       </div>
 
+      {/* Playlist buttons */}
       <div>
         <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
@@ -261,23 +363,12 @@ export default function ImportPage() {
         </div>
       )}
 
+      {/* Detail Modal */}
       <ChannelDetailModal
         open={!!detailChannel}
         onClose={() => setDetailChannel(null)}
         channel={detailChannel}
-        fields={
-          detailChannel
-            ? [
-                { label: 'Stream URL', value: detailChannel.channelUrl },
-                {
-                  label: 'Category',
-                  value: detailChannel.groupTitle || detailChannel.channelCategories?.join(', '),
-                },
-                { label: 'Country', value: detailChannel.country },
-                { label: 'Languages', value: detailChannel.languages?.join(', ') },
-              ]
-            : []
-        }
+        fields={detailFields}
         onPlay={
           detailChannel?.channelUrl
             ? () => {
@@ -287,50 +378,63 @@ export default function ImportPage() {
               }
             : undefined
         }
+        actions={
+          detailChannel && (
+            <button
+              onClick={() => toggleOne(detailChannel._uid)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isSelected(detailChannel._uid) ? (
+                <>
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                  Selected
+                </>
+              ) : (
+                <>
+                  <Square className="h-4 w-4" />
+                  Select for Import
+                </>
+              )}
+            </button>
+          )
+        }
       />
 
+      {/* Datatable */}
       {!fetchingChannels && channels.length > 0 && (
         <div className="space-y-4">
-          {/* Search + Category filter */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <SearchInput
               value={search}
-              onChange={handleSearchChange}
-              placeholder="Search by name or category..."
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+              placeholder="Search by name, category, language..."
               ariaLabel="Search channels"
               className="flex-1 max-w-md w-full"
             />
-            <ColumnFilter
-              label="Category"
-              options={categoryOptions}
-              selected={selectedCategories}
-              onChange={(v) => setSelectedCategories(v)}
-              searchable
-            />
+            <button
+              onClick={handleImportToMyList}
+              disabled={importing || selectedCount === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {importing ? 'Importing...' : `Import ${selectedCount} to My List`}
+            </button>
           </div>
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              {filtered.length} channels found
-              {filtered.length !== channels.length && ` (filtered from ${channels.length})`}{' '}
-              &middot; {selectedCount} selected
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleAll}
-                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
-              >
-                {selectedCount === filtered.length ? 'Deselect All' : 'Select All'}
-              </button>
-              <button
-                onClick={handleImportToMyList}
-                disabled={importing || selectedCount === 0}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {importing ? 'Importing...' : `Import ${selectedCount} to My List`}
-              </button>
-            </div>
-          </div>
+          {/* Selection toolbar */}
+          <SelectionToolbar
+            totalFiltered={filtered.length}
+            totalUnfiltered={channels.length}
+            selectedCount={selectedCount}
+            onSelectPage={() => selectMany(paginated.map((ch) => ch._uid))}
+            onUnselectPage={() => unselectMany(paginated.map((ch) => ch._uid))}
+            onSelectAll={() => selectMany(filtered.map((ch) => ch._uid))}
+            onUnselectAll={unselectAll}
+            isFiltered={!!search}
+          />
 
           {importResult && (
             <div
@@ -342,47 +446,189 @@ export default function ImportPage() {
             </div>
           )}
 
-          <div className="border border-border divide-y divide-border max-h-[500px] overflow-y-auto">
-            {paginated.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No channels match your search
-              </div>
-            ) : (
-              paginated.map((ch) => (
-                <div
-                  key={ch._uid}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected(ch._uid)}
-                    onChange={() => toggleOne(ch._uid)}
-                    className="accent-primary cursor-pointer"
-                  />
-                  <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} size="sm" />
-                  <span className="text-sm font-medium flex-1 truncate">{ch.channelName}</span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                    {ch.groupTitle || ch.channelCategories?.join(', ') || ''}
-                  </span>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <div role="table" aria-label="Import channels table" className="border border-border">
+              {/* Header */}
+              <div
+                role="rowgroup"
+                className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border"
+              >
+                <div role="columnheader" className="flex items-center justify-center">
                   <button
-                    onClick={() => setDetailChannel(ch)}
-                    className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                    aria-label="View details"
+                    onClick={() =>
+                      pageAllSelected
+                        ? unselectMany(paginated.map((ch) => ch._uid))
+                        : selectMany(paginated.map((ch) => ch._uid))
+                    }
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle page selection"
                   >
-                    <Eye className="h-4 w-4" />
+                    {pageAllSelected ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
                   </button>
-                  {ch.channelUrl && (
-                    <button
-                      onClick={() => handlePlay(ch)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors shrink-0"
-                      aria-label="Play stream"
-                    >
-                      <Play className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
-              ))
-            )}
+                <span role="columnheader" />
+                <button
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                >
+                  Name <SortIcon field="name" />
+                </button>
+                <div
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'category'
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className="flex items-center gap-1"
+                >
+                  <button
+                    onClick={() => handleSort('category')}
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  >
+                    Category <SortIcon field="category" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={categoryOptions}
+                    selected={selectedCategories}
+                    onChange={(v) => {
+                      setSelectedCategories(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </div>
+                <span role="columnheader">
+                  <ColumnFilter
+                    label="Country"
+                    options={countryOptions}
+                    selected={selectedCountries}
+                    onChange={(v) => {
+                      setSelectedCountries(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </span>
+                <div
+                  role="columnheader"
+                  aria-sort={
+                    sortField === 'language'
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className="flex items-center gap-1"
+                >
+                  <button
+                    onClick={() => handleSort('language')}
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  >
+                    Language <SortIcon field="language" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={languageOptions}
+                    selected={selectedLanguages}
+                    onChange={(v) => {
+                      setSelectedLanguages(v);
+                      setPage(1);
+                    }}
+                    searchable
+                  />
+                </div>
+                <span
+                  role="columnheader"
+                  className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
+                >
+                  Actions
+                </span>
+              </div>
+
+              {/* Rows */}
+              <div role="rowgroup" className="divide-y divide-border">
+                {paginated.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    {search ? 'No channels match your search' : 'No channels found'}
+                  </div>
+                ) : (
+                  paginated.map((ch) => {
+                    const key = ch._uid;
+                    const selected = isSelected(key);
+                    return (
+                      <div
+                        key={key}
+                        role="row"
+                        className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
+                          selected ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <div role="cell" className="flex items-center justify-center">
+                          <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={selected}
+                            onClick={() => toggleOne(key)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {selected ? (
+                              <CheckSquare className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Square className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+
+                        <div role="cell">
+                          <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
+                        </div>
+
+                        <div role="cell" className="min-w-0">
+                          <span className="text-sm font-medium truncate block">
+                            {ch.channelName}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono truncate block lg:hidden">
+                            {ch.channelId}
+                          </span>
+                        </div>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
+                        </span>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.country || '—'}
+                        </span>
+
+                        <span role="cell" className="text-xs text-muted-foreground truncate">
+                          {ch.languages?.join(', ') || '—'}
+                        </span>
+
+                        <div role="cell">
+                          <ChannelRowActions
+                            onDetail={() => setDetailChannel(ch)}
+                            onPlay={ch.channelUrl ? () => handlePlay(ch) : undefined}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
 
           <Pagination

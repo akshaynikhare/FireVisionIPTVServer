@@ -43,7 +43,7 @@ export default function ChannelDetailModal({
 
   return (
     <Modal open={open} onClose={onClose} title="Channel Details" size="lg">
-      <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+      <div className="p-5 space-y-4">
         <div className="flex items-start gap-4">
           <ChannelLogo src={channel.tvgLogo} alt={`${channel.channelName} logo`} size="lg" />
           <div className="min-w-0 flex-1">
