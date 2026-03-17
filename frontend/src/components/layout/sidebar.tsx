@@ -60,10 +60,12 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
       <div className="flex h-11 items-center border-b border-sidebar-border px-4">
         {!sidebarCollapsed ? (
           <span className="text-sm font-display font-bold tracking-tight">
-            FIRE<span className="text-sidebar-primary">V</span>
+            FIRE<span className="text-sidebar-primary">Vision</span>
           </span>
         ) : (
-          <span className="text-sm font-display font-bold text-sidebar-primary">F</span>
+          <span className="text-sm font-display font-bold tracking-tight">
+            F<span className="text-sidebar-primary">V</span>
+          </span>
         )}
       </div>
 
@@ -127,7 +129,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
         onClick={toggleSidebar}
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         aria-expanded={!sidebarCollapsed}
-        className="absolute -right-3 top-[44px] flex h-10 w-10 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+        className="absolute -right-3 top-[44px] flex h-6 w-6 items-center justify-center border border-sidebar-border bg-sidebar text-sidebar-foreground/60 shadow-sm hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
       >
         {sidebarCollapsed ? (
           <ChevronRight className="h-3 w-3" />

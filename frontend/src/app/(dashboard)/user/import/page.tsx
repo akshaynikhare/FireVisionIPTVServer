@@ -15,6 +15,7 @@ interface Playlist {
 }
 
 interface EnrichedChannel {
+  _uid: string;
   channelId: string;
   channelName: string;
   channelUrl: string;
@@ -66,9 +67,12 @@ export default function ImportPage() {
 
       const res = await api.get(`/iptv-org/fetch?${params.toString()}`);
       const body = res.data;
-      const data = body.data || [];
+      const data = (body.data || []).map((ch: Omit<EnrichedChannel, '_uid'>, i: number) => ({
+        ...ch,
+        _uid: String(i),
+      }));
       setChannels(data);
-      setSelectedIds(new Set(data.map((c: EnrichedChannel) => c.channelId || c.channelName)));
+      setSelectedIds(new Set(data.map((c: EnrichedChannel) => c._uid)));
     } catch {
       toast('Failed to fetch channels', 'error');
     } finally {
@@ -82,7 +86,7 @@ export default function ImportPage() {
     setImportResult(null);
 
     const toImport = channels
-      .filter((c) => selectedIds.has(c.channelId || c.channelName))
+      .filter((c) => selectedIds.has(c._uid))
       .map((c) => ({
         channelName: c.channelName,
         channelUrl: c.channelUrl,
@@ -114,7 +118,7 @@ export default function ImportPage() {
     if (selectedIds.size === channels.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(channels.map((c) => c.channelId || c.channelName)));
+      setSelectedIds(new Set(channels.map((c) => c._uid)));
     }
   }
 
@@ -208,44 +212,41 @@ export default function ImportPage() {
           )}
 
           <div className="border border-border divide-y divide-border max-h-[500px] overflow-y-auto">
-            {channels.map((ch) => {
-              const key = ch.channelId || ch.channelName;
-              return (
-                <label
-                  key={key}
-                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(key)}
-                    onChange={(e) => {
-                      const next = new Set(selectedIds);
-                      if (e.target.checked) {
-                        next.add(key);
-                      } else {
-                        next.delete(key);
-                      }
-                      setSelectedIds(next);
-                    }}
-                    className="accent-primary"
+            {channels.map((ch) => (
+              <label
+                key={ch._uid}
+                className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(ch._uid)}
+                  onChange={(e) => {
+                    const next = new Set(selectedIds);
+                    if (e.target.checked) {
+                      next.add(ch._uid);
+                    } else {
+                      next.delete(ch._uid);
+                    }
+                    setSelectedIds(next);
+                  }}
+                  className="accent-primary"
+                />
+                {ch.tvgLogo ? (
+                  <img
+                    src={proxyImageUrl(ch.tvgLogo)}
+                    alt={`${ch.channelName} logo`}
+                    loading="lazy"
+                    className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                   />
-                  {ch.tvgLogo ? (
-                    <img
-                      src={proxyImageUrl(ch.tvgLogo)}
-                      alt={`${ch.channelName} logo`}
-                      loading="lazy"
-                      className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
-                    />
-                  ) : (
-                    <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
-                  )}
-                  <span className="text-sm font-medium flex-1 truncate">{ch.channelName}</span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                    {ch.groupTitle || ch.channelCategories?.join(', ') || ''}
-                  </span>
-                </label>
-              );
-            })}
+                ) : (
+                  <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
+                )}
+                <span className="text-sm font-medium flex-1 truncate">{ch.channelName}</span>
+                <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                  {ch.groupTitle || ch.channelCategories?.join(', ') || ''}
+                </span>
+              </label>
+            ))}
           </div>
         </div>
       )}

@@ -29,7 +29,10 @@ export default function RegisterPage() {
 
     try {
       await api.post('/auth/register', { username, email, password });
-      router.push('/login');
+      router.push(
+        '/login?message=' +
+          encodeURIComponent('Account created! Check your email to verify before signing in.'),
+      );
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       setError(axiosErr.response?.data?.error || 'Registration failed');

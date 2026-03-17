@@ -48,6 +48,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         channelListCode: user.channelListCode,
+        emailVerified: user.emailVerified,
       },
     });
   } catch (e) {

@@ -256,6 +256,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
         lastLogin: user.lastLogin,
       },
     });
@@ -324,6 +325,7 @@ router.get('/me', requireAuth, async (req, res) => {
         channelListCode: user.channelListCode,
         profilePicture: user.profilePicture,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
         lastLogin: user.lastLogin,
         channels: user.channels,
         metadata: user.metadata,
@@ -1395,6 +1397,7 @@ router.post('/oauth-exchange', async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
       },
     });
   } catch (error) {

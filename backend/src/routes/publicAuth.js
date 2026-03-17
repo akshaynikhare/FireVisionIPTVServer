@@ -36,12 +36,10 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: 'username, email, password required' });
     }
     if (!validateUsername(username)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Invalid username (3-50 chars, alphanumeric + underscore)',
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid username (3-50 chars, alphanumeric + underscore)',
+      });
     }
     if (!validateEmail(email)) {
       return res.status(400).json({ success: false, error: 'Invalid email format' });
@@ -106,6 +104,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
         email: user.email,
         role: user.role,
         channelListCode: user.channelListCode,
+        emailVerified: false,
       },
       tokens: { accessToken, refreshToken },
     });
