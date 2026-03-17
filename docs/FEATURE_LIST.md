@@ -409,6 +409,15 @@ Complete inventory of every feature in the application.
 - Available for both users and admins via separate routes
 - Channel selection with checkboxes, count display, and bulk actions
 
+## Unified Role-Aware Pages
+
+- Channels, External Sources, and Import pages share a single component per page with a `mode` prop (`admin` | `user`)
+- Admin mode: full CRUD, M3U import, Test All, bulk delete, server-side pagination, extended column filters (country, language)
+- User mode: add from system pool, remove, M3U playlist URL copy, client-side sorting/filtering, Quick Pick link
+- External Sources: admin sees liveness stats bar, batch liveness check, and replace-existing option; user sees simplified import to personal list
+- Import IPTV: admin has liveness testing, batch check, replace existing, and raw data in detail modal; user has auto-select-all and import to personal list
+- Follows the WizardShell pattern established by Quick Pick for role-based component sharing
+
 ## Stream Player
 
 - Persistent player context maintaining playback across page navigations
