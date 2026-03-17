@@ -15,9 +15,9 @@ interface ModalProps {
 }
 
 const sizeClasses = {
-  default: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-5xl',
+  default: 'max-w-[calc(100vw-2rem)] sm:max-w-lg',
+  lg: 'max-w-[calc(100vw-2rem)] sm:max-w-md lg:max-w-2xl',
+  xl: 'max-w-[calc(100vw-2rem)] sm:max-w-lg lg:max-w-5xl',
 };
 
 const FOCUSABLE_SELECTOR =
@@ -36,6 +36,8 @@ export default function Modal({
   const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = title ? (ariaLabelledBy ?? 'modal-title') : undefined;
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function Modal({
 
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === 'Tab' && dialogRef.current) {
@@ -77,14 +79,14 @@ export default function Modal({
       document.body.style.overflow = '';
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 dark:bg-background/90 backdrop-blur-sm p-2 sm:p-4 motion-reduce:backdrop-blur-none"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -107,8 +109,9 @@ export default function Modal({
             </h2>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-9 w-9 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close"
+              className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+              aria-label="Close dialog"
+              title="Close (Esc)"
             >
               <X className="h-4 w-4" />
             </button>

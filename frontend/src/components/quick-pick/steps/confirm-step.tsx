@@ -158,7 +158,10 @@ export function ConfirmStep({
       </div>
 
       {result && !result.success && (
-        <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           {result.message}
         </div>
       )}
@@ -175,7 +178,7 @@ export function ConfirmStep({
                 {channels.length} channel{channels.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="divide-y divide-border max-h-[200px] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[40vh] sm:max-h-[200px] overflow-y-auto">
               {channels.map((ch) => (
                 <div key={ch.uid} className="flex items-center gap-3 px-4 py-2">
                   {ch.tvgLogo ? (
@@ -183,13 +186,22 @@ export function ConfirmStep({
                       src={proxyImageUrl(ch.tvgLogo)}
                       alt={ch.channelName}
                       loading="lazy"
+                      width={24}
+                      height={24}
                       className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        const img = e.target as HTMLImageElement;
+                        const fallback = document.createElement('div');
+                        fallback.className =
+                          'h-6 w-6 rounded-sm bg-muted shrink-0 flex items-center justify-center text-xs font-bold text-muted-foreground';
+                        fallback.textContent = ch.channelName.charAt(0).toUpperCase();
+                        img.parentElement?.replaceChild(fallback, img);
                       }}
                     />
                   ) : (
-                    <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
+                    <div className="h-6 w-6 rounded-sm bg-muted shrink-0 flex items-center justify-center text-xs font-bold text-muted-foreground">
+                      {ch.channelName.charAt(0).toUpperCase()}
+                    </div>
                   )}
                   <span className="text-sm truncate flex-1">{ch.channelName}</span>
                   <span className="text-xs text-muted-foreground truncate max-w-[120px]">

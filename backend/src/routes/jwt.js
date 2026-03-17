@@ -65,7 +65,7 @@ router.post('/refresh', async (req, res) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(refreshToken, effectiveRefreshSecret);
+      decoded = jwt.verify(refreshToken, effectiveRefreshSecret, { algorithms: ['HS256'] });
     } catch {
       return res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
@@ -94,7 +94,7 @@ router.post('/logout', async (req, res) => {
       return res.status(400).json({ success: false, error: 'refreshToken required' });
     }
     try {
-      jwt.verify(refreshToken, effectiveRefreshSecret);
+      jwt.verify(refreshToken, effectiveRefreshSecret, { algorithms: ['HS256'] });
     } catch {
       return res.status(200).json({ success: true, message: 'Already invalid' });
     }

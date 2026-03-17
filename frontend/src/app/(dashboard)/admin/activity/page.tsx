@@ -5,6 +5,7 @@ import { Loader2, Search } from 'lucide-react';
 import api from '@/lib/api';
 import Pagination from '@/components/ui/pagination';
 import ColumnFilter from '@/components/ui/column-filter';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 
 interface AuditEntry {
   _id: string;
@@ -56,7 +57,7 @@ export default function ActivityPage() {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 50;
@@ -76,7 +77,7 @@ export default function ActivityPage() {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (selectedActions.length > 0 && selectedActions.length < filterOptions.action.length) {
         params.set('action', selectedActions.join(','));
       }
@@ -99,7 +100,7 @@ export default function ActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, selectedActions, selectedResources, selectedStatuses, filterOptions]);
+  }, [page, debouncedSearch, selectedActions, selectedResources, selectedStatuses, filterOptions]);
 
   useEffect(() => {
     api
@@ -116,7 +117,7 @@ export default function ActivityPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedActions, selectedResources, selectedStatuses]);
+  }, [debouncedSearch, selectedActions, selectedResources, selectedStatuses]);
 
   return (
     <div className="space-y-6">
@@ -128,20 +129,23 @@ export default function ActivityPage() {
       </div>
 
       {error && (
-        <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           {error}
         </div>
       )}
 
       <div role="table" aria-label="Activity log table" className="border border-border ">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search activity..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
             aria-label="Search activity logs"
           />
         </div>
@@ -227,6 +231,7 @@ export default function ActivityPage() {
               <div
                 key={log._id}
                 role="row"
+                aria-label={`${formatLabel(log.action)} by ${log.userId?.username || 'unknown'}`}
                 className="grid lg:grid-cols-[100px,140px,120px,1fr,80px,120px] gap-2 lg:gap-4 items-center px-4 py-3"
               >
                 <div role="cell" className="text-xs tabular-nums text-muted-foreground">

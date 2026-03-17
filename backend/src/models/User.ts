@@ -13,6 +13,10 @@ const userSchema = new Schema<IUserDocument>(
       minlength: 3,
       maxlength: 50,
       index: true,
+      match: [
+        /^[a-zA-Z0-9_.-]+$/,
+        'Username can only contain letters, numbers, underscores, dots, and hyphens',
+      ],
     },
     password: {
       type: String,
@@ -26,6 +30,7 @@ const userSchema = new Schema<IUserDocument>(
       trim: true,
       lowercase: true,
       index: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email address'],
     },
     role: {
       type: String,
@@ -109,7 +114,7 @@ userSchema.pre('save', async function (next) {
   }
 
   try {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -207,6 +212,12 @@ userSchema.methods.generateUserPlaylist = async function (
 userSchema.methods.toJSON = function (this: IUserDocument) {
   const obj = (this as any).toObject();
   delete obj.password;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
+  delete obj.googleId;
+  delete obj.githubId;
   return obj;
 };
 

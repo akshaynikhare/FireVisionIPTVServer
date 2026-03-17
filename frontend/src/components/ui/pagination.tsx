@@ -35,11 +35,12 @@ export default function Pagination({ page, pageSize, totalCount, onPageChange }:
       <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
         {start}–{end} of {totalCount}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5 sm:gap-1">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="flex items-center justify-center h-10 w-10 border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-disabled={page <= 1}
+          className="flex items-center justify-center h-11 w-11 border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
           aria-label="Previous page"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -59,7 +60,7 @@ export default function Pagination({ page, pageSize, totalCount, onPageChange }:
               onClick={() => onPageChange(item as number)}
               aria-label={`Go to page ${item}`}
               aria-current={item === page ? 'page' : undefined}
-              className={`flex items-center justify-center h-10 min-w-[2.5rem] px-1 text-xs font-medium border transition-colors ${
+              className={`flex items-center justify-center h-11 min-w-[2.75rem] px-1 text-xs font-medium border focus-visible:ring-2 focus-visible:ring-primary transition-colors ${
                 item === page
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
@@ -72,7 +73,8 @@ export default function Pagination({ page, pageSize, totalCount, onPageChange }:
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="flex items-center justify-center h-10 w-10 border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-disabled={page >= totalPages}
+          className="flex items-center justify-center h-11 w-11 border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
           aria-label="Next page"
         >
           <ChevronRight className="h-4 w-4" />

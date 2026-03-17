@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useDeferredValue } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Loader2,
   Trash2,
@@ -16,6 +16,7 @@ import {
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
@@ -65,8 +66,7 @@ export default function ChannelsPage() {
   const { toast } = useToast();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search);
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch('', 300);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -139,45 +139,59 @@ export default function ChannelsPage() {
 
   const { playStream } = useStreamPlayer();
 
-  const fetchChannels = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('pageSize', String(pageSize));
-      if (deferredSearch) params.set('search', deferredSearch);
-      if (selectedGroups.length > 0 && selectedGroups.length < filterOptions.group.length) {
-        params.set('group', selectedGroups.join(','));
+  const fetchChannels = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        if (selectedGroups.length > 0 && selectedGroups.length < filterOptions.group.length) {
+          params.set('group', selectedGroups.join(','));
+        }
+        if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
+          params.set('status', selectedStatuses.join(','));
+        }
+        if (
+          selectedLanguages.length > 0 &&
+          selectedLanguages.length < filterOptions.language.length
+        ) {
+          params.set('language', selectedLanguages.join(','));
+        }
+        if (
+          selectedCountries.length > 0 &&
+          selectedCountries.length < filterOptions.country.length
+        ) {
+          params.set('country', selectedCountries.join(','));
+        }
+        const res = await api.get(`/admin/channels?${params.toString()}`, { signal });
+        const body = res.data;
+        setChannels(Array.isArray(body) ? body : body.data || body.channels || []);
+        setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        if (
+          typeof err === 'object' &&
+          err !== null &&
+          'code' in err &&
+          (err as { code: string }).code === 'ERR_CANCELED'
+        )
+          return;
+        setError('Failed to load channels');
+      } finally {
+        setLoading(false);
       }
-      if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
-        params.set('status', selectedStatuses.join(','));
-      }
-      if (
-        selectedLanguages.length > 0 &&
-        selectedLanguages.length < filterOptions.language.length
-      ) {
-        params.set('language', selectedLanguages.join(','));
-      }
-      if (selectedCountries.length > 0 && selectedCountries.length < filterOptions.country.length) {
-        params.set('country', selectedCountries.join(','));
-      }
-      const res = await api.get(`/admin/channels?${params.toString()}`);
-      const body = res.data;
-      setChannels(Array.isArray(body) ? body : body.data || body.channels || []);
-      setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
-    } catch {
-      setError('Failed to load channels');
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    page,
-    deferredSearch,
-    selectedGroups,
-    selectedStatuses,
-    selectedLanguages,
-    selectedCountries,
-    filterOptions,
-  ]);
+    },
+    [
+      page,
+      debouncedSearch,
+      selectedGroups,
+      selectedStatuses,
+      selectedLanguages,
+      selectedCountries,
+      filterOptions,
+    ],
+  );
 
   async function refreshFilterOptions() {
     try {
@@ -195,7 +209,7 @@ export default function ChannelsPage() {
 
   // Track previous filter values to detect changes and reset page
   const prevFiltersRef = useRef({
-    deferredSearch,
+    debouncedSearch,
     selectedGroups,
     selectedStatuses,
     selectedLanguages,
@@ -206,13 +220,13 @@ export default function ChannelsPage() {
   useEffect(() => {
     const prev = prevFiltersRef.current;
     const filtersChanged =
-      prev.deferredSearch !== deferredSearch ||
+      prev.debouncedSearch !== debouncedSearch ||
       prev.selectedGroups !== selectedGroups ||
       prev.selectedStatuses !== selectedStatuses ||
       prev.selectedLanguages !== selectedLanguages ||
       prev.selectedCountries !== selectedCountries;
     prevFiltersRef.current = {
-      deferredSearch,
+      debouncedSearch,
       selectedGroups,
       selectedStatuses,
       selectedLanguages,
@@ -223,11 +237,13 @@ export default function ChannelsPage() {
       setPage(1); // will trigger this effect again with page=1
       return;
     }
-    fetchChannels();
+    const controller = new AbortController();
+    fetchChannels(controller.signal);
+    return () => controller.abort();
   }, [
     fetchChannels,
     page,
-    deferredSearch,
+    debouncedSearch,
     selectedGroups,
     selectedStatuses,
     selectedLanguages,
@@ -451,7 +467,7 @@ export default function ChannelsPage() {
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
           >
-            <Plus className="h-4 w-4" /> Add
+            <Plus className="h-4 w-4" /> Add Channel
           </button>
           <button
             onClick={() => setShowImport(true)}
@@ -500,7 +516,10 @@ export default function ChannelsPage() {
       )}
 
       {error && (
-        <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           {error}
         </div>
       )}
@@ -513,7 +532,7 @@ export default function ChannelsPage() {
           placeholder="Search channels..."
           aria-label="Search channels"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
         />
       </div>
@@ -582,7 +601,7 @@ export default function ChannelsPage() {
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 {search
                   ? 'No channels match your search'
-                  : 'No channels yet. Click "Add" to get started.'}
+                  : 'No channels yet. Click "Add Channel" to create one or use "Import M3U" to bulk upload.'}
               </div>
             ) : (
               paginated.map((channel) => (
@@ -594,6 +613,7 @@ export default function ChannelsPage() {
                   <div
                     role="cell"
                     tabIndex={0}
+                    aria-label={getName(channel)}
                     className="flex items-center gap-3 min-w-0 cursor-pointer"
                     onClick={() => setDetailChannel(channel)}
                     onKeyDown={(e) => {
@@ -608,6 +628,8 @@ export default function ChannelsPage() {
                         src={proxyImageUrl(getLogo(channel)!)}
                         alt={getName(channel) + ' logo'}
                         loading="lazy"
+                        width={24}
+                        height={24}
                         className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
                       />
                     ) : (
@@ -640,14 +662,14 @@ export default function ChannelsPage() {
                   <div role="cell" className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setDetailChannel(channel)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label="View details"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => playStream({ name: getName(channel), url: getUrl(channel) })}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label="Play stream"
                     >
                       <Play className="h-4 w-4" />
@@ -655,7 +677,7 @@ export default function ChannelsPage() {
                     <button
                       onClick={() => handleTestOne(channel)}
                       disabled={testing === channel._id}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label="Test stream"
                     >
                       {testing === channel._id ? (
@@ -666,14 +688,14 @@ export default function ChannelsPage() {
                     </button>
                     <button
                       onClick={() => openEdit(channel)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label="Edit channel"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(channel._id)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-destructive transition-colors"
+                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-destructive transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label={`Delete ${getName(channel)}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -700,7 +722,10 @@ export default function ChannelsPage() {
       >
         <form onSubmit={handleAddChannel} className="p-5 space-y-4">
           {addError && (
-            <div className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div
+              role="alert"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
               {addError}
             </div>
           )}
@@ -738,13 +763,13 @@ export default function ChannelsPage() {
                   id: 'add-drm-key',
                   label: 'DRM Key',
                   key: 'channelDrmKey' as const,
-                  placeholder: 'optional',
+                  placeholder: 'Optional — for protected streams',
                 },
                 {
                   id: 'add-drm-type',
                   label: 'DRM Type',
                   key: 'channelDrmType' as const,
-                  placeholder: 'e.g. widevine',
+                  placeholder: 'e.g. Widevine, PlayReady, FairPlay',
                 },
               ] as const
             ).map((f) => (
@@ -783,6 +808,9 @@ export default function ChannelsPage() {
                 className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
                 placeholder="0"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Lower numbers appear first. Leave as 0 for automatic ordering.
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 pt-1">
@@ -817,7 +845,10 @@ export default function ChannelsPage() {
       >
         <form onSubmit={handleEditSave} className="p-5 space-y-4">
           {editError && (
-            <div className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div
+              role="alert"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
               {editError}
             </div>
           )}
@@ -881,6 +912,9 @@ export default function ChannelsPage() {
                 }
                 className="flex h-10 w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Lower numbers appear first. Leave as 0 for automatic ordering.
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 pt-1">
@@ -918,6 +952,8 @@ export default function ChannelsPage() {
                   src={proxyImageUrl(getLogo(detailChannel)!)}
                   alt={getName(detailChannel) + ' logo'}
                   loading="lazy"
+                  width={64}
+                  height={64}
                   className="h-16 w-16 rounded object-contain bg-muted shrink-0"
                 />
               ) : (

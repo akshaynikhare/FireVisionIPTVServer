@@ -14,6 +14,26 @@ const {
   sendPasswordResetEmail,
 } = require('../services/email');
 
+// Input validation helpers
+const USERNAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateUsername(username) {
+  if (!username || typeof username !== 'string') return 'Username is required';
+  if (username.length < 3 || username.length > 50)
+    return 'Username must be between 3 and 50 characters';
+  if (!USERNAME_REGEX.test(username))
+    return 'Username can only contain letters, numbers, underscores, dots, and hyphens';
+  return null;
+}
+
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') return 'Email is required';
+  if (email.length > 254) return 'Email is too long';
+  if (!EMAIL_REGEX.test(email)) return 'Invalid email format';
+  return null;
+}
+
 // Configure multer for profile picture uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -154,13 +174,18 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Sanitize input for logging (prevent log injection)
+    const safeInput = String(username)
+      .replace(/[\r\n]/g, '')
+      .substring(0, 100);
+
     // Find user by username or email
     const user = await User.findOne({
       $or: [{ username: username }, { email: username }],
     });
 
     if (!user) {
-      console.warn(`Failed login attempt: user not found (input: ${username}), IP: ${req.ip}`);
+      console.warn(`Failed login attempt: user not found (input: ${safeInput}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials',
@@ -169,10 +194,10 @@ router.post('/login', async (req, res) => {
 
     // Check if user is active
     if (!user.isActive) {
-      console.warn(`Failed login attempt: inactive account (${username}), IP: ${req.ip}`);
+      console.warn(`Failed login attempt: inactive account (${safeInput}), IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
-        error: 'Account is inactive. Please contact administrator.',
+        error: 'Invalid credentials',
       });
     }
 
@@ -180,7 +205,7 @@ router.post('/login', async (req, res) => {
     const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
-      console.warn(`Failed login attempt: bad password for ${username}, IP: ${req.ip}`);
+      console.warn(`Failed login attempt: bad password for ${safeInput}, IP: ${req.ip}`);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials',
@@ -418,6 +443,22 @@ router.put('/me', requireAuth, async (req, res) => {
       });
     }
 
+    // Validate username format if provided
+    if (username) {
+      const usernameError = validateUsername(username);
+      if (usernameError) {
+        return res.status(400).json({ success: false, error: usernameError });
+      }
+    }
+
+    // Validate email format if provided
+    if (email) {
+      const emailError = validateEmail(email);
+      if (emailError) {
+        return res.status(400).json({ success: false, error: emailError });
+      }
+    }
+
     // Check if username is being changed and if it's already taken
     if (username && username !== user.username) {
       const existingUser = await User.findOne({ username });
@@ -442,9 +483,15 @@ router.put('/me', requireAuth, async (req, res) => {
       user.email = email;
     }
 
-    // Update profile picture if provided (prevent path traversal)
+    // Update profile picture if provided (strict allowlist validation)
     if (profilePicture !== undefined) {
-      if (profilePicture && (profilePicture.includes('..') || path.isAbsolute(profilePicture))) {
+      const isLocalUpload =
+        /^\/uploads\/profiles\/profile-[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif)$/.test(profilePicture);
+      const isOAuthAvatar =
+        /^https:\/\/(lh3\.googleusercontent\.com|avatars\.githubusercontent\.com)\//.test(
+          profilePicture,
+        );
+      if (profilePicture && !isLocalUpload && !isOAuthAvatar) {
         return res.status(400).json({
           success: false,
           error: 'Invalid profile picture path',
@@ -657,6 +704,22 @@ router.put('/profile', requireAuth, async (req, res) => {
       });
     }
 
+    // Validate username format if provided
+    if (username) {
+      const usernameError = validateUsername(username);
+      if (usernameError) {
+        return res.status(400).json({ success: false, error: usernameError });
+      }
+    }
+
+    // Validate email format if provided
+    if (email) {
+      const emailError = validateEmail(email);
+      if (emailError) {
+        return res.status(400).json({ success: false, error: emailError });
+      }
+    }
+
     // Check if username is already taken by another user
     if (username && username !== user.username) {
       const existingUser = await User.findOne({ username });
@@ -857,6 +920,18 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Validate username format
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return res.status(400).json({ success: false, error: usernameError });
+    }
+
+    // Validate email format
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ success: false, error: emailError });
+    }
+
     // Validate password length
     if (password.length < 8) {
       return res.status(400).json({
@@ -943,6 +1018,11 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// NOTE: OAuth routes (/google, /google/callback, /github, /github/callback,
+// /oauth-exchange) need rate limiting applied in server.js to prevent abuse.
+// These endpoints are public and should be rate-limited more aggressively than
+// authenticated endpoints.
+
 /**
  * Google OAuth - Initiate authentication
  */
@@ -963,7 +1043,7 @@ router.get('/google', (req, res) => {
   // Generate CSRF state parameter
   const state = crypto.randomBytes(16).toString('hex');
   // Store state in a secure httpOnly cookie for validation in callback
-  res.cookie('oauth_state', state, {
+  res.cookie('oauth_state_google', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -988,8 +1068,8 @@ router.get('/google/callback', async (req, res) => {
     }
 
     // Validate OAuth state parameter to prevent CSRF
-    const expectedState = req.cookies?.oauth_state;
-    res.clearCookie('oauth_state');
+    const expectedState = req.cookies?.oauth_state_google;
+    res.clearCookie('oauth_state_google');
     if (!state || !expectedState || state !== expectedState) {
       return res.redirect('/login?error=invalid_state');
     }
@@ -1050,9 +1130,10 @@ router.get('/google/callback', async (req, res) => {
       await user.save();
       console.log('New Google OAuth user created:', username);
     } else if (!user.googleId && googleId) {
-      // Link existing email-matched user to Google provider ID
-      user.googleId = String(googleId);
-      await user.save();
+      // Account exists with this email but Google is not linked.
+      // Do NOT auto-link to prevent account takeover. User must log in
+      // with their password first and then link the provider manually.
+      return res.redirect('/login?error=account_exists_link_required');
     }
 
     // Create session
@@ -1120,7 +1201,7 @@ router.get('/github', (req, res) => {
 
   // Generate CSRF state parameter
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('oauth_state', state, {
+  res.cookie('oauth_state_github', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -1145,8 +1226,8 @@ router.get('/github/callback', async (req, res) => {
     }
 
     // Validate OAuth state parameter to prevent CSRF
-    const expectedState = req.cookies?.oauth_state;
-    res.clearCookie('oauth_state');
+    const expectedState = req.cookies?.oauth_state_github;
+    res.clearCookie('oauth_state_github');
     if (!state || !expectedState || state !== expectedState) {
       return res.redirect('/login?error=invalid_state');
     }
@@ -1220,9 +1301,10 @@ router.get('/github/callback', async (req, res) => {
       await user.save();
       console.log('New GitHub OAuth user created:', username);
     } else if (!user.githubId && githubUser.id) {
-      // Link existing email-matched user to GitHub provider ID
-      user.githubId = githubIdStr;
-      await user.save();
+      // Account exists with this email but GitHub is not linked.
+      // Do NOT auto-link to prevent account takeover. User must log in
+      // with their password first and then link the provider manually.
+      return res.redirect('/login?error=account_exists_link_required');
     }
 
     // Create session
@@ -1300,7 +1382,7 @@ router.post('/oauth-exchange', async (req, res) => {
 
     const user = await User.findById(entry.userId).select('-password');
     if (!user || !user.isActive) {
-      return res.status(401).json({ success: false, error: 'User account is inactive' });
+      return res.status(401).json({ success: false, error: 'Invalid or expired code' });
     }
 
     res.json({

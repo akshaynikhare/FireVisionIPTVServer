@@ -1,7 +1,16 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import StreamPlayer from './stream-player';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  lazy,
+  Suspense,
+  type ReactNode,
+} from 'react';
+
+const StreamPlayer = lazy(() => import('./stream-player'));
 
 interface StreamChannel {
   name: string;
@@ -54,7 +63,11 @@ export function StreamPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <StreamPlayerContext.Provider value={{ playStream, closeStream, isPlaying: !!state.channel }}>
       {children}
-      <StreamPlayer channel={state.channel} onClose={closeStream} mode={state.mode} />
+      {state.channel && (
+        <Suspense fallback={null}>
+          <StreamPlayer channel={state.channel} onClose={closeStream} mode={state.mode} />
+        </Suspense>
+      )}
     </StreamPlayerContext.Provider>
   );
 }

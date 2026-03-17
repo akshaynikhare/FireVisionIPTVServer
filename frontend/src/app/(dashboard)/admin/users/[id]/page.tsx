@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Copy, Check, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 
 interface UserDetail {
   _id: string;
@@ -32,6 +33,7 @@ export default function UserDetailPage() {
   const [editRole, setEditRole] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   useEffect(() => {
     async function fetchUser() {
@@ -73,7 +75,6 @@ export default function UserDetailPage() {
   }
 
   async function handleRegenerateCode() {
-    if (!confirm('Regenerate channel list code? The old code will stop working.')) return;
     try {
       const res = await api.put(`/users/${params.id}/regenerate-code`);
       const newCode = res.data.channelListCode || res.data.data?.channelListCode;
@@ -82,6 +83,8 @@ export default function UserDetailPage() {
       }
     } catch {
       toast('Failed to regenerate code', 'error');
+    } finally {
+      setShowRegenerateConfirm(false);
     }
   }
 
@@ -316,7 +319,7 @@ export default function UserDetailPage() {
               </button>
             )}
             <button
-              onClick={handleRegenerateCode}
+              onClick={() => setShowRegenerateConfirm(true)}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors ml-2"
             >
               <RefreshCw className="h-4 w-4" /> Regenerate
@@ -346,6 +349,16 @@ export default function UserDetailPage() {
           </ul>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showRegenerateConfirm}
+        onCancel={() => setShowRegenerateConfirm(false)}
+        onConfirm={handleRegenerateCode}
+        title="Regenerate Code"
+        message="Regenerate channel list code? The old code will stop working."
+        confirmLabel="Regenerate"
+        variant="destructive"
+      />
     </div>
   );
 }

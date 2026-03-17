@@ -119,7 +119,7 @@ export function WizardShell({ mode }: WizardShellProps) {
     setCurrentStep(Math.min(nextStep, TOTAL_STEPS - 1));
   }
 
-  function handleBack() {
+  const handleBack = useCallback(() => {
     // If leaving the channels step, clear fetched data so it re-fetches with updated filters
     if (currentStep === 4) {
       setFetchedChannels([]);
@@ -129,7 +129,7 @@ export function WizardShell({ mode }: WizardShellProps) {
     // Skip language step if no IPTV-org
     if (prevStep === 2 && !hasIptvOrg) prevStep = 1;
     setCurrentStep(Math.max(prevStep, 0));
-  }
+  }, [currentStep, hasIptvOrg]);
 
   const canProceed = (() => {
     switch (currentStep) {
@@ -171,10 +171,10 @@ export function WizardShell({ mode }: WizardShellProps) {
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [currentStep, hasIptvOrg]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStep, handleBack]);
 
   return (
-    <div className="space-y-6">
+    <main aria-label="Channel Quick Pick Wizard" className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
@@ -201,7 +201,12 @@ export function WizardShell({ mode }: WizardShellProps) {
       </div>
 
       {/* Step Content */}
-      <div ref={stepContentRef} tabIndex={-1} className="min-h-[300px] focus:outline-none">
+      <div
+        ref={stepContentRef}
+        tabIndex={-1}
+        aria-live="polite"
+        className="min-h-[300px] focus:outline-none"
+      >
         {currentStep === 0 && (
           <SourceStep selectedSources={selectedSources} onToggleSource={toggleSource} />
         )}
@@ -275,6 +280,6 @@ export function WizardShell({ mode }: WizardShellProps) {
           <div />
         )}
       </div>
-    </div>
+    </main>
   );
 }

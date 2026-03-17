@@ -100,6 +100,7 @@ export default function RegisterPage() {
                 minLength={3}
                 maxLength={50}
                 autoComplete="username"
+                aria-required="true"
                 className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                 aria-label="Username"
               />
@@ -123,6 +124,7 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
                 autoComplete="email"
+                aria-required="true"
                 className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                 aria-label="Email address"
               />
@@ -148,6 +150,7 @@ export default function RegisterPage() {
                   disabled={loading}
                   minLength={8}
                   autoComplete="new-password"
+                  aria-required="true"
                   className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                   placeholder="8+ characters"
                   aria-label="Password"
@@ -155,9 +158,10 @@ export default function RegisterPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground" />

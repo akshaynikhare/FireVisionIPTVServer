@@ -7,7 +7,7 @@ import { IUserDocument } from '@firevision/shared';
 function getRequiredEnv(key: string, devFallback: string): string {
   const value = process.env[key];
   if (value) return value;
-  if (process.env.NODE_ENV === 'production') {
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   console.warn(`WARNING: ${key} not set, using insecure dev fallback. Do NOT use in production.`);
@@ -27,13 +27,14 @@ function signAccessToken(user: IUserDocument): string {
       playlistCode: (user as any).playlistCode,
     },
     ACCESS_SECRET,
-    { expiresIn: ACCESS_TTL as any },
+    { algorithm: 'HS256', expiresIn: ACCESS_TTL as any },
   );
 }
 
 function signRefreshToken(user: IUserDocument): string {
   const jti = crypto.randomBytes(16).toString('hex');
   return jwt.sign({ sub: user._id.toString(), jti }, REFRESH_SECRET, {
+    algorithm: 'HS256',
     expiresIn: Math.floor(REFRESH_TTL_MS / 1000) as any,
   });
 }

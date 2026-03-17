@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { audit } = require('../services/audit-log');
+
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id) && /^[0-9a-fA-F]{24}$/.test(id);
+}
 
 // Get distinct filter options for users
 router.get('/filter-options', requireAuth, requireAdmin, async (req, res) => {
@@ -105,6 +110,19 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long',
+      });
+    }
+    if (password.length > 128) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must not exceed 128 characters',
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({
       $or: [{ username }, { email }],
@@ -162,6 +180,10 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
     // Check if user is accessing their own profile or is admin
     if (req.user.role !== 'Admin' && req.user.id.toString() !== id) {
       return res.status(403).json({
@@ -198,6 +220,11 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
     const { username, email, password, role, isActive } = req.body;
 
     // Check if user is accessing their own profile or is admin
@@ -230,6 +257,12 @@ router.put('/:id', requireAuth, async (req, res) => {
         return res.status(403).json({
           success: false,
           error: 'Use the change-password endpoint to update your password',
+        });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'Password must be at least 8 characters long',
         });
       }
       if (password.length > 128) {
@@ -285,6 +318,17 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
+    if (id === req.user.id.toString()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete your own admin account',
+      });
+    }
+
     const user = await User.findByIdAndDelete(id);
     if (!user) {
       return res.status(404).json({
@@ -329,6 +373,10 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
 
     // Check if user is accessing their own profile or is admin
     if (req.user.role !== 'Admin' && req.user.id.toString() !== id) {

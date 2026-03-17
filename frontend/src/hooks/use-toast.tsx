@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -38,6 +38,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     },
     [removeToast],
   );
+
+  // Clear all pending timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((entry) => clearTimeout(entry.timerId));
+      timersRef.current.clear();
+    };
+  }, []);
 
   const pauseTimer = useCallback((id: number) => {
     const entry = timersRef.current.get(id);

@@ -75,14 +75,17 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
         )}
         <ul className="space-y-0.5">
           {links.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive =
+              link.href === '/admin' || link.href === '/user'
+                ? pathname === link.href
+                : pathname.startsWith(link.href);
             const Icon = link.icon;
             return (
               <li key={link.href}>
                 <Link
                   href={link.href}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`flex items-center gap-2.5 py-2 text-[13px] transition-colors ${
+                  className={`flex items-center gap-2.5 py-2 text-xs transition-colors ${
                     sidebarCollapsed ? 'justify-center px-2' : 'px-2.5'
                   } ${
                     isActive
@@ -107,7 +110,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
           href="https://github.com/akshaynikhare/FireVisionIPTVServer/issues"
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex items-center gap-2.5 py-2 text-[13px] text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${
+          className={`flex items-center gap-2.5 py-2 text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${
             sidebarCollapsed ? 'justify-center px-2' : 'px-2.5'
           }`}
           title={sidebarCollapsed ? 'Raise Issue' : undefined}
@@ -124,7 +127,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
         onClick={toggleSidebar}
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         aria-expanded={!sidebarCollapsed}
-        className="absolute -right-3 top-[44px] flex h-9 w-9 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
+        className="absolute -right-3 top-[44px] flex h-10 w-10 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
       >
         {sidebarCollapsed ? (
           <ChevronRight className="h-3 w-3" />

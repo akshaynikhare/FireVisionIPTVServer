@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
 import ColumnFilter from '@/components/ui/column-filter';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 
 interface UserData {
   _id: string;
@@ -36,10 +38,11 @@ export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch('', 300);
   const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; username: string } | null>(null);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 50;
@@ -60,28 +63,34 @@ export default function UsersPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('pageSize', String(pageSize));
-      if (search) params.set('search', search);
-      if (selectedRoles.length > 0 && selectedRoles.length < filterOptions.role.length) {
-        params.set('role', selectedRoles.join(','));
+  const fetchUsers = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        if (selectedRoles.length > 0 && selectedRoles.length < filterOptions.role.length) {
+          params.set('role', selectedRoles.join(','));
+        }
+        if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
+          params.set('status', selectedStatuses.join(','));
+        }
+        const res = await api.get(`/users?${params.toString()}`, { signal });
+        const body = res.data;
+        setUsers(Array.isArray(body) ? body : body.data || body.users || []);
+        setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const axiosErr = err as { code?: string };
+        if (axiosErr.code === 'ERR_CANCELED') return;
+        setError('Failed to load users');
+      } finally {
+        setLoading(false);
       }
-      if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
-        params.set('status', selectedStatuses.join(','));
-      }
-      const res = await api.get(`/users?${params.toString()}`);
-      const body = res.data;
-      setUsers(Array.isArray(body) ? body : body.data || body.users || []);
-      setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
-    } catch {
-      setError('Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, selectedRoles, selectedStatuses, filterOptions]);
+    },
+    [page, debouncedSearch, selectedRoles, selectedStatuses, filterOptions],
+  );
 
   // Fetch filter options once
   useEffect(() => {
@@ -98,17 +107,25 @@ export default function UsersPage() {
 
   // Fetch users when filters/page/search change
   useEffect(() => {
-    fetchUsers();
+    const controller = new AbortController();
+    fetchUsers(controller.signal);
+    return () => controller.abort();
   }, [fetchUsers]);
 
-  async function handleDelete(e: React.MouseEvent, id: string, username: string) {
+  function handleDelete(e: React.MouseEvent, id: string, username: string) {
     e.stopPropagation();
-    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+    setDeleteConfirm({ id, username });
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
     try {
-      await api.delete(`/users/${id}`);
-      setUsers((prev) => prev.filter((u) => u._id !== id));
+      await api.delete(`/users/${deleteConfirm.id}`);
+      setUsers((prev) => prev.filter((u) => u._id !== deleteConfirm.id));
     } catch {
       toast('Failed to delete user', 'error');
+    } finally {
+      setDeleteConfirm(null);
     }
   }
 
@@ -127,7 +144,7 @@ export default function UsersPage() {
       setNewUsername('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('user');
+      setNewRole('User');
       fetchUsers();
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
@@ -159,7 +176,7 @@ export default function UsersPage() {
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setPage(1);
-  }, [search, selectedRoles, selectedStatuses]);
+  }, [debouncedSearch, selectedRoles, selectedStatuses]);
 
   // Data is already filtered & paginated server-side
   const paginated = users;
@@ -192,7 +209,10 @@ export default function UsersPage() {
       </div>
 
       {error && (
-        <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           {error}
         </div>
       )}
@@ -204,7 +224,7 @@ export default function UsersPage() {
           placeholder="Search by username, email, or channel code..."
           aria-label="Search users"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
         />
       </div>
@@ -217,7 +237,7 @@ export default function UsersPage() {
         >
           <div
             role="rowgroup"
-            className="hidden lg:grid grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-4 px-4 py-2 bg-muted/50"
+            className="hidden md:grid grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-4 px-4 py-2 bg-muted/50"
           >
             <span
               role="columnheader"
@@ -263,19 +283,25 @@ export default function UsersPage() {
           <div role="rowgroup">
             {paginated.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {search ? 'No users match your search' : 'No users yet'}
+                {debouncedSearch
+                  ? 'No users match your search'
+                  : 'No users registered yet. Click "Add User" to invite team members.'}
               </div>
             ) : (
               paginated.map((user) => (
                 <div
                   key={user._id}
                   role="row"
+                  aria-label={`User: ${user.username}`}
                   onClick={() => router.push(`/admin/users/${user._id}`)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') router.push(`/admin/users/${user._id}`);
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push(`/admin/users/${user._id}`);
+                    }
                   }}
                   tabIndex={0}
-                  className="grid lg:grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-2 lg:gap-4 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50"
+                  className="grid md:grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-2 md:gap-4 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
                   <div role="cell" className="flex items-center gap-2.5 min-w-0">
                     {user.role === 'Admin' ? (
@@ -329,7 +355,6 @@ export default function UsersPage() {
                     <span className="text-xs text-muted-foreground">
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    <span className="sr-only">{user.isActive ? 'Active' : 'Inactive'}</span>
                   </div>
                   <div role="cell" className="flex items-center justify-end gap-1">
                     <button
@@ -371,7 +396,10 @@ export default function UsersPage() {
       >
         <form onSubmit={handleAddUser} className="p-5 space-y-4">
           {addError && (
-            <div className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div
+              role="alert"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
               {addError}
             </div>
           )}
@@ -469,6 +497,16 @@ export default function UsersPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Delete user "${deleteConfirm?.username}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

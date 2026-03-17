@@ -5,6 +5,7 @@ import { Loader2, Search, Play, ChevronLeft, ChevronRight, RefreshCw } from 'luc
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import type { SourceType, WizardChannel, ChannelLiveness } from '../wizard-shell';
 
 const PAGE_SIZE = 50;
@@ -51,7 +52,7 @@ export function RecommendationsStep({
 }: RecommendationsStepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
   const [sourceFilter, setSourceFilter] = useState<SourceType | 'all'>('all');
   const [page, setPage] = useState(1);
   const { playStream } = useStreamPlayer();
@@ -286,8 +287,8 @@ export function RecommendationsStep({
     if (sourceFilter !== 'all') {
       list = list.filter((ch) => ch.source === sourceFilter);
     }
-    if (search) {
-      const q = search.toLowerCase();
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (ch) =>
           ch.channelName.toLowerCase().includes(q) ||
@@ -296,7 +297,7 @@ export function RecommendationsStep({
       );
     }
     return list;
-  }, [fetchedChannels, sourceFilter, search]);
+  }, [fetchedChannels, sourceFilter, debouncedSearch]);
 
   // Liveness counts (computed from base, before liveness filter)
   const livenessCounts = useMemo(() => {
@@ -358,7 +359,7 @@ export function RecommendationsStep({
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, sourceFilter, livenessFilter]);
+  }, [debouncedSearch, sourceFilter, livenessFilter]);
 
   // --- Check all channels on current page ---
   async function checkPageLiveness() {
@@ -418,7 +419,7 @@ export function RecommendationsStep({
             placeholder="Search channels..."
             aria-label="Search channels"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
           />
         </div>
@@ -511,7 +512,7 @@ export function RecommendationsStep({
               if (el) el.indeterminate = somePageSelected;
             }}
             onChange={togglePageSelection}
-            className="accent-primary shrink-0"
+            className="accent-primary shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Select all channels on page"
             title={allPageSelected ? 'Deselect all on page' : 'Select all on page'}
           />
@@ -526,7 +527,7 @@ export function RecommendationsStep({
           <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
           <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium shrink-0 w-[30px] text-center"></span>
         </div>
-        <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
+        <div className="max-h-[50vh] sm:max-h-[400px] overflow-y-auto divide-y divide-border">
           {pageChannels.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
               No channels match your filters.
@@ -551,6 +552,8 @@ export function RecommendationsStep({
                     src={proxyImageUrl(ch.tvgLogo)}
                     alt={ch.channelName}
                     loading="lazy"
+                    width={28}
+                    height={28}
                     className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';

@@ -214,15 +214,15 @@ export default function EpgPage() {
 
       {/* Metrics Grid */}
       <div className="border border-border ">
-        <div className="grid grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 md:grid-cols-4">
           {metrics.map((metric, i) => {
             const Icon = metric.icon;
             return (
               <div
                 key={metric.label}
                 className={`p-4 ${i % 2 !== 0 ? 'border-l border-border' : ''} ${
-                  i >= 2 ? 'border-t border-border lg:border-t-0' : ''
-                } ${i === 2 ? 'lg:border-l' : ''}`}
+                  i >= 2 ? 'border-t border-border md:border-t-0' : ''
+                } ${i === 2 ? 'md:border-l' : ''}`}
               >
                 <div className="flex items-center gap-1.5">
                   <Icon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />

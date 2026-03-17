@@ -25,7 +25,7 @@ class ExternalSourceCacheService {
     if (cached && Date.now() - cached.timestamp < PLUTO_SESSION_TTL) {
       return cached.token;
     }
-    const bootUrl = `https://boot.pluto.tv/v4/start?appName=web&appVersion=9&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=131&clientModelNumber=1.0.0&serverSideAds=false&clientID=1&country=${key}`;
+    const bootUrl = `https://boot.pluto.tv/v4/start?appName=web&appVersion=9&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=131&clientModelNumber=1.0.0&serverSideAds=false&clientID=1&country=${encodeURIComponent(key)}`;
     const res = await axios.get(bootUrl, {
       timeout: 10000,
       headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -331,8 +331,10 @@ class ExternalSourceCacheService {
     }
 
     let resolve!: () => void;
-    const promise = new Promise<void>((res) => {
+    let reject!: (err: Error) => void;
+    const promise = new Promise<void>((res, rej) => {
       resolve = res;
+      reject = rej;
     });
     this.livenessPromises.set(key, promise);
 
@@ -465,7 +467,7 @@ class ExternalSourceCacheService {
       ).catch(() => {});
 
       console.error(`[ext-cache] Batch liveness failed for ${source}:${region}:`, err.message);
-      resolve();
+      reject(err);
       throw err;
     } finally {
       this.livenessPromises.delete(key);

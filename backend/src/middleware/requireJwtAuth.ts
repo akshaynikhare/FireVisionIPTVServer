@@ -16,7 +16,7 @@ function requireJwtAuth(req: Request, res: Response, next: NextFunction) {
       console.error('JWT_ACCESS_SECRET not configured');
       return res.status(500).json({ success: false, error: 'Server configuration error' });
     }
-    const payload = jwt.verify(token, ACCESS_SECRET) as jwt.JwtPayload;
+    const payload = jwt.verify(token, ACCESS_SECRET, { algorithms: ['HS256'] }) as jwt.JwtPayload;
     req.jwt = payload as any;
     req.userId = payload.sub;
     next();

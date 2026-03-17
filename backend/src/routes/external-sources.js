@@ -1,9 +1,20 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
 const { externalSourceCacheService } = require('../services/external-source-cache');
 const { audit } = require('../services/audit-log');
+
+const VALID_SOURCES = ['pluto-tv', 'samsung-tv-plus'];
+const REGION_REGEX = /^[a-z]{2}$/;
+
+function validateSource(source) {
+  return VALID_SOURCES.includes(source);
+}
+function validateRegion(region) {
+  return typeof region === 'string' && REGION_REGEX.test(region);
+}
 
 router.use(requireAuth);
 
@@ -53,6 +64,11 @@ router.get('/pluto-tv/regions', async (req, res) => {
 router.get('/pluto-tv/channels', async (req, res) => {
   try {
     const country = (req.query.country || 'us').toLowerCase();
+    if (!validateRegion(country)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
+    }
     const status = req.query.status;
     const channels = await externalSourceCacheService.getChannels('pluto-tv', country, { status });
     const data = channels.map((ch) => mapToFrontendShape(ch, 'pluto-tv'));
@@ -81,6 +97,11 @@ router.get('/samsung-tv-plus/regions', async (req, res) => {
 router.get('/samsung-tv-plus/channels', async (req, res) => {
   try {
     const country = (req.query.country || 'us').toLowerCase();
+    if (!validateRegion(country)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
+    }
     const status = req.query.status;
     const channels = await externalSourceCacheService.getChannels('samsung-tv-plus', country, {
       status,
@@ -103,6 +124,19 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
     const { source, region } = req.body;
     if (!source || !region) {
       return res.status(400).json({ success: false, error: 'source and region are required' });
+    }
+    if (!validateSource(source)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+        });
+    }
+    if (!validateRegion(region)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid region format. Must be a 2-letter country code' });
     }
 
     audit({
@@ -152,6 +186,19 @@ router.get('/liveness-status', async (req, res) => {
     if (!source || !region) {
       return res.status(400).json({ success: false, error: 'source and region are required' });
     }
+    if (!validateSource(source)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+        });
+    }
+    if (!validateRegion(region)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid region format. Must be a 2-letter country code' });
+    }
     const meta = await externalSourceCacheService.getCacheMeta(source, region);
     res.json({
       success: true,
@@ -171,6 +218,19 @@ router.post('/refresh-cache', adminOnly, async (req, res) => {
     const { source, region } = req.body;
     if (!source || !region) {
       return res.status(400).json({ success: false, error: 'source and region are required' });
+    }
+    if (!validateSource(source)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+        });
+    }
+    if (!validateRegion(region)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid region format. Must be a 2-letter country code' });
     }
     const result = await externalSourceCacheService.refreshRegion(source, region);
     audit({
@@ -194,8 +254,19 @@ router.post('/import', adminOnly, async (req, res) => {
     if (!channels || !Array.isArray(channels) || channels.length === 0) {
       return res.status(400).json({ success: false, error: 'No channels provided' });
     }
+    if (channels.length > 10000) {
+      return res.status(400).json({ success: false, error: 'Maximum 10,000 channels per import' });
+    }
 
     if (replaceExisting) {
+      if (!req.body.confirmDeleteAll) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error: 'Set confirmDeleteAll: true to confirm replacing all channels',
+          });
+      }
       await Channel.deleteMany({});
     }
 
@@ -205,7 +276,7 @@ router.post('/import', adminOnly, async (req, res) => {
       tvgLogo: ch.tvgLogo || '',
       tvgName: ch.tvgName || ch.channelName || '',
       channelGroup: ch.groupTitle || ch.channelGroup || 'Imported',
-      channelId: ch.channelId || `imp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      channelId: ch.channelId || `imp_${crypto.randomUUID()}`,
       metadata: {
         country: ch.country || '',
         language: ch.language || '',
@@ -246,6 +317,9 @@ router.post('/import-user', async (req, res) => {
     if (!channels || !Array.isArray(channels) || channels.length === 0) {
       return res.status(400).json({ success: false, error: 'Channels array is required' });
     }
+    if (channels.length > 500) {
+      return res.status(400).json({ success: false, error: 'Maximum 500 channels per import' });
+    }
 
     const User = require('../models/User');
     const user = await User.findById(userId);
@@ -257,6 +331,13 @@ router.post('/import-user', async (req, res) => {
     const channelIdsToAdd = [];
 
     for (const ch of channels) {
+      if (!ch.channelUrl || typeof ch.channelUrl !== 'string') continue;
+      try {
+        const parsed = new URL(ch.channelUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+      } catch {
+        continue;
+      }
       try {
         let existingChannel = await Channel.findOne({
           channelUrl: ch.channelUrl,
@@ -270,8 +351,7 @@ router.post('/import-user', async (req, res) => {
           }
         } else {
           const newChannel = new Channel({
-            channelId:
-              ch.channelId || `ext_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            channelId: ch.channelId || `ext_${crypto.randomUUID()}`,
             channelName: ch.channelName,
             channelUrl: ch.channelUrl,
             channelImg: ch.tvgLogo || '',
@@ -328,6 +408,19 @@ router.post('/import-user', async (req, res) => {
 router.post('/clear-cache', adminOnly, async (req, res) => {
   try {
     const { source, region } = req.body || {};
+    if (source && !validateSource(source)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+        });
+    }
+    if (region && !validateRegion(region)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid region format. Must be a 2-letter country code' });
+    }
     await externalSourceCacheService.clearCache(source, region);
     audit({
       userId: req.user.id,

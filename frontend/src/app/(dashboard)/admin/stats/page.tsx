@@ -61,7 +61,10 @@ export default function StatsPage() {
 
   if (error) {
     return (
-      <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div
+        role="alert"
+        className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      >
         {error}
       </div>
     );

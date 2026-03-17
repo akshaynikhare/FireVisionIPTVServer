@@ -275,6 +275,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
 
       {/* Player container */}
       <div
+        role="region"
+        aria-label={`Stream player — ${channel.name}`}
         className={
           mini
             ? 'fixed z-[60] shadow-2xl border border-border bg-card flex flex-col overflow-hidden rounded-lg transition-[transform,box-shadow] duration-300'
@@ -283,8 +285,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
         style={
           mini
             ? {
+                width: 'min(360px, calc(100vw - 32px))',
                 maxWidth: 'calc(100vw - 32px)',
-                width: 360,
                 right: position.right,
                 bottom: position.bottom,
               }

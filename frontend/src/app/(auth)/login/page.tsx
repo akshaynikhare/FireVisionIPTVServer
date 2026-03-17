@@ -25,7 +25,7 @@ export default function LoginPage() {
     const oauthError = searchParams.get('error');
 
     if (oauthError) {
-      setError('OAuth authentication failed. Please try again.');
+      setError('OAuth authentication failed. Try a different sign-in method or contact support.');
       return;
     }
 
@@ -133,6 +133,7 @@ export default function LoginPage() {
                 required
                 disabled={loading}
                 autoComplete="username"
+                aria-required="true"
                 className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                 aria-label="Username"
               />
@@ -157,6 +158,7 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                   autoComplete="current-password"
+                  aria-required="true"
                   className="flex h-10 w-full border border-border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                   aria-label="Password"
                 />
@@ -165,6 +167,7 @@ export default function LoginPage() {
                   className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground" />

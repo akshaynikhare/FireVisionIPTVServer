@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LogOut, Moon, Sun, UserCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/store/auth-store';
@@ -12,9 +12,11 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuthStore();
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.id === prevUserIdRef.current) return;
+    prevUserIdRef.current = user.id;
     api
       .get('/auth/me')
       .then((res) => {
@@ -45,7 +47,7 @@ export function Header() {
       <div className="flex items-center gap-1">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="relative flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+          className="relative flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
           aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           aria-pressed={theme === 'dark'}
         >
@@ -60,7 +62,10 @@ export function Header() {
                 src={profilePic}
                 alt={`${user.username}'s profile picture`}
                 loading="lazy"
+                width={24}
+                height={24}
                 className="h-6 w-6 rounded-full object-cover"
+                onError={() => setProfilePic(null)}
               />
             ) : (
               <UserCircle className="h-4 w-4 text-muted-foreground" />
@@ -71,7 +76,7 @@ export function Header() {
 
         <button
           onClick={handleLogout}
-          className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
           aria-label="Sign out"
         >
           <LogOut className="h-4 w-4" />

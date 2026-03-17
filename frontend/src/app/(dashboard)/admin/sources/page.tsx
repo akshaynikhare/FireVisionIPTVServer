@@ -441,6 +441,7 @@ function ChannelDataTable({
     try {
       await api.post('/external-sources/check-liveness', { source, region });
       // Start polling
+      if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(fetchLivenessStats, 5000);
     } catch {
       setBatchTesting(false);

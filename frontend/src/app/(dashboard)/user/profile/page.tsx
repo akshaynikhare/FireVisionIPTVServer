@@ -249,7 +249,10 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div
+        role="alert"
+        className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      >
         Failed to load profile
       </div>
     );

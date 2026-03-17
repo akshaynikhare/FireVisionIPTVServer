@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 
 interface Channel {
   _id: string;
@@ -35,7 +36,7 @@ export default function UserChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [allChannels, setAllChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
   const [showAdd, setShowAdd] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -139,8 +140,8 @@ export default function UserChannelsPage() {
 
   const filtered = channels.filter(
     (c) =>
-      getName(c).toLowerCase().includes(search.toLowerCase()) ||
-      c.channelGroup?.toLowerCase().includes(search.toLowerCase()),
+      getName(c).toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      c.channelGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const myIds = new Set(channels.map((c) => c._id));
@@ -280,7 +281,7 @@ export default function UserChannelsPage() {
           type="text"
           placeholder="Search my channels..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
           aria-label="Search channels"
         />
@@ -289,9 +290,9 @@ export default function UserChannelsPage() {
       <div className="border border-border divide-y divide-border">
         {filtered.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {search
+            {debouncedSearch
               ? 'No channels match your search'
-              : 'No channels in your list yet. Click "Add" to get started.'}
+              : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'}
           </div>
         ) : (
           filtered.map((ch) => (
@@ -301,6 +302,8 @@ export default function UserChannelsPage() {
                   src={proxyImageUrl(getLogo(ch)!)}
                   alt={getName(ch)}
                   loading="lazy"
+                  width={28}
+                  height={28}
                   className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
                 />
               ) : (

@@ -34,7 +34,7 @@ setInterval(
  * Query params:
  *   - url: The image URL to fetch
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { url } = req.query;
 
@@ -65,12 +65,13 @@ router.get('/', async (req, res) => {
     }
 
     // Create cache key from URL
-    const cacheKey = crypto.createHash('md5').update(url).digest('hex');
+    const cacheKey = crypto.createHash('sha256').update(url).digest('hex');
 
     // Check cache
     const cached = imageCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       res.set('Content-Type', cached.contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
       res.set('Cache-Control', 'public, max-age=86400'); // 24 hours
       res.set('X-Cache', 'HIT');
       return res.send(cached.data);
@@ -81,6 +82,7 @@ router.get('/', async (req, res) => {
       responseType: 'arraybuffer',
       timeout: 10000,
       maxRedirects: 5,
+      maxContentLength: 10 * 1024 * 1024,
       headers: {
         'User-Agent': 'FireVision-IPTV-Server/1.0',
       },
@@ -97,9 +99,18 @@ router.get('/', async (req, res) => {
 
     const rawContentType = response.headers['content-type'] || 'image/jpeg';
     // Validate Content-Type is an image to prevent serving HTML/JS under our origin
-    const contentType = rawContentType.startsWith('image/')
-      ? rawContentType
-      : 'application/octet-stream';
+    if (!rawContentType.startsWith('image/')) {
+      // Not an image – return placeholder instead of proxying arbitrary content
+      const placeholderPng = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        'base64',
+      );
+      res.set('Content-Type', 'image/png');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Cache-Control', 'public, max-age=300');
+      return res.send(placeholderPng);
+    }
+    const contentType = rawContentType;
     const imageData = Buffer.from(response.data);
 
     // Only cache if within size limits (entry size, count, and total memory)
@@ -118,6 +129,7 @@ router.get('/', async (req, res) => {
 
     // Send response
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cache-Control', 'public, max-age=86400');
     res.set('X-Cache', 'MISS');
     res.send(imageData);
@@ -131,6 +143,7 @@ router.get('/', async (req, res) => {
     );
 
     res.set('Content-Type', 'image/png');
+    res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cache-Control', 'public, max-age=300'); // Cache errors for 5 minutes
     res.send(placeholderPng);
   }

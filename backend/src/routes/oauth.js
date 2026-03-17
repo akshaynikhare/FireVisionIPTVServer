@@ -14,7 +14,8 @@ const GITHUB_REDIRECT_URI = process.env.GITHUB_REDIRECT_URI || '';
 
 // Helper: generate random password (User model requires one)
 function generateRandomPassword() {
-  return Math.random().toString(36).slice(-10) + 'Aa1!';
+  const crypto = require('crypto');
+  return crypto.randomBytes(32).toString('hex');
 }
 
 // Helper: create user with channel list if new
@@ -30,6 +31,7 @@ async function ensureUserAndPlaylist(findCriteria, baseProfile) {
       channelListCode,
       googleId: baseProfile.googleId,
       githubId: baseProfile.githubId,
+      emailVerified: true,
       isActive: true,
     });
     await user.save();
@@ -57,12 +59,17 @@ router.get('/google/start', (req, res) => {
   const crypto = require('crypto');
   const state = crypto.randomBytes(16).toString('hex');
   if (!global._oauthStates) global._oauthStates = new Map();
+  // Purge expired entries first
   for (const [k, v] of global._oauthStates) {
     if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
   }
   if (global._oauthStates.size >= 1000) {
-    const firstKey = global._oauthStates.keys().next().value;
-    if (firstKey) global._oauthStates.delete(firstKey);
+    return res
+      .status(503)
+      .json({
+        success: false,
+        error: 'Too many pending OAuth requests. Please try again shortly.',
+      });
   }
   global._oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
   const scope = encodeURIComponent('openid email profile');
@@ -70,10 +77,18 @@ router.get('/google/start', (req, res) => {
   return res.redirect(authUrl);
 });
 
+const KNOWN_OAUTH_ERRORS = [
+  'access_denied',
+  'invalid_request',
+  'unauthorized_client',
+  'server_error',
+];
+
 router.get('/google/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (error) {
-    return res.status(400).json({ success: false, error });
+    const safeError = KNOWN_OAUTH_ERRORS.includes(error) ? error : 'Authentication failed';
+    return res.status(400).json({ success: false, error: safeError });
   }
   if (!code) {
     return res.status(400).json({ success: false, error: 'Missing authorization code' });
@@ -102,9 +117,7 @@ router.get('/google/callback', async (req, res) => {
     });
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok) {
-      return res
-        .status(400)
-        .json({ success: false, error: tokenJson.error || 'Token exchange failed' });
+      return res.status(400).json({ success: false, error: 'Token exchange failed' });
     }
     const { access_token } = tokenJson;
 
@@ -137,7 +150,6 @@ router.get('/google/callback', async (req, res) => {
     return res.json({
       success: true,
       provider: 'google',
-      state,
       tokens: { accessToken, refreshToken },
       user: {
         id: user._id,
@@ -169,12 +181,17 @@ router.get('/github/start', (req, res) => {
   const crypto = require('crypto');
   const state = crypto.randomBytes(16).toString('hex');
   if (!global._oauthStates) global._oauthStates = new Map();
+  // Purge expired entries first
   for (const [k, v] of global._oauthStates) {
     if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
   }
   if (global._oauthStates.size >= 1000) {
-    const firstKey = global._oauthStates.keys().next().value;
-    if (firstKey) global._oauthStates.delete(firstKey);
+    return res
+      .status(503)
+      .json({
+        success: false,
+        error: 'Too many pending OAuth requests. Please try again shortly.',
+      });
   }
   global._oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
   const scope = 'read:user user:email';
@@ -185,7 +202,8 @@ router.get('/github/start', (req, res) => {
 router.get('/github/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (error) {
-    return res.status(400).json({ success: false, error });
+    const safeError = KNOWN_OAUTH_ERRORS.includes(error) ? error : 'Authentication failed';
+    return res.status(400).json({ success: false, error: safeError });
   }
   if (!code) {
     return res.status(400).json({ success: false, error: 'Missing authorization code' });
@@ -213,9 +231,7 @@ router.get('/github/callback', async (req, res) => {
     });
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok || !tokenJson.access_token) {
-      return res
-        .status(400)
-        .json({ success: false, error: tokenJson.error || 'Token exchange failed' });
+      return res.status(400).json({ success: false, error: 'Token exchange failed' });
     }
     const ghAccess = tokenJson.access_token;
 
@@ -259,7 +275,6 @@ router.get('/github/callback', async (req, res) => {
     return res.json({
       success: true,
       provider: 'github',
-      state,
       tokens: { accessToken, refreshToken },
       user: {
         id: user._id,

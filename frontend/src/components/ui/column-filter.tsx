@@ -44,16 +44,23 @@ export default function ColumnFilter({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Reposition dropdown if it goes off-screen
+  // Reposition dropdown if it goes off-screen (batched reads then writes)
   useEffect(() => {
     if (!open || !dropdownRef.current || !containerRef.current) return;
     const dropdown = dropdownRef.current;
+    const minMargin = 8;
+
+    // Batch all reads first
     const rect = dropdown.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
+    const isOffRight = rect.right > window.innerWidth - minMargin;
+    const isOffBottom = rect.bottom > window.innerHeight - minMargin;
+
+    // Batch all writes
+    if (isOffRight) {
       dropdown.style.left = 'auto';
       dropdown.style.right = '0';
     }
-    if (rect.bottom > window.innerHeight) {
+    if (isOffBottom) {
       dropdown.style.top = 'auto';
       dropdown.style.bottom = '100%';
       dropdown.style.marginBottom = '2px';
@@ -130,9 +137,9 @@ export default function ColumnFilter({
         <div
           ref={dropdownRef}
           id={dropdownId}
-          role="listbox"
+          role="dialog"
           aria-label={`${label} filter options`}
-          className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-w-[280px] bg-card border-2 border-border shadow-lg animate-fade-up"
+          className="absolute top-full left-0 mt-1 z-50 min-w-[min(200px,calc(100vw-2rem))] max-w-[280px] bg-card border-2 border-border shadow-lg animate-fade-up"
           style={{ animationDuration: '100ms' }}
         >
           {/* Header */}
@@ -146,6 +153,7 @@ export default function ColumnFilter({
                 setFilterSearch('');
               }}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -162,6 +170,7 @@ export default function ColumnFilter({
                   onChange={(e) => setFilterSearch(e.target.value)}
                   placeholder="Search..."
                   aria-label={`Search ${label} options`}
+                  aria-controls={`${dropdownId}-options`}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary"
                   autoFocus
                 />
@@ -192,7 +201,12 @@ export default function ColumnFilter({
           </div>
 
           {/* Options list */}
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div
+            id={`${dropdownId}-options`}
+            className="max-h-[240px] overflow-y-auto py-1"
+            role="group"
+            aria-label={`${label} options`}
+          >
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
             ) : (
@@ -201,15 +215,13 @@ export default function ColumnFilter({
                 return (
                   <label
                     key={opt}
-                    role="option"
-                    aria-selected={isChecked}
                     className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleOption(opt)}
-                      className="accent-primary h-4 w-4 shrink-0"
+                      className="accent-primary h-4 w-4 shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
                     />
                     <span className="text-xs truncate" title={opt}>
                       {opt || '(empty)'}

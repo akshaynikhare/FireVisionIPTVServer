@@ -135,7 +135,10 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div
+        role="alert"
+        className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      >
         {error}
       </div>
     );
@@ -180,13 +183,13 @@ export default function AdminDashboard() {
       </div>
 
       <div className="border border-border ">
-        <div className="grid grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 md:grid-cols-4">
           {metrics.map((metric, i) => (
             <Link
               key={metric.label}
               href={metric.href}
               className={`p-4 transition-colors hover:bg-muted/50 ${i % 2 !== 0 ? 'border-l border-border' : ''} ${
-                i >= 2 ? 'border-t border-border lg:border-t-0' : ''
+                i >= 2 ? 'border-t border-border md:border-t-0' : ''
               } ${i === 2 ? 'lg:border-l' : ''}`}
             >
               <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
@@ -280,7 +283,8 @@ export default function AdminDashboard() {
               </ul>
             ) : (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No recent activity
+                No recent activity. Activity appears here when users log in, add channels, or pair
+                devices.
               </div>
             )}
           </div>

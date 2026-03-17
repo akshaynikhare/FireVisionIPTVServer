@@ -136,7 +136,7 @@ export default function PairDevicePage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
-                className="flex h-12 w-full border border-border bg-background px-4 py-2 text-2xl font-mono font-bold tracking-[0.3em] text-center focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary placeholder:text-muted-foreground/30"
+                className="flex h-12 w-full border border-border bg-background px-4 py-2 text-2xl font-mono font-bold tracking-[0.3em] text-center focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary placeholder:text-muted-foreground/80"
               />
             </div>
             <button
@@ -261,8 +261,7 @@ export default function PairDevicePage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No device paired yet. Open the FireVision app on your TV and follow the pairing
-              instructions.
+              No paired devices yet. Open FireVision on your Android TV to start pairing.
             </p>
           )}
         </div>
