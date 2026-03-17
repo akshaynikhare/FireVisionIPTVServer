@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<Status, string> = {
   dead: 'Dead',
   'not-working': 'Not Working',
   unknown: 'Unknown',
-  untested: '',
+  untested: 'Untested',
 };
 
 interface StatusDotProps {

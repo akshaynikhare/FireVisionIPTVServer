@@ -5,6 +5,7 @@ import { Clock, Play, Loader2, CheckCircle, XCircle, AlertTriangle, Timer } from
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import Pagination from '@/components/ui/pagination';
+import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
 interface TaskInfo {
   name: string;
@@ -294,33 +295,55 @@ export default function SchedulerPage() {
           </div>
         </div>
 
-        <div className="border border-border divide-y divide-border">
-          {/* Header row */}
-          <div className="grid grid-cols-[1fr,100px,80px,80px,80px] sm:grid-cols-[1fr,140px,100px,80px,80px,1fr] gap-2 px-4 py-2 bg-muted/60 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
-            <span>Task</span>
-            <span>Time</span>
-            <span>Trigger</span>
-            <span>Status</span>
-            <span>Duration</span>
-            <span className="hidden sm:inline">Error</span>
-          </div>
-
-          {runs.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">No runs found.</p>
-          )}
-
-          {runs.map((run) => {
-            const taskDef = tasks.find((t) => t.name === run.taskName);
-            const isExpanded = expandedRun === run._id;
+        <DataTable<RunEntry>
+          data={runs}
+          gridTemplate="1fr 140px 100px 80px 80px 1fr"
+          ariaLabel="Run history table"
+          emptyMessage="No runs found."
+          rowKey={(run) => run._id}
+          breakpoint="always"
+          onRowClick={(run) => setExpandedRun(expandedRun === run._id ? null : run._id)}
+          renderExpandedRow={(run) => {
+            if (expandedRun !== run._id || !run.subtasks?.length) return null;
             return (
-              <div key={run._id}>
-                <button
-                  onClick={() => setExpandedRun(isExpanded ? null : run._id)}
-                  className="w-full grid grid-cols-[1fr,100px,80px,80px,80px] sm:grid-cols-[1fr,140px,100px,80px,80px,1fr] gap-2 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
-                >
+              <div className="px-4 pb-3 bg-muted/30">
+                <div className="border border-border divide-y divide-border">
+                  {run.subtasks.map((sub, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[1fr,80px,80px,1fr] gap-2 px-3 py-1.5 text-xs"
+                    >
+                      <span className="font-medium truncate">{sub.name}</span>
+                      <StatusBadge status={sub.status} />
+                      <span className="text-muted-foreground">
+                        {formatDuration(sub.durationMs)}
+                      </span>
+                      <span className="text-signal-red truncate">{sub.error || ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }}
+          columns={
+            [
+              {
+                key: 'task',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium',
+                header: 'Task',
+                cell: (run) => (
                   <span className="text-sm font-medium truncate">
-                    {taskDef?.displayName || run.taskName}
+                    {tasks.find((t) => t.name === run.taskName)?.displayName || run.taskName}
                   </span>
+                ),
+              },
+              {
+                key: 'time',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium',
+                header: 'Time',
+                cell: (run) => (
                   <span className="text-xs text-muted-foreground">
                     {new Date(run.startedAt).toLocaleString([], {
                       month: 'short',
@@ -329,47 +352,54 @@ export default function SchedulerPage() {
                       minute: '2-digit',
                     })}
                   </span>
+                ),
+              },
+              {
+                key: 'trigger',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium',
+                header: 'Trigger',
+                cell: (run) => (
                   <span
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] font-medium border w-fit ${TRIGGER_STYLES[run.trigger] || TRIGGER_STYLES.scheduled}`}
                   >
                     {run.trigger === 'manual' && <Clock className="h-2.5 w-2.5" />}
                     {run.trigger}
                   </span>
-                  <span>
-                    <StatusBadge status={run.status} />
-                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium',
+                header: 'Status',
+                cell: (run) => <StatusBadge status={run.status} />,
+              },
+              {
+                key: 'duration',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium',
+                header: 'Duration',
+                cell: (run) => (
                   <span className="text-xs text-muted-foreground">
                     {formatDuration(run.durationMs)}
                   </span>
+                ),
+              },
+              {
+                key: 'error',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:block',
+                header: <span className="hidden sm:inline">Error</span>,
+                cell: (run) => (
                   <span className="hidden sm:inline text-xs text-signal-red truncate">
                     {run.error || ''}
                   </span>
-                </button>
-
-                {/* Expanded subtasks */}
-                {isExpanded && run.subtasks && run.subtasks.length > 0 && (
-                  <div className="px-4 pb-3 bg-muted/30">
-                    <div className="border border-border divide-y divide-border">
-                      {run.subtasks.map((sub, i) => (
-                        <div
-                          key={i}
-                          className="grid grid-cols-[1fr,80px,80px,1fr] gap-2 px-3 py-1.5 text-xs"
-                        >
-                          <span className="font-medium truncate">{sub.name}</span>
-                          <StatusBadge status={sub.status} />
-                          <span className="text-muted-foreground">
-                            {formatDuration(sub.durationMs)}
-                          </span>
-                          <span className="text-signal-red truncate">{sub.error || ''}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                ),
+              },
+            ] satisfies DataTableColumn<RunEntry>[]
+          }
+        />
 
         <Pagination
           page={runsPage}

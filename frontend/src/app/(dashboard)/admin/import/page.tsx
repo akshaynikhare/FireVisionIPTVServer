@@ -28,6 +28,7 @@ import StatusDot from '@/components/ui/status-dot';
 import ChannelLogo from '@/components/ui/channel-logo';
 import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
 interface PlaylistFilter {
   country?: string;
@@ -593,239 +594,242 @@ export default function AdminImportPage() {
           )}
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <div role="table" aria-label="Import channels table" className="border border-border">
-              {/* Table header */}
-              <div
-                role="rowgroup"
-                className="hidden lg:grid grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border"
-              >
-                <div role="columnheader" className="flex items-center justify-center">
-                  <button
-                    onClick={() =>
-                      pageAllSelected
-                        ? unselectMany(paginated.map((ch) => ch._uid))
-                        : selectMany(paginated.map((ch) => ch._uid))
-                    }
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Toggle page selection"
-                  >
-                    {pageAllSelected ? (
-                      <CheckSquare className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Square className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                <span role="columnheader" />
-                <button
-                  role="columnheader"
-                  aria-sort={
-                    sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
-                  }
-                  aria-label="Sort by name"
-                  onClick={() => handleSort('name')}
-                  className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-                >
-                  Name <SortIcon field="name" />
-                </button>
-                <div
-                  role="columnheader"
-                  aria-sort={
+          <DataTable<EnrichedChannel>
+            data={paginated}
+            gridTemplate="40px 44px 1fr 160px 100px 120px 80px 100px"
+            ariaLabel="Import channels table"
+            emptyMessage={search ? 'No channels match your search' : 'No channels found'}
+            rowKey={(ch) => ch._uid}
+            rowClassName={(ch) => (isSelected(ch._uid) ? 'bg-primary/5' : '')}
+            columns={
+              [
+                {
+                  key: 'select',
+                  header: (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() =>
+                          pageAllSelected
+                            ? unselectMany(paginated.map((ch) => ch._uid))
+                            : selectMany(paginated.map((ch) => ch._uid))
+                        }
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Toggle page selection"
+                      >
+                        {pageAllSelected ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  ),
+                  cell: (ch) => (
+                    <div className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected(ch._uid)}
+                        onClick={() => toggleOne(ch._uid)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {isSelected(ch._uid) ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'logo',
+                  header: <span />,
+                  cell: (ch) => <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />,
+                },
+                {
+                  key: 'name',
+                  ariaSort:
+                    sortField === 'name'
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none',
+                  header: (
+                    <button
+                      onClick={() => handleSort('name')}
+                      aria-label="Sort by name"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                    >
+                      Name <SortIcon field="name" />
+                    </button>
+                  ),
+                  cell: (ch) => (
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium truncate block">{ch.channelName}</span>
+                      <span className="text-xs text-muted-foreground font-mono truncate block lg:hidden">
+                        {ch.channelId}
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'category',
+                  ariaSort:
                     sortField === 'category'
                       ? sortDir === 'asc'
                         ? 'ascending'
                         : 'descending'
-                      : 'none'
-                  }
-                  className="flex items-center gap-1"
-                >
-                  <button
-                    onClick={() => handleSort('category')}
-                    aria-label="Sort by category"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-                  >
-                    Category <SortIcon field="category" />
-                  </button>
-                  <ColumnFilter
-                    label=""
-                    options={categoryOptions}
-                    selected={selectedCategories}
-                    onChange={(v) => {
-                      setSelectedCategories(v);
-                      setPage(1);
-                    }}
-                    searchable
-                  />
-                </div>
-                <span role="columnheader">
-                  <ColumnFilter
-                    label="Country"
-                    options={countryOptions}
-                    selected={selectedCountries}
-                    onChange={(v) => {
-                      setSelectedCountries(v);
-                      setPage(1);
-                    }}
-                    searchable
-                  />
-                </span>
-                <div
-                  role="columnheader"
-                  aria-sort={
+                      : 'none',
+                  header: (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleSort('category')}
+                        aria-label="Sort by category"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                      >
+                        Category <SortIcon field="category" />
+                      </button>
+                      <ColumnFilter
+                        label=""
+                        options={categoryOptions}
+                        selected={selectedCategories}
+                        onChange={(v) => {
+                          setSelectedCategories(v);
+                          setPage(1);
+                        }}
+                        searchable
+                      />
+                    </div>
+                  ),
+                  cell: (ch) => (
+                    <span className="text-xs text-muted-foreground truncate">
+                      {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'country',
+                  header: (
+                    <ColumnFilter
+                      label="Country"
+                      options={countryOptions}
+                      selected={selectedCountries}
+                      onChange={(v) => {
+                        setSelectedCountries(v);
+                        setPage(1);
+                      }}
+                      searchable
+                    />
+                  ),
+                  cell: (ch) => (
+                    <span className="text-xs text-muted-foreground truncate">
+                      {ch.country || '—'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'language',
+                  ariaSort:
                     sortField === 'language'
                       ? sortDir === 'asc'
                         ? 'ascending'
                         : 'descending'
-                      : 'none'
-                  }
-                  className="flex items-center gap-1"
-                >
-                  <button
-                    onClick={() => handleSort('language')}
-                    aria-label="Sort by language"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-                  >
-                    Language <SortIcon field="language" />
-                  </button>
-                  <ColumnFilter
-                    label=""
-                    options={languageOptions}
-                    selected={selectedLanguages}
-                    onChange={(v) => {
-                      setSelectedLanguages(v);
-                      setPage(1);
-                    }}
-                    searchable
-                  />
-                </div>
-                <span role="columnheader">
-                  <ColumnFilter
-                    label="Status"
-                    options={['alive', 'dead', 'unknown']}
-                    selected={selectedStatuses}
-                    onChange={(v) => {
-                      setSelectedStatuses(v);
-                      setPage(1);
-                    }}
-                  />
-                </span>
-                <span
-                  role="columnheader"
-                  className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-                >
-                  Actions
-                </span>
-              </div>
-
-              {/* Rows */}
-              <div role="rowgroup" className="divide-y divide-border">
-                {paginated.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    {search ? 'No channels match your search' : 'No channels found'}
-                  </div>
-                ) : (
-                  paginated.map((ch) => {
-                    const key = ch._uid;
-                    const selected = isSelected(key);
-                    return (
-                      <div
-                        key={key}
-                        role="row"
-                        className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
-                          selected ? 'bg-primary/5' : ''
-                        }`}
+                      : 'none',
+                  header: (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleSort('language')}
+                        aria-label="Sort by language"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                       >
-                        <div role="cell" className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            role="checkbox"
-                            aria-checked={selected}
-                            onClick={() => toggleOne(key)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {selected ? (
-                              <CheckSquare className="h-4 w-4 text-primary" />
-                            ) : (
-                              <Square className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-
-                        <div role="cell">
-                          <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
-                        </div>
-
-                        <div role="cell" className="min-w-0">
-                          <span className="text-sm font-medium truncate block">
-                            {ch.channelName}
-                          </span>
-                          <span className="text-xs text-muted-foreground font-mono truncate block lg:hidden">
-                            {ch.channelId}
-                          </span>
-                        </div>
-
-                        <span role="cell" className="text-xs text-muted-foreground truncate">
-                          {ch.groupTitle || ch.channelCategories?.join(', ') || '—'}
-                        </span>
-
-                        <span role="cell" className="text-xs text-muted-foreground truncate">
-                          {ch.country || '—'}
-                        </span>
-
-                        <span role="cell" className="text-xs text-muted-foreground truncate">
-                          {ch.languages?.join(', ') || '—'}
-                        </span>
-
-                        {/* Status badge + test */}
-                        <div role="cell" className="flex items-center gap-1.5">
-                          {testingChannelId === ch._uid ? (
-                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                          ) : (
-                            <StatusDot status={ch.liveness?.status || 'unknown'} />
-                          )}
-                          <button
-                            onClick={() => handleTestChannel(ch)}
-                            disabled={testingChannelId === ch._uid}
-                            className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                            title="Test stream"
-                          >
-                            <Zap className="h-3 w-3" />
-                          </button>
-                        </div>
-
-                        <div role="cell" className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setDetailChannel(ch)}
-                            className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
-                            aria-label="View details"
-                            title="Channel info"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {ch.channelUrl && (
-                            <button
-                              onClick={() =>
-                                playStream(
-                                  { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
-                                  { mode: 'direct-fallback' },
-                                )
-                              }
-                              className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
-                              aria-label="Preview stream"
-                              title="Preview stream"
-                            >
-                              <Play className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
+                        Language <SortIcon field="language" />
+                      </button>
+                      <ColumnFilter
+                        label=""
+                        options={languageOptions}
+                        selected={selectedLanguages}
+                        onChange={(v) => {
+                          setSelectedLanguages(v);
+                          setPage(1);
+                        }}
+                        searchable
+                      />
+                    </div>
+                  ),
+                  cell: (ch) => (
+                    <span className="text-xs text-muted-foreground truncate">
+                      {ch.languages?.join(', ') || '—'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'status',
+                  header: (
+                    <ColumnFilter
+                      label="Status"
+                      options={['alive', 'dead', 'unknown']}
+                      selected={selectedStatuses}
+                      onChange={(v) => {
+                        setSelectedStatuses(v);
+                        setPage(1);
+                      }}
+                    />
+                  ),
+                  cell: (ch) => (
+                    <div className="flex items-center gap-1.5">
+                      {testingChannelId === ch._uid ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      ) : (
+                        <StatusDot status={ch.liveness?.status || 'unknown'} />
+                      )}
+                      <button
+                        onClick={() => handleTestChannel(ch)}
+                        disabled={testingChannelId === ch._uid}
+                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                        title="Test stream"
+                      >
+                        <Zap className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'actions',
+                  headerClassName:
+                    'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right',
+                  header: 'Actions',
+                  cell: (ch) => (
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setDetailChannel(ch)}
+                        className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="View details"
+                        title="Channel info"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      {ch.channelUrl && (
+                        <button
+                          onClick={() =>
+                            playStream(
+                              { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
+                              { mode: 'direct-fallback' },
+                            )
+                          }
+                          className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                          aria-label="Preview stream"
+                          title="Preview stream"
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ),
+                },
+              ] satisfies DataTableColumn<EnrichedChannel>[]
+            }
+          />
 
           <Pagination
             page={page}

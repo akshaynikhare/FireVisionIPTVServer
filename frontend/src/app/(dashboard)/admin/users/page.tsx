@@ -21,6 +21,7 @@ import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
 import ColumnFilter from '@/components/ui/column-filter';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
+import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
 interface UserData {
   _id: string;
@@ -229,159 +230,159 @@ export default function UsersPage() {
         />
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          role="table"
-          aria-label="Users table"
-          className="border border-border divide-y divide-border"
-        >
-          <div
-            role="rowgroup"
-            className="hidden md:grid grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-4 px-4 py-2 bg-muted/50"
-          >
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-            >
-              Username
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-            >
-              Email
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-            >
-              Channel Code
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Role"
-                options={filterOptions.role}
-                selected={selectedRoles}
-                onChange={setSelectedRoles}
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Status"
-                options={filterOptions.status}
-                selected={selectedStatuses}
-                onChange={setSelectedStatuses}
-              />
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-            >
-              Actions
-            </span>
-          </div>
-          <div role="rowgroup">
-            {paginated.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {debouncedSearch
-                  ? 'No users match your search'
-                  : 'No users registered yet. Click "Add User" to invite team members.'}
-              </div>
-            ) : (
-              paginated.map((user) => (
-                <div
-                  key={user._id}
-                  role="row"
-                  aria-label={`User: ${user.username}`}
-                  onClick={() => router.push(`/admin/users/${user._id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      router.push(`/admin/users/${user._id}`);
-                    }
-                  }}
-                  tabIndex={0}
-                  className="grid md:grid-cols-[1fr,1fr,120px,80px,80px,80px] gap-2 md:gap-4 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-                >
-                  <div role="cell" className="flex items-center gap-2.5 min-w-0">
-                    {user.role === 'Admin' ? (
-                      <>
-                        <Shield className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-                        <span className="sr-only">Admin</span>
-                      </>
-                    ) : (
-                      <>
-                        <User
-                          className="h-4 w-4 text-muted-foreground shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span className="sr-only">User</span>
-                      </>
-                    )}
-                    <span className="text-sm font-medium truncate">{user.username}</span>
-                  </div>
-                  <span role="cell" className="text-sm text-muted-foreground truncate">
-                    {user.email}
-                  </span>
-                  <div role="cell" className="flex items-center gap-1.5 min-w-0">
-                    <code className="text-xs font-mono bg-muted px-1.5 py-0.5 truncate">
-                      {user.channelListCode || '—'}
-                    </code>
-                    {user.channelListCode && (
-                      <button
-                        onClick={(e) => handleCopyCode(e, user.channelListCode!)}
-                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label="Copy to clipboard"
-                      >
-                        {copiedCode === user.channelListCode ? (
-                          <Check className="h-3 w-3 text-signal-green" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  <span
-                    role="cell"
-                    className="text-xs uppercase tracking-[0.1em] text-muted-foreground"
-                  >
-                    {user.role}
-                  </span>
-                  <div role="cell" className="flex items-center gap-1.5">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
-                      aria-hidden="true"
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <div role="cell" className="flex items-center justify-end gap-1">
+      <DataTable<UserData>
+        data={paginated}
+        gridTemplate="1fr 1fr 120px 80px 80px 80px"
+        ariaLabel="Users table"
+        emptyMessage={
+          debouncedSearch
+            ? 'No users match your search'
+            : 'No users registered yet. Click "Add User" to invite team members.'
+        }
+        rowKey={(u) => u._id}
+        breakpoint="md"
+        onRowClick={(u) => router.push(`/admin/users/${u._id}`)}
+        rowAriaLabel={(u) => `User: ${u.username}`}
+        columns={
+          [
+            {
+              key: 'username',
+              header: (
+                <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Username
+                </span>
+              ),
+              cell: (u) => (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {u.role === 'Admin' ? (
+                    <>
+                      <Shield className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                      <span className="sr-only">Admin</span>
+                    </>
+                  ) : (
+                    <>
+                      <User className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                      <span className="sr-only">User</span>
+                    </>
+                  )}
+                  <span className="text-sm font-medium truncate">{u.username}</span>
+                </div>
+              ),
+            },
+            {
+              key: 'email',
+              header: (
+                <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Email
+                </span>
+              ),
+              cell: (u) => (
+                <span className="text-sm text-muted-foreground truncate">{u.email}</span>
+              ),
+            },
+            {
+              key: 'channelCode',
+              header: (
+                <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Channel Code
+                </span>
+              ),
+              cell: (u) => (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <code className="text-xs font-mono bg-muted px-1.5 py-0.5 truncate">
+                    {u.channelListCode || '—'}
+                  </code>
+                  {u.channelListCode && (
                     <button
-                      onClick={(e) => handleToggleActive(e, user)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={user.isActive ? 'Deactivate user' : 'Activate user'}
+                      onClick={(e) => handleCopyCode(e, u.channelListCode!)}
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Copy to clipboard"
                     >
-                      {user.isActive ? (
-                        <ToggleRight className="h-4 w-4 text-signal-green" />
+                      {copiedCode === u.channelListCode ? (
+                        <Check className="h-3 w-3 text-signal-green" />
                       ) : (
-                        <ToggleLeft className="h-4 w-4" />
+                        <Copy className="h-3 w-3" />
                       )}
                     </button>
-                    <button
-                      onClick={(e) => handleDelete(e, user._id, user.username)}
-                      className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-                      aria-label={`Delete ${user.username}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+              ),
+            },
+            {
+              key: 'role',
+              header: (
+                <ColumnFilter
+                  label="Role"
+                  options={filterOptions.role}
+                  selected={selectedRoles}
+                  onChange={setSelectedRoles}
+                />
+              ),
+              cell: (u) => (
+                <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground">
+                  {u.role}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: (
+                <ColumnFilter
+                  label="Status"
+                  options={filterOptions.status}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                />
+              ),
+              cell: (u) => (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {u.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'actions',
+              headerClassName:
+                'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right',
+              header: 'Actions',
+              cell: (u) => (
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleActive(e, u);
+                    }}
+                    className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={u.isActive ? 'Deactivate user' : 'Activate user'}
+                  >
+                    {u.isActive ? (
+                      <ToggleRight className="h-4 w-4 text-signal-green" />
+                    ) : (
+                      <ToggleLeft className="h-4 w-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(e, u._id, u.username);
+                    }}
+                    className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                    aria-label={`Delete ${u.username}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ),
+            },
+          ] satisfies DataTableColumn<UserData>[]
+        }
+      />
 
       <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
 

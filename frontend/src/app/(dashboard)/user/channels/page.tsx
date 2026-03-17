@@ -24,7 +24,8 @@ import SearchInput from '@/components/ui/search-input';
 import ChannelLogo from '@/components/ui/channel-logo';
 import StatusDot from '@/components/ui/status-dot';
 import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
-import ChannelRowActions from '@/components/ui/channel-row-actions';
+import ChannelDataTable from '@/components/ui/channel-data-table';
+import { type DataTableColumn } from '@/components/ui/data-table';
 import Pagination from '@/components/ui/pagination';
 import ColumnFilter from '@/components/ui/column-filter';
 
@@ -438,129 +439,92 @@ export default function UserChannelsPage() {
       </p>
 
       {/* Datatable */}
-      <div className="overflow-x-auto">
-        <div
-          role="table"
-          aria-label="My channels table"
-          className="border border-border divide-y divide-border"
-        >
-          {/* Header row */}
-          <div
-            role="rowgroup"
-            className="hidden lg:grid grid-cols-[1fr,180px,100px,140px] gap-4 px-4 py-2 bg-muted/50"
+      <ChannelDataTable<Channel>
+        data={paginated}
+        gridTemplate="1fr 180px 100px 140px"
+        ariaLabel="My channels table"
+        emptyMessage={
+          debouncedSearch
+            ? 'No channels match your search'
+            : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'
+        }
+        rowKey={(c) => c._id}
+        getName={getName}
+        getLogo={getLogo}
+        onDetail={(c) => setDetailChannel(c)}
+        nameHeader={
+          <button
+            onClick={() => handleSort('name')}
+            className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
           >
-            <button
-              role="columnheader"
-              aria-sort={
-                sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
-              }
-              onClick={() => handleSort('name')}
-              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-            >
-              Name <SortIcon field="name" />
-            </button>
-            <div
-              role="columnheader"
-              aria-sort={
-                sortField === 'group' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
-              }
-              className="flex items-center gap-1"
-            >
-              <button
-                onClick={() => handleSort('group')}
-                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
-              >
-                Group <SortIcon field="group" />
-              </button>
-              <ColumnFilter
-                label=""
-                options={groupOptions}
-                selected={selectedGroups}
-                onChange={(v) => setSelectedGroups(v)}
-                searchable
-              />
-            </div>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Status"
-                options={statusOptions}
-                selected={selectedStatuses}
-                onChange={(v) => setSelectedStatuses(v)}
-              />
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-            >
-              Actions
-            </span>
-          </div>
-
-          {/* Rows */}
-          <div role="rowgroup">
-            {paginated.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {debouncedSearch
-                  ? 'No channels match your search'
-                  : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'}
-              </div>
-            ) : (
-              paginated.map((channel) => (
-                <div
-                  key={channel._id}
-                  role="row"
-                  className="grid lg:grid-cols-[1fr,180px,100px,140px] gap-2 lg:gap-4 items-center px-4 py-3"
-                >
-                  <div
-                    role="cell"
-                    tabIndex={0}
-                    aria-label={getName(channel)}
-                    className="flex items-center gap-3 min-w-0 cursor-pointer"
-                    onClick={() => setDetailChannel(channel)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setDetailChannel(channel);
-                      }
-                    }}
+            Name <SortIcon field="name" />
+          </button>
+        }
+        nameAriaSort={
+          sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+        }
+        columns={
+          [
+            {
+              key: 'group',
+              ariaSort:
+                sortField === 'group' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
+              header: (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleSort('group')}
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                   >
-                    <ChannelLogo
-                      src={getLogo(channel)}
-                      alt={getName(channel) + ' logo'}
-                      size="sm"
-                    />
-                    <span className="text-sm font-medium truncate">{getName(channel)}</span>
-                  </div>
-                  <span role="cell" className="text-sm text-muted-foreground truncate">
-                    {channel.channelGroup || '—'}
-                  </span>
-                  <div role="cell">
-                    <StatusDot
-                      status={
-                        channel.metadata?.isWorking === true
-                          ? 'working'
-                          : channel.metadata?.isWorking === false
-                            ? 'not-working'
-                            : 'untested'
-                      }
-                      size="sm"
-                    />
-                  </div>
-                  <div role="cell">
-                    <ChannelRowActions
-                      onDetail={() => setDetailChannel(channel)}
-                      onPlay={() => playStream({ name: getName(channel), url: getUrl(channel) })}
-                      onTest={() => handleTest(channel._id)}
-                      testing={testing === channel._id}
-                      onDelete={() => handleRemove(channel._id)}
-                    />
-                  </div>
+                    Group <SortIcon field="group" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={groupOptions}
+                    selected={selectedGroups}
+                    onChange={(v) => setSelectedGroups(v)}
+                    searchable
+                  />
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+              ),
+              cell: (c) => (
+                <span className="text-sm text-muted-foreground truncate">
+                  {c.channelGroup || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: (
+                <ColumnFilter
+                  label="Status"
+                  options={statusOptions}
+                  selected={selectedStatuses}
+                  onChange={(v) => setSelectedStatuses(v)}
+                />
+              ),
+              cell: (c) => (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'working'
+                      : c.metadata?.isWorking === false
+                        ? 'not-working'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              ),
+            },
+          ] satisfies DataTableColumn<Channel>[]
+        }
+        getActions={(c) => ({
+          onDetail: () => setDetailChannel(c),
+          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onTest: () => handleTest(c._id),
+          testing: testing === c._id,
+          onDelete: () => handleRemove(c._id),
+        })}
+      />
 
       <Pagination
         page={page}

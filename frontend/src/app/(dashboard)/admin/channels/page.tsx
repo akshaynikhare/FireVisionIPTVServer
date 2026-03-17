@@ -12,9 +12,9 @@ import { useStreamPlayer } from '@/components/stream-player-context';
 import ColumnFilter from '@/components/ui/column-filter';
 import SearchInput from '@/components/ui/search-input';
 import StatusDot from '@/components/ui/status-dot';
-import ChannelLogo from '@/components/ui/channel-logo';
 import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
-import ChannelRowActions from '@/components/ui/channel-row-actions';
+import ChannelDataTable from '@/components/ui/channel-data-table';
+import { type DataTableColumn } from '@/components/ui/data-table';
 
 interface Channel {
   _id: string;
@@ -525,135 +525,106 @@ export default function ChannelsPage() {
       />
 
       {/* Channel List */}
-      <div className="overflow-x-auto">
-        <div
-          role="table"
-          aria-label="Channels table"
-          className="border border-border divide-y divide-border"
-        >
-          <div
-            role="rowgroup"
-            className="hidden lg:grid grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-4 px-4 py-2 bg-muted/50"
-          >
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-            >
-              Name
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Group"
-                options={filterOptions.group}
-                selected={selectedGroups}
-                onChange={setSelectedGroups}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Country"
-                options={filterOptions.country}
-                selected={selectedCountries}
-                onChange={setSelectedCountries}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Language"
-                options={filterOptions.language}
-                selected={selectedLanguages}
-                onChange={setSelectedLanguages}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Status"
-                options={filterOptions.status}
-                selected={selectedStatuses}
-                onChange={setSelectedStatuses}
-              />
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-            >
-              Actions
-            </span>
-          </div>
-          <div role="rowgroup">
-            {paginated.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {search
-                  ? 'No channels match your search'
-                  : 'No channels yet. Click "Add Channel" to create one or use "Import M3U" to bulk upload.'}
-              </div>
-            ) : (
-              paginated.map((channel) => (
-                <div
-                  key={channel._id}
-                  role="row"
-                  className="grid lg:grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-2 lg:gap-4 items-center px-4 py-3"
-                >
-                  <div
-                    role="cell"
-                    tabIndex={0}
-                    aria-label={getName(channel)}
-                    className="flex items-center gap-3 min-w-0 cursor-pointer"
-                    onClick={() => setDetailChannel(channel)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setDetailChannel(channel);
-                      }
-                    }}
-                  >
-                    <ChannelLogo
-                      src={getLogo(channel)}
-                      alt={getName(channel) + ' logo'}
-                      size="sm"
-                    />
-                    <span className="text-sm font-medium truncate">{getName(channel)}</span>
-                  </div>
-                  <span role="cell" className="text-sm text-muted-foreground truncate">
-                    {channel.channelGroup || '—'}
-                  </span>
-                  <span role="cell" className="text-xs text-muted-foreground truncate">
-                    {channel.metadata?.country || '—'}
-                  </span>
-                  <span role="cell" className="text-xs text-muted-foreground truncate">
-                    {channel.metadata?.language || '—'}
-                  </span>
-                  <div role="cell">
-                    <StatusDot
-                      status={
-                        channel.metadata?.isWorking === true
-                          ? 'alive'
-                          : channel.metadata?.isWorking === false
-                            ? 'dead'
-                            : 'untested'
-                      }
-                      size="sm"
-                    />
-                  </div>
-                  <div role="cell">
-                    <ChannelRowActions
-                      onDetail={() => setDetailChannel(channel)}
-                      onPlay={() => playStream({ name: getName(channel), url: getUrl(channel) })}
-                      onTest={() => handleTestOne(channel)}
-                      testing={testing === channel._id}
-                      onEdit={() => openEdit(channel)}
-                      onDelete={() => handleDelete(channel._id)}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      <ChannelDataTable<Channel>
+        data={paginated}
+        gridTemplate="1fr 1fr 100px 100px 80px 140px"
+        ariaLabel="Channels table"
+        emptyMessage={
+          search
+            ? 'No channels match your search'
+            : 'No channels yet. Click "Add Channel" to create one or use "Import M3U" to bulk upload.'
+        }
+        rowKey={(c) => c._id}
+        getName={getName}
+        getLogo={getLogo}
+        onDetail={(c) => setDetailChannel(c)}
+        columns={
+          [
+            {
+              key: 'group',
+              header: (
+                <ColumnFilter
+                  label="Group"
+                  options={filterOptions.group}
+                  selected={selectedGroups}
+                  onChange={setSelectedGroups}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-sm text-muted-foreground truncate">
+                  {c.channelGroup || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'country',
+              header: (
+                <ColumnFilter
+                  label="Country"
+                  options={filterOptions.country}
+                  selected={selectedCountries}
+                  onChange={setSelectedCountries}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-xs text-muted-foreground truncate">
+                  {c.metadata?.country || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'language',
+              header: (
+                <ColumnFilter
+                  label="Language"
+                  options={filterOptions.language}
+                  selected={selectedLanguages}
+                  onChange={setSelectedLanguages}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-xs text-muted-foreground truncate">
+                  {c.metadata?.language || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: (
+                <ColumnFilter
+                  label="Status"
+                  options={filterOptions.status}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                />
+              ),
+              cell: (c) => (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'alive'
+                      : c.metadata?.isWorking === false
+                        ? 'dead'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              ),
+            },
+          ] satisfies DataTableColumn<Channel>[]
+        }
+        getActions={(c) => ({
+          onDetail: () => setDetailChannel(c),
+          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onTest: () => handleTestOne(c),
+          testing: testing === c._id,
+          onEdit: () => openEdit(c),
+          onDelete: () => handleDelete(c._id),
+        })}
+      />
 
       <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
 

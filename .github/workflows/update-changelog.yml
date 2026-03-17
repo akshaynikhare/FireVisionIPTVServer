@@ -1,0 +1,138 @@
+name: Update Changelog
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Extract version info
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          DATE=$(date -u +%Y-%m-%d)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+
+          # Find the previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sed -n '2p')
+          echo "prev_tag=${PREV_TAG:-}" >> $GITHUB_OUTPUT
+          echo "Current: $TAG — Previous: ${PREV_TAG:-none}"
+
+      - name: Generate changelog entry from commits
+        id: changelog
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          PREV_TAG="${{ steps.version.outputs.prev_tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          DATE="${{ steps.version.outputs.date }}"
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="$TAG"
+          else
+            RANGE="${PREV_TAG}..${TAG}"
+          fi
+
+          # Collect commits grouped by conventional-commit prefix
+          ADDED=""
+          CHANGED=""
+          FIXED=""
+          REMOVED=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            msg="${line#* }"  # strip commit hash
+            case "$msg" in
+              feat:*|feat\(*) ADDED="${ADDED}\n- ${msg#feat: }" ;;
+              fix:*|fix\(*)   FIXED="${FIXED}\n- ${msg#fix: }" ;;
+              refactor:*|refactor\(*) CHANGED="${CHANGED}\n- ${msg#refactor: }" ;;
+              chore:*|chore\(*) ;; # skip chore commits
+              ci:*|ci\(*)     ;; # skip ci commits
+              docs:*|docs\(*) ;; # skip docs commits
+              *)              OTHER="${OTHER}\n- ${msg}" ;;
+            esac
+          done <<< "$(git log "$RANGE" --oneline --no-merges)"
+
+          # Build the changelog section
+          ENTRY="## [$VERSION] - $DATE"
+          [ -n "$ADDED" ]   && ENTRY="$ENTRY\n\n### Added$ADDED"
+          [ -n "$CHANGED" ] && ENTRY="$ENTRY\n\n### Changed$CHANGED"
+          [ -n "$FIXED" ]   && ENTRY="$ENTRY\n\n### Fixed$FIXED"
+          [ -n "$REMOVED" ] && ENTRY="$ENTRY\n\n### Removed$REMOVED"
+          [ -n "$OTHER" ]   && ENTRY="$ENTRY\n\n### Other$OTHER"
+
+          # Write to temp file for the next step
+          echo -e "$ENTRY" > /tmp/changelog-entry.md
+          cat /tmp/changelog-entry.md
+
+      - name: Update CHANGELOG.md
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PREV_TAG: ${{ steps.version.outputs.prev_tag }}
+          ENTRY: file:///tmp/changelog-entry.md
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'PYEOF'
+          import re, os
+
+          version = os.environ["VERSION"]
+          tag = os.environ["TAG"]
+          prev_tag = os.environ.get("PREV_TAG", "")
+          repo = os.environ["REPO"]
+
+          with open("/tmp/changelog-entry.md", "r") as f:
+              entry = f.read().strip()
+
+          with open("CHANGELOG.md", "r") as f:
+              content = f.read()
+
+          # Replace ## [Unreleased] section with new entry
+          unreleased_pattern = r"## \[Unreleased\].*?(?=\n## \[)"
+          replacement = f"## [Unreleased]\n\n_No unreleased changes._\n\n{entry}"
+          content = re.sub(unreleased_pattern, replacement, content, count=1, flags=re.DOTALL)
+
+          # Update [Unreleased] comparison link to point from new tag
+          base_url = f"https://github.com/{repo}"
+          content = re.sub(
+              r"\[Unreleased\]: .+",
+              f"[Unreleased]: {base_url}/compare/{tag}...HEAD",
+              content
+          )
+
+          # Add new version comparison link after [Unreleased] link
+          if prev_tag:
+              compare_link = f"[{version}]: {base_url}/compare/{prev_tag}...{tag}"
+              content = re.sub(
+                  r"(\[Unreleased\]: .+\n)",
+                  f"\\1{compare_link}\n",
+                  content
+              )
+
+          with open("CHANGELOG.md", "w") as f:
+              f.write(content)
+          PYEOF
+
+      - name: Commit and push changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "docs: update CHANGELOG.md for ${{ steps.version.outputs.tag }}"
+          git push origin main
