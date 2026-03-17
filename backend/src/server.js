@@ -35,24 +35,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const app = express();
 
 // Middleware
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", 'https://vjs.zencdn.net'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://vjs.zencdn.net'],
-        imgSrc: ["'self'", 'data:', 'https:', 'http:'],
-        connectSrc: ["'self'", 'https:', 'wss:', 'blob:', 'data:'],
-        fontSrc: ["'self'", 'data:'],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'", 'blob:', 'data:', 'https:', 'http:'],
-        frameSrc: ["'none'"],
-        workerSrc: ["'self'", 'blob:'],
-      },
-    },
-  }),
-);
+app.use(helmet());
 app.use(compression());
 app.use(
   cors({
@@ -121,30 +104,8 @@ app.use('/api/v1/tv/pairing/status', pairingLimiter);
 app.use('/api/v1/tv/pair', pairingLimiter);
 app.use('/api/v1/tv/verify', pairingLimiter);
 
-// Static files for specific vendor packages only (not the entire node_modules tree)
-const vendorAllowList = ['adminlte', 'bootstrap', 'jquery', '@fortawesome'];
-app.use(
-  '/vendor',
-  (req, res, next) => {
-    const reqPath = decodeURIComponent(req.path).replace(/\\/g, '/');
-    const topDir = reqPath.split('/').filter(Boolean)[0] || '';
-    if (
-      vendorAllowList.some(
-        (pkg) => topDir === pkg || (topDir.startsWith('@') && vendorAllowList.includes(topDir)),
-      )
-    ) {
-      return next();
-    }
-    res.status(404).send('Not found');
-  },
-  express.static(path.join(PROJECT_ROOT, 'node_modules')),
-);
-
-// Static files for admin UI
-app.use('/admin', express.static(path.join(PROJECT_ROOT, 'public/admin')));
-
-// Static files for public homepage
-app.use(express.static(path.join(PROJECT_ROOT, 'public')));
+// Static files for uploads
+app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'uploads')));
 
 // Routes
 const { router: authRouter } = require('./routes/auth');
@@ -186,9 +147,6 @@ app.get('/health', (req, res) => {
     redis: isRedisReady() ? 'connected' : 'disconnected',
   });
 });
-
-// Root endpoint - now serves static HTML from public/index.html
-// The static middleware above will handle serving the homepage
 
 // Error handling middleware
 app.use((err, req, res, _next) => {

@@ -1,0 +1,28 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy workspace root and package files
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install all dependencies
+RUN npm ci --ignore-scripts && npm cache clean --force
+
+# Build shared package (frontend imports from it)
+COPY packages/shared/tsconfig.json ./packages/shared/
+COPY packages/shared/src ./packages/shared/src
+RUN npx -w @firevision/shared tsc
+
+# Copy frontend config files (source is mounted as volume for hot reload)
+COPY frontend/tsconfig.json ./frontend/
+COPY frontend/next.config.mjs ./frontend/
+COPY frontend/postcss.config.mjs ./frontend/
+COPY frontend/tailwind.config.ts ./frontend/
+COPY frontend/components.json ./frontend/
+
+EXPOSE 3001
+
+# Next.js dev server with hot reload
+CMD ["npm", "run", "dev", "-w", "@firevision/frontend"]

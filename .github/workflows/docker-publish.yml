@@ -98,9 +98,6 @@ jobs:
           # Substitute env vars into the production compose file
           envsubst < docker-compose.production.yml > docker-compose.deploy.yml
 
-          echo "=== Generated compose file ==="
-          cat docker-compose.deploy.yml
-
       - name: Resolve Portainer stack ID
         id: stack
         run: |

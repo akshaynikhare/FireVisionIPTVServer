@@ -32,6 +32,7 @@ up: ## Start all services in background
 	@echo "\033[1;32m══════════════════════════════════════════════════\033[0m"
 	@echo ""
 	@echo "\033[1;36m  URLs:\033[0m"
+	@echo "  Frontend         http://localhost:3001"
 	@echo "  API Server       http://localhost:8009"
 	@echo "  Mongo Express    http://localhost:8081"
 	@echo "  MailHog UI       http://localhost:8025"
@@ -62,6 +63,9 @@ logs: ## Tail logs from all services
 
 logs-api: ## Tail logs from API service only
 	$(COMPOSE) logs -f api
+
+logs-frontend: ## Tail logs from frontend only
+	$(COMPOSE) logs -f frontend
 
 logs-mongo: ## Tail logs from MongoDB only
 	$(COMPOSE) logs -f mongodb

@@ -46,10 +46,9 @@ RUN npm ci --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
-# Copy runtime files (public assets, configs, non-TS source for JS routes still in migration)
+# Copy runtime files (configs, non-TS source for JS routes still in migration)
 COPY backend/src ./backend/src
 COPY packages/shared/src ./packages/shared/src
-COPY public ./public
 
 # Create directories for uploads and APKs
 RUN mkdir -p uploads apks && \

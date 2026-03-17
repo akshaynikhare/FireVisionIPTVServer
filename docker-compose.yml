@@ -97,7 +97,6 @@ services:
     volumes:
       - ./backend/src:/app/backend/src
       - ./packages/shared/src:/app/packages/shared/src
-      - ./public:/app/public
       - ./uploads:/app/uploads
     depends_on:
       mongodb:
@@ -118,6 +117,27 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend.dev
+    container_name: firevision-frontend
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3000
+      WATCHPACK_POLLING: 'true'
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/public:/app/frontend/public
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - firevision-network
 
 volumes:
   mongodb_data:
