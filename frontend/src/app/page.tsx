@@ -65,19 +65,18 @@ export default function Home() {
                 >
                   Register
                 </Link>
-
-                <a
-                  href="https://github.com/akshaynikhare/FireVisionIPTV/releases/latest"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 mt-8 border-2 border-primary/30 bg-primary/5 px-8 py-4 text-sm font-semibold uppercase tracking-widest text-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                >
-                  <Download className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <span>Download Android TV APK</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  <span className="sr-only"> (opens in new tab)</span>
-                </a>
               </nav>
+              <a
+                href="https://github.com/akshaynikhare/FireVisionIPTV/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 mt-4 border-2 border-primary/30 bg-primary/5 px-8 py-4 text-sm font-semibold uppercase tracking-widest text-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
+              >
+                <Download className="h-5 w-5 text-primary" aria-hidden="true" />
+                <span>Download Android TV APK</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="sr-only"> (opens in new tab)</span>
+              </a>
             </div>
 
             <div className="border-l border-border pl-8 hidden lg:block">

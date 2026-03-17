@@ -80,6 +80,42 @@ export default function LoginPage() {
           <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
             IPTV Management Console
           </p>
+
+          <div className="mt-10 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                01
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Stream Management</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Import, organize, and monitor live IPTV channels with real-time health checks.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                02
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Device Provisioning</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Pair and manage connected devices across your network with ease.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                03
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">EPG & Scheduling</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Deliver electronic program guides and schedule content for your viewers.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground leading-relaxed">

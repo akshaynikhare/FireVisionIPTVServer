@@ -11,12 +11,19 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
@@ -47,6 +54,42 @@ export default function RegisterPage() {
           <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
             IPTV Management Console
           </p>
+
+          <div className="mt-10 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                01
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Stream Management</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Import, organize, and monitor live IPTV channels with real-time health checks.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                02
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Device Provisioning</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Pair and manage connected devices across your network with ease.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
+                03
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">EPG & Scheduling</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Deliver electronic program guides and schedule content for your viewers.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground leading-relaxed">
@@ -173,6 +216,56 @@ export default function RegisterPage() {
               <p id="password-hint" className="text-xs text-muted-foreground mt-1">
                 Minimum 8 characters
               </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="confirmPassword"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    clearError();
+                  }}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-required="true"
+                  className={`flex h-10 w-full border bg-card px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:text-muted-foreground ${
+                    confirmPassword && confirmPassword !== password
+                      ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive'
+                      : 'border-border'
+                  }`}
+                  placeholder="Re-enter your password"
+                  aria-label="Confirm password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={
+                    showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                  }
+                  title={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  )}
+                </button>
+              </div>
+              {confirmPassword && confirmPassword !== password && (
+                <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+              )}
             </div>
 
             <button
