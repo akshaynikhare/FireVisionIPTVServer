@@ -25,6 +25,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-noreply@firevision.local}
       APP_URL: ${APP_URL:-https://tv.cadnative.com}
       ALLOWED_ORIGINS: https://tv.cadnative.com
+      DISABLE_SCHEDULER: 'true'
     networks:
       - firevision-network
     depends_on:
@@ -114,6 +115,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  scheduler:
+    image: ${DOCKER_IMAGE:-ghcr.io/akshaynikhare/firevisioniptvserver:latest}
+    container_name: firevision-scheduler
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      REDIS_URL: redis://redis:6379
+      LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS:-86400000}
+      EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS:-21600000}
+      CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS:-3600000}
+    command: ['npx', 'tsx', 'backend/src/scheduler-entrypoint.ts']
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - firevision-network
     logging:
       driver: 'json-file'
       options:

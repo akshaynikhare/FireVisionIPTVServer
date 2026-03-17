@@ -29,7 +29,10 @@ export default function RegisterPage() {
 
     try {
       await api.post('/auth/register', { username, email, password });
-      router.push('/login');
+      router.push(
+        '/login?message=' +
+          encodeURIComponent('Account created! Check your email to verify before signing in.'),
+      );
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       setError(axiosErr.response?.data?.error || 'Registration failed');
@@ -43,7 +46,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen overflow-y-auto flex">
       <div className="hidden lg:flex lg:w-[420px] flex-col justify-between border-r border-border bg-card p-10">
         <div>
           <Link href="/" className="inline-block">

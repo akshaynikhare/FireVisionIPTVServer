@@ -1,14 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Search, Trash2, Plus, Download, TestTube, Check, Play, Zap } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Loader2,
+  Trash2,
+  Plus,
+  Download,
+  Check,
+  Zap,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
+import { useClientSideTable } from '@/hooks/use-client-side-table';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
+import SearchInput from '@/components/ui/search-input';
+import ChannelLogo from '@/components/ui/channel-logo';
+import StatusDot from '@/components/ui/status-dot';
+import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
+import ChannelDataTable from '@/components/ui/channel-data-table';
+import { type DataTableColumn } from '@/components/ui/data-table';
+import Pagination from '@/components/ui/pagination';
+import ColumnFilter from '@/components/ui/column-filter';
 
 interface Channel {
   _id: string;
@@ -19,7 +38,7 @@ interface Channel {
   tvgLogo?: string;
   logo?: string;
   channelGroup?: string;
-  metadata?: { isWorking?: boolean; lastTested?: string };
+  metadata?: { isWorking?: boolean; lastTested?: string; responseTime?: number };
 }
 
 function getName(c: Channel) {
@@ -30,19 +49,44 @@ function getLogo(c: Channel) {
   return c.tvgLogo || c.logo;
 }
 
+function getUrl(c: Channel) {
+  return c.channelUrl || c.url || '';
+}
+
+type SortField = 'name' | 'group';
+type SortDir = 'asc' | 'desc';
+const PAGE_SIZE = 50;
+
 export default function UserChannelsPage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [allChannels, setAllChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
-  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch();
+  const { search, debouncedSearch, handleSearchChange } = useDebouncedSearch('', 300);
+
+  // Add from system
   const [showAdd, setShowAdd] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Testing
   const [testing, setTesting] = useState<string | null>(null);
+
+  // M3U copy
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Detail modal
+  const [detailChannel, setDetailChannel] = useState<Channel | null>(null);
+
+  // Sort + filter + pagination
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(1);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
   const { playStream } = useStreamPlayer();
 
   useEffect(() => {
@@ -119,6 +163,7 @@ export default function UserChannelsPage() {
                   ...c.metadata,
                   isWorking: result.isWorking,
                   lastTested: result.testedAt,
+                  responseTime: result.responseTime,
                 },
               }
             : c,
@@ -138,12 +183,87 @@ export default function UserChannelsPage() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const filtered = channels.filter(
-    (c) =>
-      getName(c).toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      c.channelGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()),
+  // Filter options derived from data
+  const groupOptions = useMemo(() => {
+    const set = new Set<string>();
+    channels.forEach((c) => {
+      if (c.channelGroup) set.add(c.channelGroup);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  const statusOptions = useMemo(() => ['Working', 'Not Working', 'Untested'], []);
+
+  const searchFields = useMemo(
+    () => [(c: Channel) => getName(c), (c: Channel) => c.channelGroup],
+    [],
   );
 
+  const sortAccessor = useCallback(
+    (ch: Channel) => {
+      switch (sortField) {
+        case 'name':
+          return getName(ch);
+        case 'group':
+          return ch.channelGroup || '';
+      }
+    },
+    [sortField],
+  );
+
+  const filters = useMemo(
+    () => [
+      {
+        accessor: (c: Channel) => c.channelGroup || '',
+        selected: selectedGroups,
+        allOptions: groupOptions,
+      },
+      {
+        accessor: (c: Channel) =>
+          c.metadata?.isWorking === true
+            ? 'Working'
+            : c.metadata?.isWorking === false
+              ? 'Not Working'
+              : 'Untested',
+        selected: selectedStatuses,
+        allOptions: statusOptions,
+      },
+    ],
+    [selectedGroups, groupOptions, selectedStatuses, statusOptions],
+  );
+
+  const { filtered, paginated } = useClientSideTable({
+    data: channels,
+    search: debouncedSearch,
+    searchFields,
+    filters,
+    sortAccessor,
+    sortDir,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
+  // Reset page on filter/search change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedGroups, selectedStatuses]);
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  }
+
+  // Add-from-system panel filtering
   const myIds = new Set(channels.map((c) => c._id));
   const availableChannels = allChannels.filter(
     (c) =>
@@ -151,6 +271,35 @@ export default function UserChannelsPage() {
       (getName(c).toLowerCase().includes(addSearch.toLowerCase()) ||
         c.channelGroup?.toLowerCase().includes(addSearch.toLowerCase())),
   );
+
+  // Detail modal fields
+  const detailFields: ChannelField[] = detailChannel
+    ? [
+        { label: 'Stream URL', value: getUrl(detailChannel) },
+        { label: 'Group', value: detailChannel.channelGroup },
+        {
+          label: 'Status',
+          value:
+            detailChannel.metadata?.isWorking === true
+              ? 'Working'
+              : detailChannel.metadata?.isWorking === false
+                ? 'Not Working'
+                : 'Untested',
+        },
+        {
+          label: 'Response Time',
+          value: detailChannel.metadata?.responseTime
+            ? `${detailChannel.metadata.responseTime}ms`
+            : undefined,
+        },
+        {
+          label: 'Last Tested',
+          value: detailChannel.metadata?.lastTested
+            ? new Date(detailChannel.metadata.lastTested).toLocaleString()
+            : undefined,
+        },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -162,12 +311,13 @@ export default function UserChannelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Channels</h1>
           <p className="text-sm text-muted-foreground mt-1">{channels.length} channels</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/user/quick-pick"
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
@@ -207,6 +357,7 @@ export default function UserChannelsPage() {
         </div>
       </div>
 
+      {/* Add from system panel */}
       {showAdd && (
         <div className="border-2 border-primary/30 bg-card p-5 space-y-4">
           <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium">
@@ -239,15 +390,13 @@ export default function UserChannelsPage() {
                     checked={selectedIds.has(ch._id)}
                     onChange={(e) => {
                       const next = new Set(selectedIds);
-                      if (e.target.checked) {
-                        next.add(ch._id);
-                      } else {
-                        next.delete(ch._id);
-                      }
+                      if (e.target.checked) next.add(ch._id);
+                      else next.delete(ch._id);
                       setSelectedIds(next);
                     }}
                     className="accent-primary"
                   />
+                  <ChannelLogo src={getLogo(ch)} alt={getName(ch)} size="sm" />
                   <span className="text-sm font-medium flex-1 truncate">{getName(ch)}</span>
                   <span className="text-xs text-muted-foreground">{ch.channelGroup || ''}</span>
                 </label>
@@ -275,98 +424,142 @@ export default function UserChannelsPage() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search my channels..."
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-          aria-label="Search channels"
-        />
-      </div>
+      {/* Search */}
+      <SearchInput
+        value={search}
+        onChange={handleSearchChange}
+        placeholder="Search my channels..."
+        ariaLabel="Search channels"
+      />
 
-      <div className="border border-border divide-y divide-border">
-        {filtered.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {debouncedSearch
-              ? 'No channels match your search'
-              : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'}
-          </div>
-        ) : (
-          filtered.map((ch) => (
-            <div key={ch._id} className="flex items-center gap-3 px-4 py-3">
-              {getLogo(ch) ? (
-                <img
-                  src={proxyImageUrl(getLogo(ch)!)}
-                  alt={getName(ch)}
-                  loading="lazy"
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
-                />
-              ) : (
-                <div className="h-7 w-7 rounded-sm bg-muted shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{getName(ch)}</p>
-                <p className="text-xs text-muted-foreground truncate">{ch.channelGroup || '—'}</p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {ch.metadata?.isWorking !== undefined && (
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${ch.metadata.isWorking ? 'bg-signal-green' : 'bg-signal-red'}`}
-                    aria-hidden="true"
+      {/* Info bar */}
+      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {filtered.length} channels
+        {filtered.length !== channels.length && ` (filtered from ${channels.length})`}
+      </p>
+
+      {/* Datatable */}
+      <ChannelDataTable<Channel>
+        data={paginated}
+        gridTemplate="1fr 180px 100px 140px"
+        ariaLabel="My channels table"
+        emptyMessage={
+          debouncedSearch
+            ? 'No channels match your search'
+            : 'No channels in your list yet. Click "Add" or use Quick Pick to get started.'
+        }
+        rowKey={(c) => c._id}
+        getName={getName}
+        getLogo={getLogo}
+        onDetail={(c) => setDetailChannel(c)}
+        nameHeader={
+          <button
+            onClick={() => handleSort('name')}
+            className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+          >
+            Name <SortIcon field="name" />
+          </button>
+        }
+        nameAriaSort={
+          sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+        }
+        columns={
+          [
+            {
+              key: 'group',
+              ariaSort:
+                sortField === 'group' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
+              header: (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleSort('group')}
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                  >
+                    Group <SortIcon field="group" />
+                  </button>
+                  <ColumnFilter
+                    label=""
+                    options={groupOptions}
+                    selected={selectedGroups}
+                    onChange={(v) => setSelectedGroups(v)}
+                    searchable
                   />
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {ch.metadata?.isWorking === true
-                    ? 'Working'
-                    : ch.metadata?.isWorking === false
-                      ? 'Not Working'
-                      : ''}
+                </div>
+              ),
+              cell: (c) => (
+                <span className="text-sm text-muted-foreground truncate">
+                  {c.channelGroup || '—'}
                 </span>
-                {ch.metadata?.isWorking !== undefined && (
-                  <span className="sr-only">
-                    {ch.metadata.isWorking ? 'Stream is working' : 'Stream is not working'}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => playStream({ name: getName(ch), url: getChannelUrl(ch) })}
-                className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
-                aria-label="Play stream"
-              >
-                <Play className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => handleTest(ch._id)}
-                disabled={testing === ch._id}
-                className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                aria-label="Test stream"
-              >
-                {testing === ch._id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <TestTube className="h-4 w-4" />
-                )}
-              </button>
-              <button
-                onClick={() => handleRemove(ch._id)}
-                className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-                aria-label="Remove channel"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+              ),
+            },
+            {
+              key: 'status',
+              header: (
+                <ColumnFilter
+                  label="Status"
+                  options={statusOptions}
+                  selected={selectedStatuses}
+                  onChange={(v) => setSelectedStatuses(v)}
+                />
+              ),
+              cell: (c) => (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'working'
+                      : c.metadata?.isWorking === false
+                        ? 'not-working'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              ),
+            },
+          ] satisfies DataTableColumn<Channel>[]
+        }
+        getActions={(c) => ({
+          onDetail: () => setDetailChannel(c),
+          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onTest: () => handleTest(c._id),
+          testing: testing === c._id,
+          onDelete: () => handleRemove(c._id),
+        })}
+      />
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={filtered.length}
+        onPageChange={setPage}
+      />
+
+      {/* Detail Modal */}
+      <ChannelDetailModal
+        open={!!detailChannel}
+        onClose={() => setDetailChannel(null)}
+        channel={
+          detailChannel
+            ? {
+                channelName: getName(detailChannel),
+                tvgLogo: getLogo(detailChannel),
+                channelUrl: getUrl(detailChannel),
+                summary: detailChannel.channelGroup || 'Uncategorized',
+              }
+            : null
+        }
+        fields={detailFields}
+        onPlay={
+          detailChannel
+            ? () => {
+                playStream({
+                  name: getName(detailChannel),
+                  url: getUrl(detailChannel),
+                });
+                setDetailChannel(null);
+              }
+            : undefined
+        }
+      />
     </div>
   );
-}
-
-function getChannelUrl(c: Channel) {
-  return c.channelUrl || c.url || '';
 }

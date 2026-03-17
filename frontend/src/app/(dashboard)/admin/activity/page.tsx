@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import Pagination from '@/components/ui/pagination';
 import ColumnFilter from '@/components/ui/column-filter';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
+import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
 interface AuditEntry {
   _id: string;
@@ -137,144 +138,144 @@ export default function ActivityPage() {
         </div>
       )}
 
-      <div role="table" aria-label="Activity log table" className="border border-border ">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-          <input
-            type="text"
-            placeholder="Search activity..."
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-            aria-label="Search activity logs"
-          />
-        </div>
-
-        {/* Table Header */}
-        <div
-          role="rowgroup"
-          className="hidden lg:grid grid-cols-[100px,140px,120px,1fr,80px,120px] gap-4 px-4 py-2 bg-muted/50 border-b border-border"
-        >
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-          >
-            Time
-          </span>
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-          >
-            User
-          </span>
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
-          >
-            Action
-            <ColumnFilter
-              label="Action"
-              options={filterOptions.action.map((a) => formatLabel(a))}
-              selected={selectedActions.map((a) => formatLabel(a))}
-              onChange={(labels) => {
-                const reverseMap = Object.fromEntries(
-                  filterOptions.action.map((a) => [formatLabel(a), a]),
-                );
-                setSelectedActions(labels.map((l) => reverseMap[l] || l));
-              }}
-            />
-          </span>
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
-          >
-            Resource
-            <ColumnFilter
-              label="Resource"
-              options={filterOptions.resource}
-              selected={selectedResources}
-              onChange={setSelectedResources}
-            />
-          </span>
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1"
-          >
-            Status
-            <ColumnFilter
-              label="Status"
-              options={filterOptions.status}
-              selected={selectedStatuses}
-              onChange={setSelectedStatuses}
-            />
-          </span>
-          <span
-            role="columnheader"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-          >
-            IP
-          </span>
-        </div>
-
-        {/* Rows */}
-        <div role="rowgroup" className="divide-y divide-border">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-              No activity logs found
-            </div>
-          ) : (
-            logs.map((log) => (
-              <div
-                key={log._id}
-                role="row"
-                aria-label={`${formatLabel(log.action)} by ${log.userId?.username || 'unknown'}`}
-                className="grid lg:grid-cols-[100px,140px,120px,1fr,80px,120px] gap-2 lg:gap-4 items-center px-4 py-3"
-              >
-                <div role="cell" className="text-xs tabular-nums text-muted-foreground">
-                  <time dateTime={log.timestamp}>
-                    <span className="font-medium">{formatTime(log.timestamp)}</span>
-                  </time>
-                  <time dateTime={log.timestamp} className="ml-1.5 text-muted-foreground/60">
-                    {formatDate(log.timestamp)}
-                  </time>
-                </div>
-                <span role="cell" className="text-sm truncate">
-                  {log.userId?.username || '—'}
-                </span>
-                <span
-                  role="cell"
-                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  {formatLabel(log.action)}
-                </span>
-                <span role="cell" className="text-sm truncate text-muted-foreground">
-                  {log.resource}
-                  {log.resourceId ? `: ${log.resourceId}` : ''}
-                </span>
-                <span role="cell">
-                  <span
-                    className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
-                      log.status === 'success' ? 'bg-signal-green' : 'bg-signal-red'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span className="text-xs text-muted-foreground">{log.status}</span>
-                  <span className="sr-only">
-                    {log.status === 'success' ? 'Success' : 'Failure'}
-                  </span>
-                </span>
-                <span role="cell" className="text-xs tabular-nums text-muted-foreground truncate">
-                  {log.ipAddress || '—'}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+      <div className="flex items-center gap-2 px-4 py-2 border border-border bg-muted/30">
+        <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+        <input
+          type="text"
+          placeholder="Search activity..."
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          aria-label="Search activity logs"
+        />
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <DataTable<AuditEntry>
+          data={logs}
+          gridTemplate="100px 140px 140px minmax(120px,1fr) 120px 120px"
+          resizable
+          ariaLabel="Activity log table"
+          emptyMessage="No activity logs found"
+          rowKey={(log) => log._id}
+          rowAriaLabel={(log) =>
+            `${formatLabel(log.action)} by ${log.userId?.username || 'unknown'}`
+          }
+          columns={
+            [
+              {
+                key: 'time',
+                headerClassName: 'text-xs uppercase tracking-[0.15em] text-muted-foreground',
+                header: 'Time',
+                cell: (log) => (
+                  <div className="text-xs tabular-nums text-muted-foreground">
+                    <time dateTime={log.timestamp}>
+                      <span className="font-medium">{formatTime(log.timestamp)}</span>
+                    </time>
+                    <time dateTime={log.timestamp} className="ml-1.5 text-muted-foreground/60">
+                      {formatDate(log.timestamp)}
+                    </time>
+                  </div>
+                ),
+              },
+              {
+                key: 'user',
+                headerClassName: 'text-xs uppercase tracking-[0.15em] text-muted-foreground',
+                header: 'User',
+                cell: (log) => (
+                  <span className="text-sm truncate">{log.userId?.username || '—'}</span>
+                ),
+              },
+              {
+                key: 'action',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1',
+                header: (
+                  <ColumnFilter
+                    label="Action"
+                    options={filterOptions.action.map((a) => formatLabel(a))}
+                    selected={selectedActions.map((a) => formatLabel(a))}
+                    onChange={(labels) => {
+                      const reverseMap = Object.fromEntries(
+                        filterOptions.action.map((a) => [formatLabel(a), a]),
+                      );
+                      setSelectedActions(labels.map((l) => reverseMap[l] || l));
+                    }}
+                  />
+                ),
+                cell: (log) => (
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {formatLabel(log.action)}
+                  </span>
+                ),
+              },
+              {
+                key: 'resource',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1',
+                header: (
+                  <ColumnFilter
+                    label="Resource"
+                    options={filterOptions.resource}
+                    selected={selectedResources}
+                    onChange={setSelectedResources}
+                  />
+                ),
+                cell: (log) => (
+                  <span
+                    className="text-sm truncate text-muted-foreground block min-w-0"
+                    title={log.resourceId ? `${log.resource}: ${log.resourceId}` : log.resource}
+                  >
+                    {log.resource}
+                    {log.resourceId ? `: ${log.resourceId.slice(0, 8)}…` : ''}
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                headerClassName:
+                  'text-xs uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-1',
+                header: (
+                  <ColumnFilter
+                    label="Status"
+                    options={filterOptions.status}
+                    selected={selectedStatuses}
+                    onChange={setSelectedStatuses}
+                  />
+                ),
+                cell: (log) => (
+                  <span>
+                    <span
+                      className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                        log.status === 'success' ? 'bg-signal-green' : 'bg-signal-red'
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs text-muted-foreground">{log.status}</span>
+                    <span className="sr-only">
+                      {log.status === 'success' ? 'Success' : 'Failure'}
+                    </span>
+                  </span>
+                ),
+              },
+              {
+                key: 'ip',
+                headerClassName: 'text-xs uppercase tracking-[0.15em] text-muted-foreground',
+                header: 'IP',
+                cell: (log) => (
+                  <span className="text-xs tabular-nums text-muted-foreground truncate">
+                    {log.ipAddress || '—'}
+                  </span>
+                ),
+              },
+            ] satisfies DataTableColumn<AuditEntry>[]
+          }
+        />
+      )}
 
       <Pagination page={page} totalCount={totalCount} pageSize={pageSize} onPageChange={setPage} />
     </div>

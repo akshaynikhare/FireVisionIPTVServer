@@ -7,7 +7,7 @@ import api from '@/lib/api';
 
 export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const router = useRouter();
-  const { user, sessionId } = useAuthStore();
+  const { user, sessionId, setUser } = useAuthStore();
   const [hydrated, setHydrated] = useState(() =>
     typeof window !== 'undefined' ? (useAuthStore.persist?.hasHydrated?.() ?? false) : false,
   );
@@ -21,18 +21,26 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
     return () => unsub?.();
   }, [hydrated]);
 
-  // Validate session with backend on page load
+  // Validate session with backend on page load and sync emailVerified
   useEffect(() => {
     if (!hydrated || validated.current) return;
     if (!user || !sessionId) return;
 
     validated.current = true;
 
-    api.get('/auth/me').catch(() => {
-      // 401 is handled by the response interceptor (calls logout + redirects)
-      // Other errors are transient — don't log the user out
-    });
-  }, [hydrated, user, sessionId]);
+    api
+      .get('/auth/me')
+      .then((res) => {
+        const serverUser = res.data?.user;
+        if (serverUser && user && serverUser.emailVerified !== user.emailVerified) {
+          setUser({ ...user, emailVerified: serverUser.emailVerified });
+        }
+      })
+      .catch(() => {
+        // 401 is handled by the response interceptor (calls logout + redirects)
+        // Other errors are transient — don't log the user out
+      });
+  }, [hydrated, user, sessionId, setUser]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -42,11 +50,20 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
       return;
     }
 
+    if (user.emailVerified === false) {
+      router.replace('/verify-email');
+      return;
+    }
+
     if (requiredRole && user.role !== requiredRole) {
       router.replace(user.role === 'Admin' ? '/admin' : '/user');
       return;
     }
   }, [user, sessionId, requiredRole, router, hydrated]);
 
-  return { user, isAuthenticated: !!user && !!sessionId, isLoading: !hydrated };
+  return {
+    user,
+    isAuthenticated: !!user && !!sessionId && user.emailVerified !== false,
+    isLoading: !hydrated,
+  };
 }

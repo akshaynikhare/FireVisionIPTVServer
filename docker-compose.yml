@@ -86,12 +86,14 @@ services:
       FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
       # Session Configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
+      # Scheduler is handled by the dedicated scheduler container
+      DISABLE_SCHEDULER: 'true'
       # Email
       MAIL_PROVIDER: mailhog
       MAILHOG_HOST: mailhog
       MAILHOG_PORT: 1025
       MAIL_FROM: noreply@firevision.local
-      APP_URL: http://localhost:8009
+      APP_URL: http://localhost:3001
     volumes:
       - ./backend/src:/app/backend/src
       - ./packages/shared/src:/app/packages/shared/src
@@ -133,6 +135,32 @@ services:
       - ./frontend/public:/app/frontend/public
     depends_on:
       api:
+        condition: service_healthy
+    networks:
+      - firevision-network
+
+  # Background Scheduler (runs liveness checks, EPG refresh, cache refresh)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: firevision-scheduler
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      REDIS_URL: redis://redis:6379
+      LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS:-86400000}
+      EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS:-21600000}
+      CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS:-3600000}
+    command: ['npx', 'tsx', 'watch', 'backend/src/scheduler-entrypoint.ts']
+    volumes:
+      - ./backend/src:/app/backend/src
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - firevision-network

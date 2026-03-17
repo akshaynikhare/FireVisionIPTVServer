@@ -338,6 +338,99 @@ Complete inventory of every feature in the application.
 - Response timestamp
 - Docker health check configured: every 30 seconds, 10-second timeout, 3 retries
 
+## Email Verification & Welcome Emails
+
+- Verification email sent to new users after signup with a unique token
+- Verification token expires after 24 hours
+- HTML email templates with personalization (username, verification link)
+- Separate welcome email sent after successful verification
+- Dedicated `/verify-email` page handles token validation and confirmation
+- MailHog integration in development for email testing
+
+## Scheduler System
+
+- Dedicated scheduler microservice running as a separate process
+- Three built-in scheduled tasks:
+  - Channel Liveness Check: probes all cached streams for alive/dead status (default 24h interval)
+  - EPG Guide Refresh: fetches electronic program guide data (default 6h interval)
+  - IPTV-org Cache Refresh: updates channel cache from upstream (default 1h interval)
+- Database-backed task tracking with full audit trail (status, trigger type, triggered by, start/end times, duration, results)
+- Subtask tracking within each run for granular progress reporting
+- Atomic concurrency guard via MongoDB unique partial index prevents duplicate running tasks
+- Stale run recovery: tasks stuck in "running" for 4+ hours automatically marked as failed
+- Manual trigger support from admin UI
+- Admin scheduler page showing task list, next run times, last run status
+- Run history page with pagination, filtering by task, and detailed run inspection
+
+## External Sources (Pluto TV & Samsung TV Plus)
+
+- Two free external streaming sources: Pluto TV (ad-supported) and Samsung TV Plus
+- Region/country-based channel browsing with 2-letter country codes
+- Pluto TV JWT session management with automatic token caching per region
+- Channel liveness checking: individual stream probing with alive/dead/unknown status and response times
+- Bulk liveness checks per source/region running in background
+- Import selected channels to system database (admin only, up to 10k per import)
+- Import selected channels to personal playlist (any user, up to 500, with deduplication)
+- User and admin source browsing pages with filtering
+- 1-hour cache TTL on external source channels with automatic background refresh
+- Liveness stats display showing alive/dead/unknown counts per source/region
+
+## EPG (Electronic Program Guide)
+
+- Centralized EPG management fetching XMLTV format data from iptv-epg.org
+- Multi-source EPG discovery automatically mapped to system channels
+- Concurrent fetching of up to 5 EPG sources in parallel
+- Batch upserts inserting programs in 500-item batches
+- Startup detection: initial fetch on first run, staleness check (6h default) on subsequent runs
+- Admin EPG page showing stats: total programs, channels with EPG, last/next refresh, sources discovered
+
+## Next.js Frontend
+
+- Full migration to Next.js 14 App Router with route groups (`(auth)`, `(dashboard)`)
+- Zustand for global state management, React Query for server data fetching
+- TypeScript throughout with strict type safety
+- Tailwind CSS 3.4 with custom HSL color variables
+- Lucide React icon library
+- Dark mode support via next-themes
+- Separate Dockerfiles for production (standalone output) and development (hot reload)
+- API proxy: all `/api/v1/*` requests proxied through Next.js to backend
+
+## Quick Pick Wizard
+
+- 6-step guided wizard for discovering and adding channels:
+  1. Choose sources (IPTV-org, Pluto TV, Samsung TV Plus)
+  2. Select country per source
+  3. Select languages
+  4. Select categories
+  5. Review recommendations with filtering
+  6. Confirm selection and add to playlist
+- Multi-source support: mix channels from different sources in one flow
+- Step indicator showing progress through the wizard
+- Available for both users and admins via separate routes
+- Channel selection with checkboxes, count display, and bulk actions
+
+## Stream Player
+
+- Persistent player context maintaining playback across page navigations
+- HLS.js integration for HLS/M3U8 stream playback
+- Dual playback modes: proxy-only or direct-with-fallback-to-proxy
+- Mini player mode: draggable minimized player that persists position
+- Full-screen modal mode with ESC to close and body scroll blocking
+- Stream swapping: switch between streams while keeping player open
+- Error handling with meaningful messages for CORS, manifest, and timeout issues
+- Lazy loaded via Suspense for performance
+
+## Reusable UI Components
+
+- Generic DataTable component with grid layout, sorting, responsive breakpoints, expandable rows, resizable columns
+- ChannelDataTable: specialized table for channels with logo, name, and action buttons
+- ColumnFilter: multi-select dropdown with search, select-all/clear buttons
+- SelectionToolbar: shows filtered/total counts, selection count, page/all select controls
+- useBulkSelection hook: Set-based selection state management (toggle, select/unselect many/all)
+- useClientSideTable hook: memoized search, column filtering, sorting, and pagination
+- useDebouncedSearch hook: 300ms debounce on search input to prevent excessive API calls
+- SearchInput component with built-in debounce and clear button
+
 ## Docker Deployment
 
 - Node 18 Alpine-based container image
@@ -349,6 +442,11 @@ Complete inventory of every feature in the application.
 - API service depends on healthy MongoDB before starting
 - Configurable via environment variables
 - Nginx reverse proxy support
+- Separate scheduler service container with own entrypoint
+- Frontend container with multi-stage build for production (standalone) and dev (hot reload)
+- Redis and MailHog services in development compose
+- Mongo Express for database inspection in development
+- Makefile targets: `make up-prod`, `make up`, log tailing, db management (reset/drop/shell)
 
 ## Configuration
 

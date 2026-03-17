@@ -126,12 +126,10 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
       return res.status(400).json({ success: false, error: 'source and region are required' });
     }
     if (!validateSource(source)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+      });
     }
     if (!validateRegion(region)) {
       return res
@@ -162,7 +160,7 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/check-liveness/:docId', adminOnly, async (req, res) => {
+router.post('/check-liveness/:docId', async (req, res) => {
   try {
     const result = await externalSourceCacheService.checkSingleStream(req.params.docId);
     if (!result) return res.status(404).json({ success: false, error: 'Channel not found' });
@@ -187,12 +185,10 @@ router.get('/liveness-status', async (req, res) => {
       return res.status(400).json({ success: false, error: 'source and region are required' });
     }
     if (!validateSource(source)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+      });
     }
     if (!validateRegion(region)) {
       return res
@@ -220,12 +216,10 @@ router.post('/refresh-cache', adminOnly, async (req, res) => {
       return res.status(400).json({ success: false, error: 'source and region are required' });
     }
     if (!validateSource(source)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+      });
     }
     if (!validateRegion(region)) {
       return res
@@ -260,12 +254,10 @@ router.post('/import', adminOnly, async (req, res) => {
 
     if (replaceExisting) {
       if (!req.body.confirmDeleteAll) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: 'Set confirmDeleteAll: true to confirm replacing all channels',
-          });
+        return res.status(400).json({
+          success: false,
+          error: 'Set confirmDeleteAll: true to confirm replacing all channels',
+        });
       }
       await Channel.deleteMany({});
     }
@@ -409,12 +401,10 @@ router.post('/clear-cache', adminOnly, async (req, res) => {
   try {
     const { source, region } = req.body || {};
     if (source && !validateSource(source)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid source. Must be one of: ' + VALID_SOURCES.join(', '),
+      });
     }
     if (region && !validateRegion(region)) {
       return res

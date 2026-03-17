@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2, Search, Play, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Loader2, Play, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
-import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
+import SearchInput from '@/components/ui/search-input';
+import ChannelLogo from '@/components/ui/channel-logo';
+import StatusDot from '@/components/ui/status-dot';
+import Pagination from '@/components/ui/pagination';
 import type { SourceType, WizardChannel, ChannelLiveness } from '../wizard-shell';
 
 const PAGE_SIZE = 50;
@@ -320,7 +323,6 @@ export function RecommendationsStep({
     });
   }, [displayChannelsBase, livenessFilter, livenessMap]);
 
-  const totalPages = Math.max(1, Math.ceil(displayChannels.length / PAGE_SIZE));
   const pageChannels = displayChannels.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Page-level select all
@@ -342,19 +344,6 @@ export function RecommendationsStep({
       });
     }
   }
-
-  // Build page number array for pagination
-  const pageNumbers = useMemo((): (number | '...')[] => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const pages: (number | '...')[] = [1];
-    const start = Math.max(2, page - 1);
-    const end = Math.min(totalPages - 1, page + 1);
-    if (start > 2) pages.push('...');
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (end < totalPages - 1) pages.push('...');
-    pages.push(totalPages);
-    return pages;
-  }, [totalPages, page]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -412,17 +401,13 @@ export function RecommendationsStep({
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search channels..."
-            aria-label="Search channels"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Search channels..."
+          ariaLabel="Search channels"
+          className="flex-1 max-w-sm"
+        />
         <div className="flex items-center gap-2">
           <button
             onClick={checkPageLiveness}
@@ -547,21 +532,7 @@ export function RecommendationsStep({
                   onChange={() => onToggleChannel(ch.uid)}
                   className="accent-primary shrink-0"
                 />
-                {ch.tvgLogo ? (
-                  <img
-                    src={proxyImageUrl(ch.tvgLogo)}
-                    alt={ch.channelName}
-                    loading="lazy"
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="h-7 w-7 rounded-sm bg-muted shrink-0" />
-                )}
+                <ChannelLogo src={ch.tvgLogo} alt={ch.channelName} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{ch.channelName}</p>
                   <p className="text-xs text-muted-foreground truncate">
@@ -569,19 +540,11 @@ export function RecommendationsStep({
                     {ch.country ? ` · ${ch.country}` : ''}
                   </p>
                 </div>
-                {/* Liveness dot */}
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    lv.status === 'alive'
-                      ? 'bg-signal-green'
-                      : lv.status === 'dead'
-                        ? 'bg-signal-red'
-                        : 'bg-muted-foreground/40'
-                  }`}
-                  title={`Status: ${lv.status}${lv.responseTimeMs ? ` (${lv.responseTimeMs}ms)` : ''}`}
-                >
-                  <span className="sr-only">Status: {lv.status}</span>
-                </span>
+                <StatusDot
+                  status={lv.status as 'alive' | 'dead' | 'unknown'}
+                  showLabel={false}
+                  size="md"
+                />
                 <span className="hidden sm:inline text-xs uppercase tracking-[0.1em] text-muted-foreground bg-muted px-1.5 py-0.5 shrink-0">
                   {SOURCE_LABELS[ch.source] || ch.source}
                 </span>
@@ -621,56 +584,12 @@ export function RecommendationsStep({
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-xs text-muted-foreground">
-            Page {page} of {totalPages} ({displayChannels.length} channels)
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-2.5 py-2 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            {pageNumbers.map((n, i) =>
-              n === '...' ? (
-                <span
-                  key={`ellipsis-${i}`}
-                  className="px-1 text-xs text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  aria-label={`Go to page ${n}`}
-                  aria-current={page === n ? 'page' : undefined}
-                  className={`px-2.5 py-2 text-xs border transition-colors ${
-                    page === n
-                      ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-border hover:border-primary/40'
-                  }`}
-                >
-                  {n}
-                </button>
-              ),
-            )}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-2.5 py-2 text-xs border border-border hover:border-primary/40 disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="Next page"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={displayChannels.length}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

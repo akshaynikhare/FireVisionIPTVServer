@@ -8,6 +8,7 @@ export interface User {
   role: 'Admin' | 'User';
   isActive: boolean;
   channelListCode: string;
+  emailVerified?: boolean;
   profilePicture?: string | null;
   lastLogin?: string;
   channels?: string[];

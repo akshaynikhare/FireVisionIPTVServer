@@ -31,7 +31,8 @@ api.interceptors.response.use(
       if (
         typeof window !== 'undefined' &&
         !window.location.pathname.startsWith('/login') &&
-        !window.location.pathname.startsWith('/register')
+        !window.location.pathname.startsWith('/register') &&
+        !window.location.pathname.startsWith('/verify-email')
       ) {
         isRedirecting = true;
         // Clear both Zustand store and raw localStorage keys in one call

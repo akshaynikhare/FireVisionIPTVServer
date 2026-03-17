@@ -205,3 +205,7 @@ When adding new features, define the expected API response shape first:
 - Admin pages: dense tables, bulk actions, advanced filters
 - User pages: simpler layouts, focused on personal data
 - Both: large enough touch targets for usability, responsive down to tablet
+
+## Record Architectural Decisions
+
+When a significant decision is made (new tech choice, pattern change, data model strategy, trade-off picked), ask the user if they want it recorded as an ADR in `docs/decisions/`. Format: Status, Context, Decision, Alternatives Considered, Consequences.

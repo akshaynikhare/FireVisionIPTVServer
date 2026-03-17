@@ -56,6 +56,7 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       role: user.role,
       playlistCode: user.playlistCode,
       isActive: user.isActive,
+      emailVerified: user.emailVerified,
     };
 
     req.sessionId = sessionId;

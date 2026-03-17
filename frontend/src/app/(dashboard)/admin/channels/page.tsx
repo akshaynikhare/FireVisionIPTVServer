@@ -1,20 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import {
-  Loader2,
-  Trash2,
-  Search,
-  Plus,
-  Pencil,
-  Play,
-  TestTube,
-  Upload,
-  Eye,
-  X,
-} from 'lucide-react';
+import { Loader2, Trash2, Plus, Upload, X, TestTube } from 'lucide-react';
 import api from '@/lib/api';
-import { proxyImageUrl } from '@/lib/image-proxy';
 import { useToast } from '@/hooks/use-toast';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
@@ -22,6 +10,11 @@ import Pagination from '@/components/ui/pagination';
 import Modal from '@/components/ui/modal';
 import { useStreamPlayer } from '@/components/stream-player-context';
 import ColumnFilter from '@/components/ui/column-filter';
+import SearchInput from '@/components/ui/search-input';
+import StatusDot from '@/components/ui/status-dot';
+import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
+import ChannelDataTable from '@/components/ui/channel-data-table';
+import { type DataTableColumn } from '@/components/ui/data-table';
 
 interface Channel {
   _id: string;
@@ -524,189 +517,114 @@ export default function ChannelsPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search channels..."
-          aria-label="Search channels"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={handleSearchChange}
+        placeholder="Search channels..."
+        ariaLabel="Search channels"
+      />
 
       {/* Channel List */}
-      <div className="overflow-x-auto">
-        <div
-          role="table"
-          aria-label="Channels table"
-          className="border border-border divide-y divide-border"
-        >
-          <div
-            role="rowgroup"
-            className="hidden lg:grid grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-4 px-4 py-2 bg-muted/50"
-          >
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-            >
-              Name
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Group"
-                options={filterOptions.group}
-                selected={selectedGroups}
-                onChange={setSelectedGroups}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Country"
-                options={filterOptions.country}
-                selected={selectedCountries}
-                onChange={setSelectedCountries}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Language"
-                options={filterOptions.language}
-                selected={selectedLanguages}
-                onChange={setSelectedLanguages}
-                searchable
-              />
-            </span>
-            <span role="columnheader">
-              <ColumnFilter
-                label="Status"
-                options={filterOptions.status}
-                selected={selectedStatuses}
-                onChange={setSelectedStatuses}
-              />
-            </span>
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-            >
-              Actions
-            </span>
-          </div>
-          <div role="rowgroup">
-            {paginated.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {search
-                  ? 'No channels match your search'
-                  : 'No channels yet. Click "Add Channel" to create one or use "Import M3U" to bulk upload.'}
-              </div>
-            ) : (
-              paginated.map((channel) => (
-                <div
-                  key={channel._id}
-                  role="row"
-                  className="grid lg:grid-cols-[1fr,1fr,100px,100px,80px,140px] gap-2 lg:gap-4 items-center px-4 py-3"
-                >
-                  <div
-                    role="cell"
-                    tabIndex={0}
-                    aria-label={getName(channel)}
-                    className="flex items-center gap-3 min-w-0 cursor-pointer"
-                    onClick={() => setDetailChannel(channel)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setDetailChannel(channel);
-                      }
-                    }}
-                  >
-                    {getLogo(channel) ? (
-                      <img
-                        src={proxyImageUrl(getLogo(channel)!)}
-                        alt={getName(channel) + ' logo'}
-                        loading="lazy"
-                        width={24}
-                        height={24}
-                        className="h-6 w-6 rounded-sm object-contain shrink-0 bg-muted"
-                      />
-                    ) : (
-                      <div className="h-6 w-6 rounded-sm bg-muted shrink-0" />
-                    )}
-                    <span className="text-sm font-medium truncate">{getName(channel)}</span>
-                  </div>
-                  <span role="cell" className="text-sm text-muted-foreground truncate">
-                    {channel.channelGroup || '—'}
-                  </span>
-                  <span role="cell" className="text-xs text-muted-foreground truncate">
-                    {channel.metadata?.country || '—'}
-                  </span>
-                  <span role="cell" className="text-xs text-muted-foreground truncate">
-                    {channel.metadata?.language || '—'}
-                  </span>
-                  <div role="cell" className="flex items-center gap-1.5">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${channel.metadata?.isWorking === true ? 'bg-signal-green' : channel.metadata?.isWorking === false ? 'bg-signal-red' : 'bg-muted-foreground/40'}`}
-                      aria-hidden="true"
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {channel.metadata?.isWorking === true
-                        ? 'Live'
-                        : channel.metadata?.isWorking === false
-                          ? 'Dead'
-                          : 'Untested'}
-                    </span>
-                  </div>
-                  <div role="cell" className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setDetailChannel(channel)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label="View details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => playStream({ name: getName(channel), url: getUrl(channel) })}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label="Play stream"
-                    >
-                      <Play className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleTestOne(channel)}
-                      disabled={testing === channel._id}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label="Test stream"
-                    >
-                      {testing === channel._id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <TestTube className="h-4 w-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => openEdit(channel)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label="Edit channel"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(channel._id)}
-                      className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-destructive transition-colors focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label={`Delete ${getName(channel)}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      <ChannelDataTable<Channel>
+        data={paginated}
+        gridTemplate="1fr 1fr 100px 100px 80px 140px"
+        ariaLabel="Channels table"
+        emptyMessage={
+          search
+            ? 'No channels match your search'
+            : 'No channels yet. Click "Add Channel" to create one or use "Import M3U" to bulk upload.'
+        }
+        rowKey={(c) => c._id}
+        getName={getName}
+        getLogo={getLogo}
+        onDetail={(c) => setDetailChannel(c)}
+        columns={
+          [
+            {
+              key: 'group',
+              header: (
+                <ColumnFilter
+                  label="Group"
+                  options={filterOptions.group}
+                  selected={selectedGroups}
+                  onChange={setSelectedGroups}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-sm text-muted-foreground truncate">
+                  {c.channelGroup || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'country',
+              header: (
+                <ColumnFilter
+                  label="Country"
+                  options={filterOptions.country}
+                  selected={selectedCountries}
+                  onChange={setSelectedCountries}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-xs text-muted-foreground truncate">
+                  {c.metadata?.country || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'language',
+              header: (
+                <ColumnFilter
+                  label="Language"
+                  options={filterOptions.language}
+                  selected={selectedLanguages}
+                  onChange={setSelectedLanguages}
+                  searchable
+                />
+              ),
+              cell: (c) => (
+                <span className="text-xs text-muted-foreground truncate">
+                  {c.metadata?.language || '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: (
+                <ColumnFilter
+                  label="Status"
+                  options={filterOptions.status}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                />
+              ),
+              cell: (c) => (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'alive'
+                      : c.metadata?.isWorking === false
+                        ? 'dead'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              ),
+            },
+          ] satisfies DataTableColumn<Channel>[]
+        }
+        getActions={(c) => ({
+          onDetail: () => setDetailChannel(c),
+          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onTest: () => handleTestOne(c),
+          testing: testing === c._id,
+          onEdit: () => openEdit(c),
+          onDelete: () => handleDelete(c._id),
+        })}
+      />
 
       <Pagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
 
@@ -937,37 +855,23 @@ export default function ChannelsPage() {
         </form>
       </Modal>
 
-      {/* Channel Details Preview Modal */}
-      <Modal
+      <ChannelDetailModal
         open={!!detailChannel}
         onClose={() => setDetailChannel(null)}
-        title="Channel Details"
-        size="lg"
-      >
-        {detailChannel && (
-          <div className="p-5 space-y-5">
-            <div className="flex items-start gap-4">
-              {getLogo(detailChannel) ? (
-                <img
-                  src={proxyImageUrl(getLogo(detailChannel)!)}
-                  alt={getName(detailChannel) + ' logo'}
-                  loading="lazy"
-                  width={64}
-                  height={64}
-                  className="h-16 w-16 rounded object-contain bg-muted shrink-0"
-                />
-              ) : (
-                <div className="h-16 w-16 rounded bg-muted shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-medium">{getName(detailChannel)}</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {detailChannel.channelGroup || 'Uncategorized'}
-                </p>
-              </div>
-            </div>
-            <div className="divide-y divide-border border border-border">
-              {[
+        channel={
+          detailChannel
+            ? {
+                channelName: getName(detailChannel),
+                channelId: detailChannel.channelId,
+                tvgLogo: getLogo(detailChannel),
+                channelUrl: getUrl(detailChannel),
+                summary: detailChannel.channelGroup || 'Uncategorized',
+              }
+            : null
+        }
+        fields={
+          detailChannel
+            ? ([
                 { label: 'Stream URL', value: getUrl(detailChannel) },
                 { label: 'Channel ID', value: detailChannel.channelId },
                 { label: 'Country', value: detailChannel.metadata?.country },
@@ -998,40 +902,31 @@ export default function ChannelsPage() {
                     ? new Date(detailChannel.metadata.lastTested).toLocaleString()
                     : undefined,
                 },
-              ]
-                .filter((r) => r.value)
-                .map((r) => (
-                  <div key={r.label} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-sm text-muted-foreground">{r.label}</span>
-                    <span className="text-sm font-medium truncate max-w-[60%] text-right">
-                      {r.value}
-                    </span>
-                  </div>
-                ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
-                  setDetailChannel(null);
-                }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-              >
-                <Play className="h-4 w-4" /> Preview Stream
-              </button>
-              <button
-                onClick={() => {
-                  openEdit(detailChannel);
-                  setDetailChannel(null);
-                }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
-              >
-                <Pencil className="h-4 w-4" /> Edit
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+              ] as ChannelField[])
+            : []
+        }
+        onPlay={
+          detailChannel
+            ? () => {
+                playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
+                setDetailChannel(null);
+              }
+            : undefined
+        }
+        actions={
+          detailChannel ? (
+            <button
+              onClick={() => {
+                openEdit(detailChannel);
+                setDetailChannel(null);
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+            >
+              Edit
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Bulk Delete Confirmation */}
       <ConfirmDialog

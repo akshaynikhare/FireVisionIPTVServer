@@ -19,6 +19,7 @@ import {
   Zap,
   Calendar,
   Activity,
+  Clock,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -34,6 +35,7 @@ const adminLinks = [
   { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/admin/activity', label: 'Activity', icon: Activity },
+  { href: '/admin/scheduler', label: 'Scheduler', icon: Clock },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -42,6 +44,7 @@ const userLinks = [
   { href: '/user/quick-pick', label: 'Quick Pick', icon: Zap },
   { href: '/user/channels', label: 'My Channels', icon: Tv },
   { href: '/user/import', label: 'Import IPTV', icon: Globe },
+  { href: '/user/sources', label: 'Other Sources', icon: MonitorPlay },
   { href: '/user/devices', label: 'Pair Device', icon: Smartphone },
   { href: '/user/profile', label: 'My Profile', icon: UserCircle },
 ];
@@ -60,10 +63,12 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
       <div className="flex h-11 items-center border-b border-sidebar-border px-4">
         {!sidebarCollapsed ? (
           <span className="text-sm font-display font-bold tracking-tight">
-            FIRE<span className="text-sidebar-primary">V</span>
+            FIRE<span className="text-sidebar-primary">Vision</span>
           </span>
         ) : (
-          <span className="text-sm font-display font-bold text-sidebar-primary">F</span>
+          <span className="text-sm font-display font-bold tracking-tight">
+            F<span className="text-sidebar-primary">V</span>
+          </span>
         )}
       </div>
 
@@ -127,7 +132,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
         onClick={toggleSidebar}
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         aria-expanded={!sidebarCollapsed}
-        className="absolute -right-3 top-[44px] flex h-10 w-10 items-center justify-center border border-border bg-background text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+        className="absolute -right-3 top-[44px] flex h-6 w-6 items-center justify-center border border-sidebar-border bg-sidebar text-sidebar-foreground/60 shadow-sm hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
       >
         {sidebarCollapsed ? (
           <ChevronRight className="h-3 w-3" />

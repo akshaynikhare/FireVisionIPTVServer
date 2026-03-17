@@ -7,6 +7,7 @@ declare namespace Express {
       role: 'Admin' | 'User';
       playlistCode?: string;
       isActive: boolean;
+      emailVerified: boolean;
     };
     sessionId?: string;
     jwt?: {

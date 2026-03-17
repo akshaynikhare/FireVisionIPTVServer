@@ -8,11 +8,7 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const RefreshToken = require('../models/RefreshToken');
 const { audit } = require('../services/audit-log');
-const {
-  sendWelcomeEmail,
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-} = require('../services/email');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email');
 
 // Input validation helpers
 const USERNAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
@@ -256,6 +252,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
         lastLogin: user.lastLogin,
       },
     });
@@ -324,6 +321,7 @@ router.get('/me', requireAuth, async (req, res) => {
         channelListCode: user.channelListCode,
         profilePicture: user.profilePicture,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
         lastLogin: user.lastLogin,
         channels: user.channels,
         metadata: user.metadata,
@@ -975,11 +973,10 @@ router.post('/register', async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await user.save();
 
-    // Fire-and-forget emails
+    // Fire-and-forget verification email (includes welcome content)
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
     sendVerificationEmail(email, { username, verificationUrl });
-    sendWelcomeEmail(email, { username });
 
     console.log('New user registered:', username);
 
@@ -1395,6 +1392,7 @@ router.post('/oauth-exchange', async (req, res) => {
         role: user.role,
         channelListCode: user.channelListCode,
         isActive: user.isActive,
+        emailVerified: user.emailVerified,
       },
     });
   } catch (error) {
