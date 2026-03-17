@@ -266,6 +266,17 @@ Complete inventory of every feature in the application.
 - 15 most recent events across all activity types
 - Sorted by timestamp descending
 
+## Statistics — Charts & Visualizations
+
+- Donut/pie chart showing channel distribution by group
+- Horizontal bar chart showing active sessions by location
+- Activity timeline component with relative timestamps
+- Trend line/area charts for user signups, sessions, and device pairings over time
+- Selectable time ranges for trend charts (7 days, 30 days, 90 days)
+- Backend aggregation endpoints (`GET /api/v1/admin/stats/trends/:type`) for daily time-series data
+- Responsive layout working across desktop and tablet
+- Light and dark theme support via CSS variable-based chart colors
+
 ## IPTV-Org Integration
 
 - Fetch channel database from iptv-org public API

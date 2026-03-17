@@ -577,4 +577,75 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// ============ STATS TRENDS ============
+
+router.get('/stats/trends/:type', async (req, res) => {
+  try {
+    const { type } = req.params;
+    const range = req.query.range || '30d';
+
+    const rangeMap = { '7d': 7, '30d': 30, '90d': 90 };
+    const days = rangeMap[range] || 30;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    let model;
+    let dateField;
+
+    switch (type) {
+      case 'users':
+        model = User;
+        dateField = 'createdAt';
+        break;
+      case 'sessions':
+        model = Session;
+        dateField = 'createdAt';
+        break;
+      case 'pairings':
+        model = PairingRequest;
+        dateField = 'createdAt';
+        break;
+      default:
+        return res.status(400).json({ success: false, error: 'Invalid trend type. Use: users, sessions, pairings' });
+    }
+
+    const pipeline = [
+      { $match: { [dateField]: { $gte: startDate } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: `$${dateField}` },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ];
+
+    const results = await model.aggregate(pipeline);
+
+    const dataMap = {};
+    results.forEach((r) => {
+      dataMap[r._id] = r.count;
+    });
+
+    const data = [];
+    const cursor = new Date(startDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    while (cursor <= today) {
+      const key = cursor.toISOString().slice(0, 10);
+      data.push({ date: key, count: dataMap[key] || 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching trend stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch trend statistics' });
+  }
+});
+
 module.exports = router;
