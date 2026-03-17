@@ -10,10 +10,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [1.0.4] - 2026-03-17
+
+### Added
+- Refactor user and channel tables to use reusable DataTable component
+
 ### Changed
-
-- Update layout styles for authentication pages and improve overflow handling
-
+- update layout styles for authentication pages and improve overflow handling
 ## [1.0.3] - 2026-03-17
 
 ### Added
@@ -103,7 +108,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/1.0.2...v1.0.3
 [1.0.2]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.1...1.0.2
 [1.0.1]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.0...v1.0.1
