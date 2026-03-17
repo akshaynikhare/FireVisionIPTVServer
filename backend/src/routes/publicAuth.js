@@ -4,7 +4,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/User');
 const { signAccessToken, signRefreshToken, persistRefreshToken } = require('../utils/jwtUtil');
-const { sendWelcomeEmail, sendVerificationEmail } = require('../services/email');
+const { sendVerificationEmail } = require('../services/email');
 
 // Rate limiter for signup to mitigate abuse
 const signupLimiter = rateLimit({
@@ -85,11 +85,10 @@ router.post('/signup', signupLimiter, async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
-    // Fire-and-forget emails
+    // Fire-and-forget verification email (includes welcome content)
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
     sendVerificationEmail(email, { username, verificationUrl });
-    sendWelcomeEmail(email, { username });
 
     // Issue JWT tokens
     const accessToken = signAccessToken(user);

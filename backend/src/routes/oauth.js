@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { signAccessToken, signRefreshToken, persistRefreshToken } = require('../utils/jwtUtil');
+const { sendWelcomeEmail } = require('../services/email');
 
 // Environment config
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -19,6 +20,7 @@ function generateRandomPassword() {
 }
 
 // Helper: create user with channel list if new
+// Returns { user, isNew } so callers know whether to send a welcome email
 async function ensureUserAndPlaylist(findCriteria, baseProfile) {
   let user = await User.findOne(findCriteria);
   if (!user) {
@@ -35,6 +37,7 @@ async function ensureUserAndPlaylist(findCriteria, baseProfile) {
       isActive: true,
     });
     await user.save();
+    return { user, isNew: true };
   } else {
     // Block inactive accounts
     if (!user.isActive) {
@@ -48,7 +51,7 @@ async function ensureUserAndPlaylist(findCriteria, baseProfile) {
       await user.save();
     }
   }
-  return user;
+  return { user, isNew: false };
 }
 
 // --- Google OAuth ---
@@ -64,12 +67,10 @@ router.get('/google/start', (req, res) => {
     if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
   }
   if (global._oauthStates.size >= 1000) {
-    return res
-      .status(503)
-      .json({
-        success: false,
-        error: 'Too many pending OAuth requests. Please try again shortly.',
-      });
+    return res.status(503).json({
+      success: false,
+      error: 'Too many pending OAuth requests. Please try again shortly.',
+    });
   }
   global._oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
   const scope = encodeURIComponent('openid email profile');
@@ -139,9 +140,12 @@ router.get('/google/callback', async (req, res) => {
       email: profile.email,
     };
 
-    const user = await ensureUserAndPlaylist({ googleId: profile.sub }, baseProfile);
+    const { user, isNew } = await ensureUserAndPlaylist({ googleId: profile.sub }, baseProfile);
     user.lastLogin = new Date();
     await user.save();
+    if (isNew && user.email && !user.email.endsWith('@placeholder.local')) {
+      sendWelcomeEmail(user.email, { username: user.username });
+    }
 
     const accessToken = signAccessToken(user);
     const refreshToken = signRefreshToken(user);
@@ -186,12 +190,10 @@ router.get('/github/start', (req, res) => {
     if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
   }
   if (global._oauthStates.size >= 1000) {
-    return res
-      .status(503)
-      .json({
-        success: false,
-        error: 'Too many pending OAuth requests. Please try again shortly.',
-      });
+    return res.status(503).json({
+      success: false,
+      error: 'Too many pending OAuth requests. Please try again shortly.',
+    });
   }
   global._oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
   const scope = 'read:user user:email';
@@ -264,9 +266,15 @@ router.get('/github/callback', async (req, res) => {
       email,
     };
 
-    const user = await ensureUserAndPlaylist({ githubId: baseProfile.githubId }, baseProfile);
+    const { user, isNew } = await ensureUserAndPlaylist(
+      { githubId: baseProfile.githubId },
+      baseProfile,
+    );
     user.lastLogin = new Date();
     await user.save();
+    if (isNew && user.email && !user.email.endsWith('@placeholder.local')) {
+      sendWelcomeEmail(user.email, { username: user.username });
+    }
 
     const accessToken = signAccessToken(user);
     const refreshToken = signRefreshToken(user);
