@@ -190,7 +190,7 @@ export default function AdminDashboard() {
               href={metric.href}
               className={`p-4 transition-colors hover:bg-muted/50 ${i % 2 !== 0 ? 'border-l border-border' : ''} ${
                 i >= 2 ? 'border-t border-border md:border-t-0' : ''
-              } ${i === 2 ? 'lg:border-l' : ''}`}
+              } ${i === 2 ? 'md:border-l' : ''}`}
             >
               <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                 {metric.label}
