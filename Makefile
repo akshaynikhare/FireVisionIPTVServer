@@ -26,6 +26,27 @@ build-no-cache: ## Build all containers without cache
 
 up: ## Start all services in background
 	$(COMPOSE) up -d
+	@echo ""
+	@echo "\033[1;32m══════════════════════════════════════════════════\033[0m"
+	@echo "\033[1;32m  FireVision IPTV — Services Started\033[0m"
+	@echo "\033[1;32m══════════════════════════════════════════════════\033[0m"
+	@echo ""
+	@echo "\033[1;36m  URLs:\033[0m"
+	@echo "  API Server       http://localhost:8009"
+	@echo "  Mongo Express    http://localhost:8081"
+	@echo "  MailHog UI       http://localhost:8025"
+	@echo "  MongoDB          localhost:27017"
+	@echo "  Redis            localhost:6379"
+	@echo "  MailHog SMTP     localhost:1025"
+	@echo ""
+	@echo "\033[1;36m  Super Admin Login:\033[0m"
+	@echo "  Username         $${SUPER_ADMIN_USERNAME:-superadmin}"
+	@echo "  Password         $${SUPER_ADMIN_PASSWORD:-ChangeMeNow123!}"
+	@echo "  Email            $${SUPER_ADMIN_EMAIL:-admin@firevision.local}"
+	@echo "  Channel Code     $${SUPER_ADMIN_CHANNEL_LIST_CODE:-5T6FEP}"
+	@echo ""
+	@echo "\033[1;32m══════════════════════════════════════════════════\033[0m"
+	@echo ""
 
 up-build: ## Build and start all services
 	$(COMPOSE) up -d --build
