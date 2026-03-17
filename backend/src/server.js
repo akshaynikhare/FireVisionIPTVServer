@@ -132,6 +132,7 @@ app.use('/api/v1/tv', require('./routes/tv'));
 app.use('/api/v1/epg', require('./routes/epg'));
 app.use('/api/v1/config', require('./routes/config'));
 app.use('/api/v1/activity', require('./routes/activity'));
+app.use('/api/v1/scheduler', require('./routes/scheduler'));
 
 // Initialize Redis (optional - app works without it)
 const { getRedisClient, isRedisReady, closeRedis } = require('./services/redis');
@@ -204,6 +205,17 @@ mongoose
       console.error('EPG service initialization failed:', err.message);
     });
 
+    // Initialize scheduler service (liveness checks, EPG refresh, cache refresh)
+    // Only start interval timers if the external scheduler container is not running
+    if (process.env.DISABLE_SCHEDULER !== 'true') {
+      const { schedulerService } = require('./services/scheduler-service');
+      schedulerService.start().catch((err) => {
+        console.error('Scheduler service start failed:', err.message);
+      });
+    } else {
+      console.log('[scheduler] Disabled — running in separate container');
+    }
+
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
@@ -223,6 +235,12 @@ process.on('SIGTERM', async () => {
   try {
     const { epgService } = require('./services/epg-service');
     epgService.stopBackgroundUpdates();
+  } catch {
+    /* ignore if not loaded */
+  }
+  try {
+    const { schedulerService } = require('./services/scheduler-service');
+    schedulerService.stop();
   } catch {
     /* ignore if not loaded */
   }

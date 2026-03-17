@@ -6,9 +6,11 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { proxyImageUrl } from '@/lib/image-proxy';
 import { useStreamPlayer } from '@/components/stream-player-context';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
+import SearchInput from '@/components/ui/search-input';
+import ChannelLogo from '@/components/ui/channel-logo';
+import StatusDot from '@/components/ui/status-dot';
 
 interface Channel {
   _id: string;
@@ -275,17 +277,12 @@ export default function UserChannelsPage() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search my channels..."
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-          aria-label="Search channels"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={handleSearchChange}
+        placeholder="Search my channels..."
+        ariaLabel="Search channels"
+      />
 
       <div className="border border-border divide-y divide-border">
         {filtered.length === 0 ? (
@@ -297,40 +294,14 @@ export default function UserChannelsPage() {
         ) : (
           filtered.map((ch) => (
             <div key={ch._id} className="flex items-center gap-3 px-4 py-3">
-              {getLogo(ch) ? (
-                <img
-                  src={proxyImageUrl(getLogo(ch)!)}
-                  alt={getName(ch)}
-                  loading="lazy"
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-sm object-contain shrink-0 bg-muted"
-                />
-              ) : (
-                <div className="h-7 w-7 rounded-sm bg-muted shrink-0" />
-              )}
+              <ChannelLogo src={getLogo(ch)} alt={getName(ch)} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{getName(ch)}</p>
                 <p className="text-xs text-muted-foreground truncate">{ch.channelGroup || '—'}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {ch.metadata?.isWorking !== undefined && (
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${ch.metadata.isWorking ? 'bg-signal-green' : 'bg-signal-red'}`}
-                    aria-hidden="true"
-                  />
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {ch.metadata?.isWorking === true
-                    ? 'Working'
-                    : ch.metadata?.isWorking === false
-                      ? 'Not Working'
-                      : ''}
-                </span>
-                {ch.metadata?.isWorking !== undefined && (
-                  <span className="sr-only">
-                    {ch.metadata.isWorking ? 'Stream is working' : 'Stream is not working'}
-                  </span>
+                  <StatusDot status={ch.metadata.isWorking ? 'working' : 'not-working'} />
                 )}
               </div>
               <button

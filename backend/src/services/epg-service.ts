@@ -64,15 +64,8 @@ class EpgService {
       }
     }
 
-    this.refreshTimer = setInterval(() => {
-      this.refreshEpg().catch((err) =>
-        console.error('[epg-service] Scheduled EPG refresh failed:', err.message),
-      );
-    }, EPG_REFRESH_INTERVAL);
-
-    console.log(
-      `[epg-service] Background refresh scheduled every ${EPG_REFRESH_INTERVAL / 3600000}h`,
-    );
+    // Recurring EPG refresh is handled by scheduler-service.ts (no in-process timer needed)
+    console.log('[epg-service] Recurring refresh managed by scheduler service');
   }
 
   stopBackgroundUpdates(): void {

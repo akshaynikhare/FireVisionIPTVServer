@@ -10,7 +10,8 @@ COMPOSE_PROD:= docker compose -f docker-compose.production.yml
 .PHONY: help build up down restart logs shell status clean \
         build-prod up-prod down-prod logs-prod \
         dev test lint lint-fix typecheck \
-        db-reset db-drop db-shell
+        db-reset db-drop db-shell \
+        tag tags
 
 # ─── Help ────────────────────────────────────────────────────
 help: ## Show this help
@@ -140,3 +141,18 @@ lint-fix: ## Run ESLint with auto-fix
 
 typecheck: ## Run TypeScript type checking
 	npm run typecheck
+
+# ─── Release Tagging ────────────────────────────────────────
+tag: ## Create a release tag (usage: make tag v=v1.0.2)
+	@if [ -z "$(v)" ]; then \
+		echo "\033[1;31mError:\033[0m version required — usage: make tag v=v1.0.2"; \
+		exit 1; \
+	fi
+	@echo "\033[1;36mLatest tags:\033[0m"
+	@git tag --sort=-creatordate | head -5
+	@echo ""
+	git tag -a $(v) -m "Release $(v)"
+	@echo "\033[1;32mTagged $(v)\033[0m — push with: git push origin $(v)"
+
+tags: ## List recent release tags
+	@git tag --sort=-creatordate | head -10

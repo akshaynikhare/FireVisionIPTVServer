@@ -19,6 +19,7 @@ import {
   Zap,
   Calendar,
   Activity,
+  Clock,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui-store';
 
@@ -34,6 +35,7 @@ const adminLinks = [
   { href: '/admin/versions', label: 'App Versions', icon: Package },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/admin/activity', label: 'Activity', icon: Activity },
+  { href: '/admin/scheduler', label: 'Scheduler', icon: Clock },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -42,6 +44,7 @@ const userLinks = [
   { href: '/user/quick-pick', label: 'Quick Pick', icon: Zap },
   { href: '/user/channels', label: 'My Channels', icon: Tv },
   { href: '/user/import', label: 'Import IPTV', icon: Globe },
+  { href: '/user/sources', label: 'Other Sources', icon: MonitorPlay },
   { href: '/user/devices', label: 'Pair Device', icon: Smartphone },
   { href: '/user/profile', label: 'My Profile', icon: UserCircle },
 ];

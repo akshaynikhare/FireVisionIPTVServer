@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { isSafeImageUrl } from '@/lib/safe-url';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2,
   Globe,
   RefreshCw,
   Download,
-  Search,
   Eye,
   Play,
   ArrowUpDown,
@@ -19,11 +17,16 @@ import {
   Zap,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { proxyImageUrl } from '@/lib/image-proxy';
 import { useToast } from '@/hooks/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { useClientSideTable } from '@/hooks/use-client-side-table';
 import Pagination from '@/components/ui/pagination';
-import Modal from '@/components/ui/modal';
 import ColumnFilter from '@/components/ui/column-filter';
+import SearchInput from '@/components/ui/search-input';
+import SelectionToolbar from '@/components/ui/selection-toolbar';
+import StatusDot from '@/components/ui/status-dot';
+import ChannelLogo from '@/components/ui/channel-logo';
+import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
 import { useStreamPlayer } from '@/components/stream-player-context';
 
 interface PlaylistFilter {
@@ -82,7 +85,6 @@ export default function AdminImportPage() {
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
   const [channels, setChannels] = useState<EnrichedChannel[]>([]);
   const [fetchingChannels, setFetchingChannels] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
@@ -93,12 +95,10 @@ export default function AdminImportPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [page, setPage] = useState(1);
 
-  // Column filter state (client-side for import since data is from external API)
+  // Column filter state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-
-  // Status filter
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   // Liveness testing
@@ -113,6 +113,16 @@ export default function AdminImportPage() {
   // Modals
   const [detailChannel, setDetailChannel] = useState<EnrichedChannel | null>(null);
   const { playStream } = useStreamPlayer();
+
+  // Bulk selection
+  const {
+    isSelected,
+    toggleOne,
+    selectMany,
+    unselectMany,
+    unselectAll,
+    count: selectedCount,
+  } = useBulkSelection();
 
   useEffect(() => {
     async function fetchPlaylists() {
@@ -143,7 +153,7 @@ export default function AdminImportPage() {
     setSelectedPlaylist(playlist.id);
     setFetchingChannels(true);
     setChannels([]);
-    setSelectedIds(new Set());
+    unselectAll();
     setImportResult(null);
     setSearch('');
     setPage(1);
@@ -163,7 +173,6 @@ export default function AdminImportPage() {
         _uid: String(i),
       }));
       setChannels(data);
-      // Don't auto-select all — let user choose
     } catch {
       toast('Failed to fetch channels', 'error');
     } finally {
@@ -199,134 +208,86 @@ export default function AdminImportPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [channels]);
 
-  // Reset column filters when channels change (new playlist selected)
+  // Reset column filters when channels change
   useEffect(() => {
     setSelectedCategories([]);
     setSelectedLanguages([]);
     setSelectedCountries([]);
   }, [channels]);
 
-  // Filtered + sorted + paginated — single useMemo to avoid stale chaining
-  const { filtered, paginated } = useMemo(() => {
-    let result = channels;
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.channelName?.toLowerCase().includes(q) ||
-          c.channelId?.toLowerCase().includes(q) ||
-          c.groupTitle?.toLowerCase().includes(q) ||
-          c.channelCategories?.some((cat) => cat.toLowerCase().includes(q)) ||
-          c.languages?.some((lang) => lang.toLowerCase().includes(q)),
-      );
-    }
-
-    // Apply column filters
-    if (selectedCategories.length > 0 && selectedCategories.length < categoryOptions.length) {
-      result = result.filter((c) => {
-        const cat = c.groupTitle || c.channelCategories?.[0] || '';
-        return selectedCategories.includes(cat);
-      });
-    }
-    if (selectedLanguages.length > 0 && selectedLanguages.length < languageOptions.length) {
-      result = result.filter((c) => c.languages?.some((l) => selectedLanguages.includes(l)));
-    }
-    if (selectedCountries.length > 0 && selectedCountries.length < countryOptions.length) {
-      result = result.filter((c) => selectedCountries.includes(c.country || ''));
-    }
-
-    // Status filter
-    const statusOptions = ['alive', 'dead', 'unknown'];
-    if (selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length) {
-      result = result.filter((c) => selectedStatuses.includes(c.liveness?.status || 'unknown'));
-    }
-
-    const sorted = [...result].sort((a, b) => {
-      let valA = '';
-      let valB = '';
+  // Sort accessor
+  const sortAccessor = useCallback(
+    (ch: EnrichedChannel) => {
       switch (sortField) {
         case 'name':
-          valA = a.channelName || '';
-          valB = b.channelName || '';
-          break;
+          return ch.channelName || '';
         case 'category':
-          valA = a.groupTitle || a.channelCategories?.[0] || '';
-          valB = b.groupTitle || b.channelCategories?.[0] || '';
-          break;
+          return ch.groupTitle || ch.channelCategories?.[0] || '';
         case 'language':
-          valA = a.languages?.[0] || '';
-          valB = b.languages?.[0] || '';
-          break;
+          return ch.languages?.[0] || '';
       }
-      const cmp = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+    },
+    [sortField],
+  );
 
-    const sliced = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    return { filtered: sorted, paginated: sliced };
-  }, [
-    channels,
+  // Filters config
+  const filters = useMemo(
+    () => [
+      {
+        accessor: (c: EnrichedChannel) => c.groupTitle || c.channelCategories?.[0] || '',
+        selected: selectedCategories,
+        allOptions: categoryOptions,
+      },
+      {
+        accessor: (c: EnrichedChannel) => c.languages || [],
+        selected: selectedLanguages,
+        allOptions: languageOptions,
+      },
+      {
+        accessor: (c: EnrichedChannel) => c.country || '',
+        selected: selectedCountries,
+        allOptions: countryOptions,
+      },
+      {
+        accessor: (c: EnrichedChannel) => c.liveness?.status || 'unknown',
+        selected: selectedStatuses,
+        allOptions: ['alive', 'dead', 'unknown'],
+      },
+    ],
+    [
+      selectedCategories,
+      categoryOptions,
+      selectedLanguages,
+      languageOptions,
+      selectedCountries,
+      countryOptions,
+      selectedStatuses,
+    ],
+  );
+
+  const searchFields = useMemo(
+    () => [
+      (c: EnrichedChannel) => c.channelName,
+      (c: EnrichedChannel) => c.channelId,
+      (c: EnrichedChannel) => c.groupTitle,
+      (c: EnrichedChannel) => c.channelCategories?.join(' '),
+      (c: EnrichedChannel) => c.languages?.join(' '),
+    ],
+    [],
+  );
+
+  const { filtered, paginated } = useClientSideTable({
+    data: channels,
     search,
-    sortField,
+    searchFields,
+    filters,
+    sortAccessor,
     sortDir,
     page,
-    selectedCategories,
-    selectedLanguages,
-    selectedCountries,
-    selectedStatuses,
-    categoryOptions,
-    languageOptions,
-    countryOptions,
-  ]);
+    pageSize: PAGE_SIZE,
+  });
 
-  function getKey(ch: EnrichedChannel) {
-    return ch._uid;
-  }
-
-  function toggleOne(ch: EnrichedChannel) {
-    const key = getKey(ch);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function selectAllFiltered() {
-    const keys = filtered.map(getKey);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => next.add(k));
-      return next;
-    });
-  }
-
-  function unselectAll() {
-    setSelectedIds(new Set());
-  }
-
-  function selectPage() {
-    const keys = paginated.map(getKey);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => next.add(k));
-      return next;
-    });
-  }
-
-  function unselectPage() {
-    const keys = new Set(paginated.map(getKey));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => next.delete(k));
-      return next;
-    });
-  }
-
-  const pageAllSelected =
-    paginated.length > 0 && paginated.every((ch) => selectedIds.has(getKey(ch)));
+  const pageAllSelected = paginated.length > 0 && paginated.every((ch) => isSelected(ch._uid));
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -344,12 +305,12 @@ export default function AdminImportPage() {
   }
 
   async function handleImportToSystem() {
-    if (selectedIds.size === 0) return;
+    if (selectedCount === 0) return;
     setImporting(true);
     setImportResult(null);
 
     const toImport = channels
-      .filter((c) => selectedIds.has(getKey(c)))
+      .filter((c) => isSelected(c._uid))
       .map((c) => ({
         channelName: c.channelName,
         channelUrl: c.channelUrl,
@@ -385,7 +346,6 @@ export default function AdminImportPage() {
       });
       const result = res.data.data;
       if (result) {
-        // Update the channel in local state with the new liveness result
         setChannels((prev) =>
           prev.map((c) =>
             c._uid === uid
@@ -421,7 +381,6 @@ export default function AdminImportPage() {
     setBatchTesting(true);
     try {
       await api.post('/iptv-org/check-liveness');
-      // Poll for status updates
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
@@ -453,6 +412,27 @@ export default function AdminImportPage() {
       toast('Failed to clear cache', 'error');
     }
   }
+
+  // Detail modal fields
+  const detailFields: ChannelField[] = detailChannel
+    ? [
+        { label: 'Stream URL', value: detailChannel.channelUrl },
+        { label: 'Logo URL', value: detailChannel.tvgLogo || detailChannel.channelImg },
+        {
+          label: 'Group / Category',
+          value: detailChannel.groupTitle || detailChannel.channelCategories?.join(', '),
+        },
+        { label: 'Language', value: detailChannel.languages?.join(', ') },
+        { label: 'Country', value: detailChannel.country },
+        { label: 'Quality', value: detailChannel.streamQuality },
+        { label: 'Network', value: detailChannel.channelNetwork },
+        { label: 'Website', value: detailChannel.channelWebsite },
+        { label: 'User Agent', value: detailChannel.streamUserAgent },
+        { label: 'Referrer', value: detailChannel.streamReferrer },
+        { label: 'NSFW', value: detailChannel.channelIsNsfw ? 'Yes' : undefined },
+        { label: 'Launched', value: detailChannel.channelLaunched },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -504,17 +484,17 @@ export default function AdminImportPage() {
           </span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-signal-green" />
+              <StatusDot status="alive" showLabel={false} size="md" />
               <span className="font-medium">{livenessStats.alive}</span>
               <span className="text-muted-foreground">alive</span>
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-signal-red" />
+              <StatusDot status="dead" showLabel={false} size="md" />
               <span className="font-medium">{livenessStats.dead}</span>
               <span className="text-muted-foreground">dead</span>
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+              <StatusDot status="unknown" showLabel={false} size="md" />
               <span className="font-medium">{livenessStats.unknown}</span>
               <span className="text-muted-foreground">unknown</span>
             </span>
@@ -563,20 +543,16 @@ export default function AdminImportPage() {
         <div className="space-y-4">
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by name, category, language, or ID..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                aria-label="Search channels"
-                className="w-full h-10 pl-10 pr-4 border border-border bg-card text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+              placeholder="Search by name, category, language, or ID..."
+              ariaLabel="Search channels"
+              className="flex-1 max-w-md w-full"
+            />
             <div className="flex items-center gap-2 flex-wrap">
               <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
@@ -589,50 +565,26 @@ export default function AdminImportPage() {
               </label>
               <button
                 onClick={handleImportToSystem}
-                disabled={importing || selectedIds.size === 0}
+                disabled={importing || selectedCount === 0}
                 className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
               >
                 <Download className="h-4 w-4" />
-                {importing ? 'Importing...' : `Import ${selectedIds.size} to System`}
+                {importing ? 'Importing...' : `Import ${selectedCount} to System`}
               </button>
             </div>
           </div>
 
           {/* Selection bar */}
-          <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              {filtered.length} channels
-              {search && ` (filtered from ${channels.length})`} &middot;{' '}
-              <span className="text-foreground font-medium">{selectedIds.size} selected</span>
-            </p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <button
-                onClick={selectPage}
-                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
-              >
-                Select Page
-              </button>
-              <button
-                onClick={unselectPage}
-                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
-              >
-                Unselect Page
-              </button>
-              <span className="w-px h-4 bg-border" />
-              <button
-                onClick={selectAllFiltered}
-                className="text-xs uppercase tracking-[0.1em] text-primary hover:text-primary/80 font-medium transition-colors"
-              >
-                Select All ({filtered.length})
-              </button>
-              <button
-                onClick={unselectAll}
-                className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground font-medium transition-colors"
-              >
-                Unselect All
-              </button>
-            </div>
-          </div>
+          <SelectionToolbar
+            totalFiltered={filtered.length}
+            totalUnfiltered={channels.length}
+            selectedCount={selectedCount}
+            onSelectPage={() => selectMany(paginated.map((ch) => ch._uid))}
+            onUnselectPage={() => unselectMany(paginated.map((ch) => ch._uid))}
+            onSelectAll={() => selectMany(filtered.map((ch) => ch._uid))}
+            onUnselectAll={unselectAll}
+            isFiltered={!!search}
+          />
 
           {importResult && (
             <div className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
@@ -650,7 +602,11 @@ export default function AdminImportPage() {
               >
                 <div role="columnheader" className="flex items-center justify-center">
                   <button
-                    onClick={() => (pageAllSelected ? unselectPage() : selectPage())}
+                    onClick={() =>
+                      pageAllSelected
+                        ? unselectMany(paginated.map((ch) => ch._uid))
+                        : selectMany(paginated.map((ch) => ch._uid))
+                    }
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     aria-label="Toggle page selection"
                   >
@@ -770,25 +726,25 @@ export default function AdminImportPage() {
                   </div>
                 ) : (
                   paginated.map((ch) => {
-                    const key = getKey(ch);
-                    const isSelected = selectedIds.has(key);
+                    const key = ch._uid;
+                    const selected = isSelected(key);
                     return (
                       <div
                         key={key}
                         role="row"
                         className={`grid lg:grid-cols-[40px,44px,1fr,160px,100px,120px,80px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50 ${
-                          isSelected ? 'bg-primary/5' : ''
+                          selected ? 'bg-primary/5' : ''
                         }`}
                       >
                         <div role="cell" className="flex items-center justify-center">
                           <button
                             type="button"
                             role="checkbox"
-                            aria-checked={isSelected}
-                            onClick={() => toggleOne(ch)}
+                            aria-checked={selected}
+                            onClick={() => toggleOne(key)}
                             className="text-muted-foreground hover:text-foreground transition-colors"
                           >
-                            {isSelected ? (
+                            {selected ? (
                               <CheckSquare className="h-4 w-4 text-primary" />
                             ) : (
                               <Square className="h-4 w-4" />
@@ -797,27 +753,7 @@ export default function AdminImportPage() {
                         </div>
 
                         <div role="cell">
-                          {ch.tvgLogo ? (
-                            <img
-                              src={proxyImageUrl(ch.tvgLogo)}
-                              alt={`${ch.channelName} logo`}
-                              loading="lazy"
-                              className="h-7 w-7 rounded-sm object-contain bg-muted"
-                              onError={(e) => {
-                                const img = e.currentTarget;
-                                if (
-                                  !img.dataset.fallback &&
-                                  ch.tvgLogo &&
-                                  isSafeImageUrl(ch.tvgLogo)
-                                ) {
-                                  img.dataset.fallback = '1';
-                                  img.src = ch.tvgLogo;
-                                }
-                              }}
-                            />
-                          ) : (
-                            <div className="h-7 w-7 rounded-sm bg-muted" />
-                          )}
+                          <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
                         </div>
 
                         <div role="cell" className="min-w-0">
@@ -846,28 +782,7 @@ export default function AdminImportPage() {
                           {testingChannelId === ch._uid ? (
                             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                           ) : (
-                            <>
-                              <span
-                                className={`h-2 w-2 rounded-full shrink-0 ${
-                                  ch.liveness?.status === 'alive'
-                                    ? 'bg-signal-green'
-                                    : ch.liveness?.status === 'dead'
-                                      ? 'bg-signal-red'
-                                      : 'bg-muted-foreground/40'
-                                }`}
-                                aria-hidden="true"
-                              />
-                              <span className="text-xs text-muted-foreground capitalize">
-                                {ch.liveness?.status || 'unknown'}
-                              </span>
-                              <span className="sr-only">
-                                {ch.liveness?.status === 'alive'
-                                  ? 'Alive'
-                                  : ch.liveness?.status === 'dead'
-                                    ? 'Dead'
-                                    : 'Unknown'}
-                              </span>
-                            </>
+                            <StatusDot status={ch.liveness?.status || 'unknown'} />
                           )}
                           <button
                             onClick={() => handleTestChannel(ch)}
@@ -922,129 +837,50 @@ export default function AdminImportPage() {
       )}
 
       {/* Detail Modal */}
-      <Modal
+      <ChannelDetailModal
         open={!!detailChannel}
         onClose={() => setDetailChannel(null)}
-        title="Channel Details"
-        size="lg"
-      >
-        {detailChannel && (
-          <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-start gap-4">
-              {detailChannel.tvgLogo ? (
-                <img
-                  src={proxyImageUrl(detailChannel.tvgLogo)}
-                  alt={`${detailChannel.channelName} logo`}
-                  loading="lazy"
-                  className="h-16 w-16 rounded object-contain bg-muted shrink-0"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (
-                      !img.dataset.fallback &&
-                      detailChannel.tvgLogo &&
-                      isSafeImageUrl(detailChannel.tvgLogo)
-                    ) {
-                      img.dataset.fallback = '1';
-                      img.src = detailChannel.tvgLogo;
-                    }
-                  }}
-                />
+        channel={detailChannel}
+        fields={detailFields}
+        onPlay={
+          detailChannel?.channelUrl
+            ? () => {
+                const ch = detailChannel!;
+                setDetailChannel(null);
+                playStream(
+                  { name: ch.channelName || 'Stream Preview', url: ch.channelUrl },
+                  { mode: 'direct-fallback' },
+                );
+              }
+            : undefined
+        }
+        showRawData
+        rawData={
+          detailChannel
+            ? Object.fromEntries(Object.entries(detailChannel).filter(([k]) => k !== '_uid'))
+            : undefined
+        }
+        actions={
+          detailChannel && (
+            <button
+              onClick={() => toggleOne(detailChannel._uid)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isSelected(detailChannel._uid) ? (
+                <>
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                  Selected
+                </>
               ) : (
-                <div className="h-16 w-16 rounded bg-muted shrink-0" />
+                <>
+                  <Square className="h-4 w-4" />
+                  Select for Import
+                </>
               )}
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-medium">{detailChannel.channelName}</h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                  {detailChannel.channelId}
-                </p>
-              </div>
-            </div>
-
-            <div className="divide-y divide-border border border-border">
-              {(
-                [
-                  { label: 'Stream URL', value: detailChannel.channelUrl },
-                  { label: 'Logo URL', value: detailChannel.tvgLogo || detailChannel.channelImg },
-                  {
-                    label: 'Group / Category',
-                    value: detailChannel.groupTitle || detailChannel.channelCategories?.join(', '),
-                  },
-                  { label: 'Language', value: detailChannel.languages?.join(', ') },
-                  { label: 'Country', value: detailChannel.country },
-                  { label: 'Quality', value: detailChannel.streamQuality },
-                  { label: 'Network', value: detailChannel.channelNetwork },
-                  { label: 'Website', value: detailChannel.channelWebsite },
-                  { label: 'User Agent', value: detailChannel.streamUserAgent },
-                  { label: 'Referrer', value: detailChannel.streamReferrer },
-                  { label: 'NSFW', value: detailChannel.channelIsNsfw ? 'Yes' : undefined },
-                  { label: 'Launched', value: detailChannel.channelLaunched },
-                ] as { label: string; value?: string | null }[]
-              )
-                .filter((r) => r.value)
-                .map((r) => (
-                  <div key={r.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <span className="text-sm text-muted-foreground shrink-0">{r.label}</span>
-                    <span className="text-sm font-medium text-right break-all max-w-[65%]">
-                      {r.value}
-                    </span>
-                  </div>
-                ))}
-            </div>
-
-            {/* Raw Data */}
-            <details className="group">
-              <summary className="text-xs uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
-                Raw Data
-              </summary>
-              <pre className="mt-2 text-xs font-mono bg-muted border border-border p-3 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(
-                  Object.fromEntries(Object.entries(detailChannel).filter(([k]) => k !== '_uid')),
-                  null,
-                  2,
-                )}
-              </pre>
-            </details>
-            <div className="flex items-center gap-3 pt-2">
-              {detailChannel.channelUrl && (
-                <button
-                  onClick={() => {
-                    setDetailChannel(null);
-                    playStream(
-                      {
-                        name: detailChannel.channelName || 'Stream Preview',
-                        url: detailChannel.channelUrl,
-                      },
-                      { mode: 'direct-fallback' },
-                    );
-                  }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-                >
-                  <Play className="h-4 w-4" />
-                  Preview Stream
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  toggleOne(detailChannel);
-                }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {selectedIds.has(getKey(detailChannel)) ? (
-                  <>
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                    Selected
-                  </>
-                ) : (
-                  <>
-                    <Square className="h-4 w-4" />
-                    Select for Import
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+            </button>
+          )
+        }
+      />
     </div>
   );
 }
