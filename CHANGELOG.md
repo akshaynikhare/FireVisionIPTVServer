@@ -12,6 +12,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.8] - 2026-03-18
+
+### Added
+- enhance docker-publish.yml with production deployment to Portainer
+
+### Fixed
+- fix(server): enable trust proxy in production for correct rate limiting
+- fix(deploy): remove compose healthchecks to unblock Portainer stack creation
+- fix(deploy): add external network check and improve stack deployment
+- deployment pipeline improvements for Portainer stack creation
+- fix(deploy): enhance production deployment configuration
+- ensure frontend public directory is created before build
 ## [1.0.7] - 2026-03-18
 
 ### Added
@@ -130,7 +142,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.7...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.4...v1.0.5
