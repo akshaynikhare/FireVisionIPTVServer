@@ -12,6 +12,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.11] - 2026-03-18
+
+### Added
+- feat(tv-auth): add dedicated TV code auth middleware, categories and favorites endpoints
+
+### Fixed
+- fix(auth): allow TV apps to authenticate using channel list code as session ID
+- fix(deploy): fix env vars not reaching containers and admin credential migration
 ## [1.0.10] - 2026-03-18
 
 ### Fixed
@@ -150,7 +158,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.10...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.11...HEAD
+[1.0.11]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.7...v1.0.8
