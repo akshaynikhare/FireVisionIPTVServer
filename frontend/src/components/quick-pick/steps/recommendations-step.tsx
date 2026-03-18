@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2, Play, RefreshCw } from 'lucide-react';
+import { Loader2, Play, Zap } from 'lucide-react';
 import api from '@/lib/api';
 import { useStreamPlayer } from '@/components/stream-player-context';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
@@ -419,7 +419,7 @@ export function RecommendationsStep({
             {bulkChecking ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <RefreshCw className="h-3 w-3" />
+              <Zap className="h-3 w-3" />
             )}
             {bulkChecking ? 'Checking...' : 'Check Page'}
           </button>
@@ -559,7 +559,7 @@ export function RecommendationsStep({
                   {isChecking ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <RefreshCw className="h-3 w-3" />
+                    <Zap className="h-3 w-3" />
                   )}
                 </button>
                 {ch.channelUrl && (

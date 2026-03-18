@@ -224,7 +224,7 @@ export default function EpgPage() {
                   i >= 2 ? 'border-t border-border md:border-t-0' : ''
                 } ${i === 2 ? 'md:border-l' : ''}`}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="relative inline-flex items-center gap-1.5">
                   <Icon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                   <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                     {metric.label}

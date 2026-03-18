@@ -250,7 +250,7 @@ export default function UserDetailPage() {
             <div className="flex items-center justify-between px-4 py-3">
               <dt className="text-sm text-muted-foreground">Status</dt>
               <dd className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="relative inline-flex items-center gap-1.5">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
                   />

@@ -420,14 +420,14 @@ export default function ProfilePage() {
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">Role</span>
-              <div className="flex items-center gap-1.5">
+              <div className="relative inline-flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5 text-primary" />
                 <span className="text-sm font-medium">{profile.role}</span>
               </div>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">Status</span>
-              <div className="flex items-center gap-1.5">
+              <div className="relative inline-flex items-center gap-1.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${profile.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
                   aria-hidden="true"

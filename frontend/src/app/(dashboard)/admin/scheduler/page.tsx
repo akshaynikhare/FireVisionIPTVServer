@@ -225,7 +225,7 @@ export default function SchedulerPage() {
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-muted-foreground uppercase tracking-[0.1em]">Schedule</span>
-                <p className="font-medium mt-0.5 flex items-center gap-1">
+                <p className="font-medium mt-0.5 flex items-center gap-1.5">
                   <Timer className="h-3 w-3 text-muted-foreground" />
                   Every {formatInterval(task.intervalMs)}
                 </p>

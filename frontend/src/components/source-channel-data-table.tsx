@@ -254,7 +254,7 @@ export default function SourceChannelDataTable({
               aria-sort={
                 sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
               }
-              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+              className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
             >
               Name <SortIcon field="name" />
             </button>
@@ -263,12 +263,12 @@ export default function SourceChannelDataTable({
               aria-sort={
                 sortField === 'category' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
               }
-              className="flex items-center gap-1"
+              className="relative inline-flex items-center gap-1.5"
             >
               <button
                 onClick={() => handleSort('category')}
                 aria-label="Sort by category"
-                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
               >
                 Category <SortIcon field="category" />
               </button>
@@ -288,12 +288,12 @@ export default function SourceChannelDataTable({
               aria-sort={
                 sortField === 'country' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
               }
-              className="flex items-center gap-1"
+              className="relative inline-flex items-center gap-1.5"
             >
               <button
                 onClick={() => handleSort('country')}
                 aria-label="Sort by country"
-                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
               >
                 Country <SortIcon field="country" />
               </button>
@@ -321,11 +321,10 @@ export default function SourceChannelDataTable({
                 />
               </span>
             )}
-            <span
-              role="columnheader"
-              className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right"
-            >
-              Actions
+            <span role="columnheader" className="text-right">
+              <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium ">
+                Actions
+              </span>
             </span>
           </div>
 
@@ -383,9 +382,9 @@ export default function SourceChannelDataTable({
                     </span>
 
                     {showLiveness && (
-                      <div role="cell" className="flex items-center gap-1.5">
+                      <div role="cell" className="relative inline-flex items-center gap-1.5">
                         <span
-                          className={`inline-flex items-center gap-1 text-xs uppercase tracking-wider font-medium px-1.5 py-0.5 ${
+                          className={`inline-flex items-center gap-1.5 text-xs uppercase tracking-wider font-medium px-1.5 py-0.5 ${
                             status === 'alive'
                               ? 'text-signal-green bg-signal-green/10'
                               : status === 'dead'
