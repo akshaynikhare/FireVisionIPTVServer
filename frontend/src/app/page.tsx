@@ -119,6 +119,24 @@ export default function Home() {
             &copy; 2025 FireVision IPTV <span aria-hidden="true">&bull;</span> Open Source Project
           </span>
           <div className="flex items-center gap-4">
+            <Link
+              href="/privacy"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-muted-foreground/40" aria-hidden="true">
+              &bull;
+            </span>
+            <Link
+              href="/terms"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <span className="text-muted-foreground/40" aria-hidden="true">
+              &bull;
+            </span>
             <a
               href="https://github.com/akshaynikhare/FireVisionIPTV"
               target="_blank"
