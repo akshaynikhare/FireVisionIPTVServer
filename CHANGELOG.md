@@ -12,6 +12,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.5] - 2026-03-18
+
+### Added
+- update environment variables for GitHub OAuth and app configuration
+- add Privacy Policy and Terms of Service pages
+- enhance admin stats and session management
+- enhance external source tab with optional top slot for custom content
+- add charts, trends, and visualizations to Statistics page (#8)
+
+### Changed
+- replace image proxy byte-caching with validate + 302 redirect
+
+### Other
+- Unify admin and user pages into shared role-aware components (#7)
 ## [1.0.4] - 2026-03-17
 
 ### Added
@@ -108,7 +122,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/1.0.2...v1.0.3
 [1.0.2]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.1...1.0.2
