@@ -34,26 +34,14 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
 
       setSession: (user, sessionId) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sessionId', sessionId);
-        }
         set({ user, sessionId, isAuthenticated: true });
       },
 
       setTokens: (user, accessToken, refreshToken) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('accessToken', accessToken);
-          localStorage.setItem('refreshToken', refreshToken);
-        }
         set({ user, accessToken, refreshToken, isAuthenticated: true });
       },
 
       logout: () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('sessionId');
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-        }
         set({
           user: null,
           sessionId: null,
@@ -67,6 +55,9 @@ export const useAuthStore = create<AuthState>()(
       name: 'firevision-auth',
       partialize: (state) => ({
         user: state.user,
+        sessionId: state.sessionId,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     },

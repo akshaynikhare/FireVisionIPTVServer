@@ -196,23 +196,44 @@ export default function SettingsPage() {
             Session Management
           </h2>
         </div>
-        <div className="px-4 py-4">
-          <p className="text-sm text-muted-foreground mb-3">
-            Remove all expired sessions from the database.
-          </p>
-          <button
-            onClick={async () => {
-              try {
-                const res = await api.post('/auth/cleanup-sessions');
-                toast(res.data.message || 'Sessions cleaned up', 'success');
-              } catch {
-                toast('Failed to clean up sessions', 'error');
-              }
-            }}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 active:bg-muted"
-          >
-            Clean Up Expired Sessions
-          </button>
+        <div className="px-4 py-4 space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Revoke all sessions except your current one. Other users and tabs will need to log in
+              again.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.post('/auth/revoke-other-sessions');
+                  toast(res.data.message || 'Other sessions revoked', 'success');
+                } catch {
+                  toast('Failed to revoke sessions', 'error');
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-destructive/40 bg-destructive/5 text-destructive shadow-sm transition-colors hover:bg-destructive/10 active:bg-destructive/15"
+            >
+              Revoke All Other Sessions
+            </button>
+          </div>
+          <div className="border-t border-border pt-4">
+            <p className="text-sm text-muted-foreground mb-3">
+              Remove all expired sessions from the database.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.post('/auth/cleanup-sessions');
+                  toast(res.data.message || 'Sessions cleaned up', 'success');
+                } catch {
+                  toast('Failed to clean up sessions', 'error');
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 active:bg-muted"
+            >
+              Clean Up Expired Sessions
+            </button>
+          </div>
         </div>
       </div>
 

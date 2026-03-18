@@ -685,6 +685,36 @@ router.post('/cleanup-sessions', requireAuth, requireAdmin, async (req, res) => 
 });
 
 /**
+ * Revoke all sessions except the current one
+ */
+router.post('/revoke-other-sessions', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await Session.deleteMany({
+      sessionId: { $ne: req.sessionId },
+    });
+    audit({
+      userId: req.user.id,
+      action: 'revoke_other_sessions',
+      resource: 'session',
+      resourceId: `${result.deletedCount} revoked`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      message: `Revoked ${result.deletedCount} other sessions`,
+    });
+  } catch (error) {
+    console.error('Revoke other sessions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to revoke sessions',
+    });
+  }
+});
+
+/**
  * Update user profile (username, email)
  * Allows authenticated user to update their profile information
  */

@@ -183,25 +183,38 @@ The version tag becomes the app version — no version is stored in the codebase
 
 ### Required GitHub Secrets
 
-| Category  | Secrets                                                    |
-| --------- | ---------------------------------------------------------- |
-| Portainer | `PORTAINER_API_TOKEN`                                      |
-| App       | `JWT_SECRET`, `JWT_REFRESH_SECRET`                         |
-| OAuth     | `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GITHUB_CLIENT_SECRET` |
-| Brevo     | `BREVO_PASSWORD`                                           |
+| Category   | Secrets                                            |
+| ---------- | -------------------------------------------------- |
+| Portainer  | `PORTAINER_API_TOKEN`                              |
+| Auth       | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`          |
+| OAuth      | `GOOGLE_CLIENT_SECRET`, `GH_OAUTH_CLIENT_SECRET`   |
+| Admin      | `SUPER_ADMIN_PASSWORD`                             |
+| Email      | `BREVO_PASSWORD`                                   |
+| App Update | `GH_APP_TOKEN` (optional — higher API rate limits) |
 
 ### Required GitHub Variables
 
-| Variable                 | Description             | Default                    |
-| ------------------------ | ----------------------- | -------------------------- |
-| `PORTAINER_URL`          | Portainer instance URL  |                            |
-| `OAUTH_GOOGLE_CLIENT_ID` | Google OAuth client ID  |                            |
-| `OAUTH_GITHUB_CLIENT_ID` | GitHub OAuth client ID  |                            |
-| `BREVO_HOST`             | Brevo SMTP host         | `smtp-relay.brevo.com`     |
-| `BREVO_PORT`             | Brevo SMTP port         | `587`                      |
-| `BREVO_USER`             | Brevo SMTP login        |                            |
-| `MAIL_FROM`              | Sender email address    | `noreply@firevision.local` |
-| `APP_URL`                | Frontend URL for emails | `https://tv.cadnative.com` |
+| Variable                        | Description               | Default                                                |
+| ------------------------------- | ------------------------- | ------------------------------------------------------ |
+| `PORTAINER_URL`                 | Portainer instance URL    |                                                        |
+| `GOOGLE_CLIENT_ID`              | Google OAuth client ID    |                                                        |
+| `GH_OAUTH_CLIENT_ID`            | GitHub OAuth client ID    |                                                        |
+| `GOOGLE_REDIRECT_URI`           | Google OAuth callback URL | `https://tv.cadnative.com/api/v1/auth/google/callback` |
+| `GH_OAUTH_REDIRECT_URI`         | GitHub OAuth callback URL | `https://tv.cadnative.com/api/v1/auth/github/callback` |
+| `SUPER_ADMIN_USERNAME`          | Super admin username      | `admin`                                                |
+| `SUPER_ADMIN_EMAIL`             | Super admin email         | `admin@firevision.local`                               |
+| `SUPER_ADMIN_CHANNEL_LIST_CODE` | Super admin channel code  |                                                        |
+| `GH_APP_OWNER`                  | GitHub repo owner for APK | `akshaynikhare`                                        |
+| `GH_APP_REPO`                   | GitHub repo name for APK  | `FireVisionIPTV`                                       |
+| `GH_APP_APK_PATTERN`            | APK asset pattern         | `.apk`                                                 |
+| `BREVO_HOST`                    | Brevo SMTP host           | `smtp-relay.brevo.com`                                 |
+| `BREVO_PORT`                    | Brevo SMTP port           | `587`                                                  |
+| `BREVO_USER`                    | Brevo SMTP login          |                                                        |
+| `MAIL_FROM`                     | Sender email address      | `noreply@firevision.local`                             |
+| `APP_URL`                       | Frontend URL for emails   | `https://tv.cadnative.com`                             |
+| `LIVENESS_CHECK_INTERVAL_MS`    | Liveness check interval   | `86400000` (24h)                                       |
+| `EPG_REFRESH_INTERVAL_MS`       | EPG refresh interval      | `21600000` (6h)                                        |
+| `CACHE_REFRESH_INTERVAL_MS`     | Cache refresh interval    | `3600000` (1h)                                         |
 
 MongoDB and Redis URIs are hardcoded in the compose file (same stack).
 
