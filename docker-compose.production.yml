@@ -33,6 +33,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-noreply@firevision.local}
       APP_URL: ${APP_URL:-https://tv.cadnative.com}
       ALLOWED_ORIGINS: https://tv.cadnative.com
+      DISABLE_SCHEDULER: 'true'
     networks:
       - firevision-network
       - gkz-network
@@ -49,10 +50,10 @@ services:
           '-e',
           "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })",
         ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
     logging:
       driver: 'json-file'
       options:
@@ -133,7 +134,12 @@ services:
       LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS:-86400000}
       EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS:-21600000}
       CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS:-3600000}
-    command: ['npx', 'tsx', 'backend/src/scheduler-entrypoint.ts']
+    command:
+      [
+        'sh',
+        '-c',
+        'echo "Waiting 5m for API to settle..." && sleep 300 && npx tsx backend/src/scheduler-entrypoint.ts',
+      ]
     depends_on:
       mongodb:
         condition: service_healthy
