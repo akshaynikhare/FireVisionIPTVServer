@@ -125,6 +125,8 @@ app.use('/api/v1/public', publicAuthRouter);
 app.use('/api/v1/oauth', oauthRouter);
 app.use('/api/v1/user-playlist', userPlaylistRouter);
 app.use('/api/v1/channels', require('./routes/channels'));
+app.use('/api/v1/categories', require('./routes/categories'));
+app.use('/api/v1/favorites', require('./routes/favorites'));
 // App update routes (GitHub-based APK delivery)
 app.use('/api/v1/app', require('./routes/app-update'));
 app.use('/api/v1/admin', require('./routes/admin'));

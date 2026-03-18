@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
+const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
-// Get all channels (for Android app sync) — requires auth, excludes DRM keys
-router.get('/', requireAuth, async (req, res) => {
+// Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
+router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
@@ -29,7 +30,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // Get channels grouped by category
-router.get('/grouped', requireAuth, async (req, res) => {
+router.get('/grouped', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
@@ -86,7 +87,7 @@ router.get('/playlist.m3u', async (req, res) => {
 });
 
 // Search channels (with regex escaping to prevent ReDoS)
-router.get('/search', requireAuth, async (req, res) => {
+router.get('/search', requireTvOrSessionAuth, async (req, res) => {
   try {
     const { q } = req.query;
 
@@ -123,7 +124,7 @@ router.get('/test-status', requireAuth, async (req, res) => {
 });
 
 // Get channel by ID
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
     if (!channel) {
@@ -272,7 +273,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Test channel stream (admin only, with SSRF protection)
+// Test channel stream (session auth only, with SSRF protection)
 router.post('/:id/test', requireAuth, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id);
