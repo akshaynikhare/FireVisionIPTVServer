@@ -162,8 +162,8 @@ jobs:
             "${{ vars.PORTAINER_URL }}/api/stacks" \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}")
 
-          STACK_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name == "FireVisionTV_Prod") | .Id')
-          ENDPOINT_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name == "FireVisionTV_Prod") | .EndpointId')
+          STACK_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name | ascii_downcase == "firevisiontv_prod") | .Id')
+          ENDPOINT_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name | ascii_downcase == "firevisiontv_prod") | .EndpointId')
 
           if [ -z "$STACK_ID" ] || [ "$STACK_ID" = "null" ]; then
             echo "Stack 'FireVisionTV_Prod' not found — will create it"
