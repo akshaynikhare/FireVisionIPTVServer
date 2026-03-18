@@ -5,7 +5,7 @@ declare namespace Express {
       username: string;
       email: string;
       role: 'Admin' | 'User';
-      playlistCode?: string;
+      channelListCode?: string;
       isActive: boolean;
       emailVerified: boolean;
     };
@@ -13,7 +13,7 @@ declare namespace Express {
     jwt?: {
       sub: string;
       role: string;
-      playlistCode?: string;
+      channelListCode?: string;
       jti?: string;
       iat?: number;
       exp?: number;

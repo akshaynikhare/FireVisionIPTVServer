@@ -17,6 +17,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const message = searchParams.get('message');
+  const redirect = searchParams.get('redirect');
   const oauthHandled = useRef(false);
 
   // Handle OAuth code exchange on mount
@@ -38,7 +39,9 @@ function LoginContent() {
         .then((res) => {
           const { user, sessionId } = res.data;
           setSession(user, sessionId);
-          if (user.emailVerified === false) {
+          if (redirect && redirect.startsWith('/pair')) {
+            router.push(redirect);
+          } else if (user.emailVerified === false) {
             router.push('/verify-email');
           } else {
             router.push(user.role === 'Admin' ? '/admin' : '/user');
@@ -61,7 +64,9 @@ function LoginContent() {
       const { user, sessionId } = res.data;
       setSession(user, sessionId);
 
-      if (user.emailVerified === false) {
+      if (redirect && redirect.startsWith('/pair')) {
+        router.push(redirect);
+      } else if (user.emailVerified === false) {
         router.push('/verify-email');
       } else if (user.role === 'Admin') {
         router.push('/admin');
@@ -231,7 +236,7 @@ function LoginContent() {
       <p className="mt-6 text-sm text-muted-foreground">
         No account?{' '}
         <Link
-          href="/register"
+          href={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'}
           className="font-medium text-foreground hover:text-primary transition-colors"
         >
           Register

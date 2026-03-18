@@ -33,7 +33,12 @@ function OAuthCallbackContent() {
           setTokens(user, accessToken, refreshToken);
         }
 
-        if (user.role === 'Admin') {
+        // Check if there's a pending TV pairing
+        // Don't remove from sessionStorage — let /pair page clear it on success
+        const pairingPin = sessionStorage.getItem('firevision-pairing-pin');
+        if (pairingPin) {
+          router.replace(`/pair?pin=${pairingPin}`);
+        } else if (user.role === 'Admin') {
           router.replace('/admin');
         } else {
           router.replace('/user');
