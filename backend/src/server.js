@@ -34,6 +34,12 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const app = express();
 
+// Trust reverse proxy (Docker/Portainer/nginx) so rate-limiter
+// uses the real client IP from X-Forwarded-For
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Middleware
 app.use(helmet());
 app.use(compression());
