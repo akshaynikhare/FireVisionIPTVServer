@@ -12,6 +12,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.7] - 2026-03-18
+
+### Added
+- enhance Docker image build and deployment process with frontend support and health checks
 ## [1.0.6] - 2026-03-18
 
 ### Added
@@ -126,7 +130,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.3...v1.0.4
