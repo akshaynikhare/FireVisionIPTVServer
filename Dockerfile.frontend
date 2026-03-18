@@ -17,7 +17,7 @@ RUN npx -w @firevision/shared tsc
 
 # Copy frontend source and build
 COPY frontend/ ./frontend/
-RUN npm run build -w @firevision/frontend
+RUN mkdir -p frontend/public && npm run build -w @firevision/frontend
 
 # --- Production stage ---
 FROM node:18-alpine
