@@ -18,10 +18,27 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
     const channelListCode =
       process.env.SUPER_ADMIN_CHANNEL_LIST_CODE || (await (User as any).generateChannelListCode());
 
-    // Check if super admin already exists
-    const existingAdmin = await User.findOne({
+    // Check if super admin already exists (by configured username/email)
+    let existingAdmin = await User.findOne({
       $or: [{ username: username }, { email: email }],
     });
+
+    // Fallback: find any existing Admin user (handles credential migration)
+    if (!existingAdmin) {
+      existingAdmin = await User.findOne({ role: 'Admin' });
+      if (existingAdmin) {
+        console.log(`Super Admin found by role (${existingAdmin.username}) — updating credentials`);
+        existingAdmin.username = username;
+        existingAdmin.email = email;
+        existingAdmin.password = password;
+        existingAdmin.isActive = true;
+        existingAdmin.channelListCode = channelListCode;
+        await existingAdmin.save();
+        console.log(`   Username: ${username}`);
+        console.log(`   Email: ${email}`);
+        return existingAdmin;
+      }
+    }
 
     if (existingAdmin) {
       console.log('Super Admin user already exists');
