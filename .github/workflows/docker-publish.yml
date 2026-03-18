@@ -189,6 +189,30 @@ jobs:
             echo "Found stack ID: $STACK_ID (endpoint: $ENDPOINT_ID)"
           fi
 
+      - name: Ensure external network exists
+        run: |
+          ENDPOINT_ID=${{ steps.stack.outputs.endpoint_id }}
+          NETWORK_NAME="base_network_cadnative"
+
+          # Check if network exists
+          NETWORKS=$(curl -s \
+            "${{ vars.PORTAINER_URL }}/api/endpoints/$ENDPOINT_ID/docker/networks" \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}")
+
+          EXISTS=$(echo "$NETWORKS" | jq -r --arg name "$NETWORK_NAME" '.[] | select(.Name == $name) | .Name')
+
+          if [ -z "$EXISTS" ]; then
+            echo "Creating external network '$NETWORK_NAME'..."
+            curl -sf -X POST \
+              "${{ vars.PORTAINER_URL }}/api/endpoints/$ENDPOINT_ID/docker/networks/create" \
+              -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"Name\": \"$NETWORK_NAME\", \"Driver\": \"bridge\", \"CheckDuplicate\": true}"
+            echo "Network created."
+          else
+            echo "Network '$NETWORK_NAME' already exists."
+          fi
+
       - name: Deploy to Portainer
         id: deploy
         run: |
