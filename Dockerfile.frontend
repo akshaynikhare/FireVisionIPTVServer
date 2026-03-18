@@ -24,12 +24,24 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 # Copy standalone output from Next.js build
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
 COPY --from=builder /app/frontend/public ./frontend/public
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
+# Run as non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
+
+USER nodejs
 
 # Next.js standalone server
 CMD ["node", "frontend/server.js"]

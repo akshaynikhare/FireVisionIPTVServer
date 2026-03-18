@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   api:
-    image: ${DOCKER_IMAGE:-ghcr.io/akshaynikhare/firevisioniptvserver:latest}
+    image: ${DOCKER_IMAGE}
     container_name: firevision-api
     restart: unless-stopped
     environment:
@@ -62,11 +60,9 @@ services:
         max-file: '3'
 
   frontend:
-    image: ${DOCKER_FRONTEND_IMAGE:-ghcr.io/akshaynikhare/firevisioniptvserver-frontend:latest}
+    image: ${DOCKER_FRONTEND_IMAGE}
     container_name: firevision-frontend
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: http://api:3000
     networks:
       - firevision-network
       - gkz-network
@@ -74,13 +70,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
-        ]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -133,7 +123,7 @@ services:
         max-file: '3'
 
   scheduler:
-    image: ${DOCKER_IMAGE:-ghcr.io/akshaynikhare/firevisioniptvserver:latest}
+    image: ${DOCKER_IMAGE}
     container_name: firevision-scheduler
     restart: unless-stopped
     environment:
@@ -156,6 +146,7 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+
 networks:
   firevision-network:
     driver: bridge
