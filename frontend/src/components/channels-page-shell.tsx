@@ -14,6 +14,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Flag,
 } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -32,6 +33,7 @@ import ChannelLogo from '@/components/ui/channel-logo';
 import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
 import ChannelDataTable from '@/components/ui/channel-data-table';
 import { type DataTableColumn } from '@/components/ui/data-table';
+import type { FlaggedBad, AlternateStream } from '@/types';
 
 interface Channel {
   _id: string;
@@ -58,6 +60,8 @@ interface Channel {
     network?: string;
     website?: string;
   };
+  flaggedBad?: FlaggedBad;
+  alternateStreams?: AlternateStream[];
 }
 
 function getName(c: Channel) {
@@ -139,6 +143,11 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
   // Details preview
   const [detailChannel, setDetailChannel] = useState<Channel | null>(null);
+
+  // Flag bad stream
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagTarget, setFlagTarget] = useState<{ channelId: string; alternateIndex?: number } | null>(null);
+  const [flagReason, setFlagReason] = useState('looping');
 
   // Bulk delete
   const [showBulkDelete, setShowBulkDelete] = useState(false);
@@ -896,6 +905,61 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         },
       ];
 
+  async function handleFlagSubmit() {
+    if (!flagTarget) return;
+    try {
+      const url = flagTarget.alternateIndex !== undefined
+        ? `/channels/${flagTarget.channelId}/alternates/${flagTarget.alternateIndex}/flag`
+        : `/channels/${flagTarget.channelId}/flag`;
+      await api.post(url, { reason: flagReason });
+      toast('Stream flagged', 'success');
+      setShowFlagModal(false);
+      setFlagTarget(null);
+      fetchChannels();
+    } catch {
+      toast('Failed to flag stream', 'error');
+    }
+  }
+
+  async function handleUnflagPrimary(channelId: string) {
+    try {
+      await api.post(`/channels/${channelId}/unflag`);
+      toast('Flag cleared', 'success');
+      fetchChannels();
+    } catch {
+      toast('Failed to clear flag', 'error');
+    }
+  }
+
+  async function handleUnflagAlternate(channelId: string, index: number) {
+    try {
+      await api.post(`/channels/${channelId}/alternates/${index}/unflag`);
+      toast('Alternate flag cleared', 'success');
+      fetchChannels();
+    } catch {
+      toast('Failed to clear flag', 'error');
+    }
+  }
+
+  async function handlePromoteAlternate(channelId: string, index: number) {
+    try {
+      const channel = channels.find((c) => c._id === channelId);
+      if (!channel?.alternateStreams?.[index]) return;
+      const alt = channel.alternateStreams[index];
+      const currentUrl = getUrl(channel);
+      const newAlternates = [...channel.alternateStreams];
+      newAlternates[index] = { ...newAlternates[index], streamUrl: currentUrl, demotedAt: new Date().toISOString() };
+      await api.put(`/admin/channels/${channelId}`, {
+        channelUrl: alt.streamUrl,
+        alternateStreams: newAlternates,
+      });
+      toast('Stream promoted to primary', 'success');
+      fetchChannels();
+    } catch {
+      toast('Failed to promote stream', 'error');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1391,16 +1455,52 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                 tvgLogo: getLogo(detailChannel),
                 channelUrl: getUrl(detailChannel),
                 summary: detailChannel.channelGroup || 'Uncategorized',
+                flaggedBad: detailChannel.flaggedBad,
+                alternateStreams: detailChannel.alternateStreams,
               }
             : null
         }
         fields={detailFields}
+        isAdmin={mode === 'admin'}
         onPlay={
           detailChannel
             ? () => {
                 playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
                 setDetailChannel(null);
               }
+            : undefined
+        }
+        onFlagPrimary={
+          detailChannel
+            ? () => {
+                setFlagTarget({ channelId: detailChannel._id });
+                setFlagReason('looping');
+                setShowFlagModal(true);
+              }
+            : undefined
+        }
+        onUnflagPrimary={
+          detailChannel
+            ? () => handleUnflagPrimary(detailChannel._id)
+            : undefined
+        }
+        onFlagAlternate={
+          detailChannel
+            ? (index: number) => {
+                setFlagTarget({ channelId: detailChannel._id, alternateIndex: index });
+                setFlagReason('looping');
+                setShowFlagModal(true);
+              }
+            : undefined
+        }
+        onUnflagAlternate={
+          detailChannel
+            ? (index: number) => handleUnflagAlternate(detailChannel._id, index)
+            : undefined
+        }
+        onPromoteAlternate={
+          isAdmin && detailChannel
+            ? (index: number) => handlePromoteAlternate(detailChannel._id, index)
             : undefined
         }
         actions={
@@ -1506,6 +1606,42 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Flag Bad Stream Modal */}
+      <Modal
+        open={showFlagModal}
+        onClose={() => { setShowFlagModal(false); setFlagTarget(null); }}
+        title={mode === 'admin' ? 'Flag Bad Stream' : 'Report Bad Stream'}
+        size="default"
+      >
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {mode === 'admin' ? 'Report this stream as bad. Select the reason:' : "What's wrong with this stream?"}
+          </p>
+          <div className="space-y-2">
+            {[
+              { value: 'looping', label: 'Looping Content' },
+              { value: 'frozen', label: 'Frozen / Stuck' },
+              { value: 'wrong-content', label: 'Wrong Content' },
+              { value: 'other', label: 'Other' },
+            ].map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="flagReason" value={opt.value} checked={flagReason === opt.value} onChange={() => setFlagReason(opt.value)} className="accent-primary" />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <button onClick={handleFlagSubmit} className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-signal-red text-white uppercase tracking-[0.1em] transition-colors hover:bg-signal-red/90">
+              <Flag className="h-4 w-4" />
+              {mode === 'admin' ? 'Flag Stream' : 'Report'}
+            </button>
+            <button onClick={() => { setShowFlagModal(false); setFlagTarget(null); }} className="px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

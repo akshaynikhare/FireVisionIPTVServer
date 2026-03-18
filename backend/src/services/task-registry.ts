@@ -1,6 +1,7 @@
 import { iptvOrgCacheService } from './iptv-org-cache';
 import { externalSourceCacheService } from './external-source-cache';
 import { epgService } from './epg-service';
+import { streamHealthService } from './stream-health-service';
 import { ExternalSourceCacheMeta } from '../models/ExternalSourceCache';
 
 export interface SubtaskResult {
@@ -29,6 +30,10 @@ export interface TaskDefinition {
 const LIVENESS_INTERVAL = parseInt(process.env.LIVENESS_CHECK_INTERVAL_MS || '86400000', 10);
 const EPG_INTERVAL = parseInt(process.env.EPG_REFRESH_INTERVAL_MS || '21600000', 10);
 const CACHE_INTERVAL = parseInt(process.env.CACHE_REFRESH_INTERVAL_MS || '3600000', 10);
+const STREAM_HEALTH_INTERVAL = parseInt(
+  process.env.STREAM_HEALTH_CHECK_INTERVAL_MS || '14400000',
+  10,
+);
 
 async function livenessHandler(): Promise<TaskResult> {
   const subtasks: SubtaskResult[] = [];
@@ -140,6 +145,36 @@ async function cacheRefreshHandler(): Promise<TaskResult> {
   }
 }
 
+async function streamHealthHandler(): Promise<TaskResult> {
+  const start = Date.now();
+  try {
+    const result = await streamHealthService.runHealthCheck();
+    return {
+      summary: result,
+      subtasks: [
+        {
+          name: 'stream-health-check',
+          status: 'completed',
+          durationMs: Date.now() - start,
+          result,
+        },
+      ],
+    };
+  } catch (err: any) {
+    return {
+      summary: { error: err.message },
+      subtasks: [
+        {
+          name: 'stream-health-check',
+          status: 'failed',
+          durationMs: Date.now() - start,
+          error: err.message,
+        },
+      ],
+    };
+  }
+}
+
 const tasks: TaskDefinition[] = [
   {
     name: 'liveness-check',
@@ -161,6 +196,14 @@ const tasks: TaskDefinition[] = [
     description: 'Refresh the IPTV-org channel and stream cache from upstream',
     intervalMs: CACHE_INTERVAL,
     handler: cacheRefreshHandler,
+  },
+  {
+    name: 'stream-health-check',
+    displayName: 'Stream Health Check & Auto-Promotion',
+    description:
+      'Check primary streams with alternates, auto-promote alive alternates when primary is dead/flagged',
+    intervalMs: STREAM_HEALTH_INTERVAL,
+    handler: streamHealthHandler,
   },
 ];
 

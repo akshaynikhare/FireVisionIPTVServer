@@ -297,6 +297,23 @@ Complete inventory of every feature in the application.
 - Import iptv-org channels directly to user's personal playlist
 - Reuses existing channels if stream URL already exists in system
 
+## Smart Stream Grouping & Auto-Fallback
+
+- IPTV-org channels grouped by channel ID in import UI (multiple streams per logical channel)
+- Stream ranking algorithm: liveness (alive > unknown > dead) > quality (1080p > 720p > 480p > SD) > response speed
+- Best stream auto-selected during import, admin can override via expandable row with radio buttons
+- Alternate streams stored on Channel model (`alternateStreams[]`) with quality, liveness, userAgent, referrer
+- Grouped import endpoint creates channels with primary + alternates in one operation
+- Channel detail modal shows alternate streams with promote button (swap alternate to primary)
+- Bad stream flagging system: users can report streams as looping, frozen, wrong-content, or other
+- Flag reasons recorded with user, timestamp; admins can clear flags
+- Flagging available for both primary and alternate streams
+- Fallback API endpoint (`/channels/:id/with-fallbacks`) returns only alive, non-flagged alternates
+- User playlist fallback endpoint (`/user-playlist/me/channels-with-fallbacks`) for Android app
+- M3U playlist generation auto-substitutes alive non-flagged alternate when primary is dead or flagged
+- Stream health scheduler task (default: 4 hours) probes primary streams, auto-promotes best alive non-flagged alternate
+- Flagged streams excluded from auto-promotion and export
+
 ## Stream Proxy
 
 - Proxy HLS/DASH streams through the server to avoid client CORS issues

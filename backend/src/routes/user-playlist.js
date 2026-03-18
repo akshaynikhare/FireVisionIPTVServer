@@ -146,6 +146,33 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
   }
 });
 
+// Get current user's channels with viable fallback streams (for Android app)
+router.get('/me/channels-with-fallbacks', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate(
+      'channels',
+      'channelName channelGroup channelUrl tvgLogo channelImg metadata flaggedBad alternateStreams',
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const channels = (user.channels || []).map((ch) => {
+      const channelObj = ch.toObject ? ch.toObject() : ch;
+      // Filter alternates: only alive + non-flagged
+      channelObj.alternateStreams = (channelObj.alternateStreams || []).filter(
+        (alt) => alt.liveness?.status !== 'dead' && alt.flaggedBad?.isFlagged !== true,
+      );
+      return channelObj;
+    });
+
+    res.json({ success: true, channels });
+  } catch (error) {
+    console.error('Get channels with fallbacks error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get channels' });
+  }
+});
+
 // Get current user's channel list as M3U
 router.get('/me/playlist.m3u', requireAuth, async (req, res) => {
   try {

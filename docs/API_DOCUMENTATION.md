@@ -1493,5 +1493,91 @@ Rate limiting is enabled: 1000 requests per 15 minutes for general API endpoints
 
 ---
 
-**Version:** 2.0.0
-**Last Updated:** 2026-03-16
+## Smart Stream Grouping & Fallback Endpoints
+
+### 1. Get Grouped Channels (IPTV-org)
+
+`GET /api/v1/iptv-org/api/grouped`
+
+Returns IPTV-org channels grouped by channelId with ranked streams.
+
+**Query Parameters:** `country`, `language`, `languages`, `category`, `status`, `search`, `limit` (default 50), `skip` (default 0)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "count": 1234,
+  "data": [{
+    "channelId": "IndiaToday.in",
+    "channelName": "India Today",
+    "tvgLogo": "...",
+    "country": "IN",
+    "categories": ["news"],
+    "streamCount": 3,
+    "bestStream": { "streamUrl": "...", "quality": "1080p", "liveness": {...} },
+    "streams": [...]
+  }]
+}
+```
+
+### 2. Import Grouped Channels
+
+`POST /api/v1/iptv-org/import-grouped` (Admin)
+
+Import channels with primary stream + alternate streams.
+
+**Body:**
+
+```json
+{
+  "channels": [{
+    "channelId": "...",
+    "channelName": "...",
+    "selectedStreamUrl": "...",
+    "alternateStreams": [{ "streamUrl": "...", "quality": "720p", "liveness": {...} }],
+    "tvgLogo": "...",
+    "channelGroup": "...",
+    "metadata": {}
+  }],
+  "replaceExisting": false
+}
+```
+
+### 3. Get Channel with Fallbacks
+
+`GET /api/v1/channels/:id/with-fallbacks`
+
+Returns channel with only alive, non-flagged alternate streams sorted by ranking.
+
+### 4. Get User Channels with Fallbacks
+
+`GET /api/v1/user-playlist/me/channels-with-fallbacks`
+
+Same as `/me/channels` but includes filtered alternate streams for each channel.
+
+### 5. Flag Primary Stream
+
+`POST /api/v1/channels/:id/flag` (Any authenticated user)
+
+**Body:** `{ "reason": "looping" | "frozen" | "wrong-content" | "other" }`
+
+### 6. Unflag Primary Stream
+
+`POST /api/v1/channels/:id/unflag` (Admin only)
+
+### 7. Flag Alternate Stream
+
+`POST /api/v1/channels/:id/alternates/:index/flag` (Any authenticated user)
+
+**Body:** `{ "reason": "looping" | "frozen" | "wrong-content" | "other" }`
+
+### 8. Unflag Alternate Stream
+
+`POST /api/v1/channels/:id/alternates/:index/unflag` (Admin only)
+
+---
+
+**Version:** 2.1.0
+**Last Updated:** 2026-03-18

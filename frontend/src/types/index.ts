@@ -22,6 +22,32 @@ export interface User {
   updatedAt?: string;
 }
 
+export interface FlaggedBad {
+  isFlagged: boolean;
+  reason?: string | null;
+  flaggedBy?: string | null;
+  flaggedAt?: string | null;
+}
+
+export interface AlternateStreamLiveness {
+  status: 'alive' | 'dead' | 'unknown';
+  lastCheckedAt?: string | null;
+  responseTimeMs?: number | null;
+  error?: string | null;
+}
+
+export interface AlternateStream {
+  streamUrl: string;
+  quality?: string | null;
+  liveness: AlternateStreamLiveness;
+  flaggedBad: FlaggedBad;
+  userAgent?: string | null;
+  referrer?: string | null;
+  source?: string | null;
+  promotedAt?: string | null;
+  demotedAt?: string | null;
+}
+
 export interface Channel {
   _id: string;
   channelId?: string;
@@ -52,6 +78,8 @@ export interface Channel {
     resolution?: string;
     tags?: string[];
   };
+  flaggedBad?: FlaggedBad;
+  alternateStreams?: AlternateStream[];
 }
 
 export interface AppVersion {
