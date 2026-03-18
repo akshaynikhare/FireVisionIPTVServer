@@ -876,6 +876,123 @@ http://example.com/stream/hbo.m3u8
 
 ---
 
+## Stream Metrics Endpoints
+
+### 1. Report Stream Status
+
+**POST** `/channels/:id/report-status`
+
+**Auth:** TV code or session auth
+
+**Request Body:**
+
+```json
+{
+  "status": "dead",
+  "deviceId": "device-abc-123"
+}
+```
+
+- `status` (required): One of `dead`, `alive`, `unresponsive`
+- `deviceId` (required): Unique device identifier
+
+**Rate Limit:** 1 report per channel per device per 5 minutes
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "channelId": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "status": "dead",
+    "metrics": {
+      "deadCount": 5,
+      "aliveCount": 42,
+      "unresponsiveCount": 1,
+      "playCount": 30,
+      "lastDeadAt": "2026-03-18T10:00:00.000Z"
+    }
+  }
+}
+```
+
+---
+
+### 2. Report Successful Playback
+
+**POST** `/channels/:id/report-play`
+
+**Auth:** TV code or session auth
+
+**Request Body:**
+
+```json
+{
+  "deviceId": "device-abc-123"
+}
+```
+
+**Rate Limit:** 1 report per channel per device per 1 minute
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "channelId": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "metrics": {
+      "deadCount": 5,
+      "aliveCount": 42,
+      "unresponsiveCount": 1,
+      "playCount": 31,
+      "lastPlayedAt": "2026-03-18T10:05:00.000Z"
+    }
+  }
+}
+```
+
+---
+
+### 3. Bulk Health Sync
+
+**POST** `/channels/health-sync`
+
+**Auth:** TV code or session auth
+
+**Request Body:**
+
+```json
+{
+  "deviceId": "device-abc-123",
+  "reports": [
+    { "channelId": "64f7a8b9c1d2e3f4a5b6c7d8", "status": "alive" },
+    { "channelId": "64f7a8b9c1d2e3f4a5b6c7d9", "status": "dead" },
+    { "channelId": "64f7a8b9c1d2e3f4a5b6c7da", "status": "played" }
+  ]
+}
+```
+
+- `reports` array: max 100 items, each with `channelId` and `status` (dead, alive, unresponsive, played)
+
+**Rate Limit:** 1 sync per device per 5 minutes
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "updated": 2,
+    "failed": 0,
+    "skipped": 1
+  }
+}
+```
+
+---
+
 ## Admin Channel Endpoints
 
 ### 1. Get All Channels (Including Inactive)

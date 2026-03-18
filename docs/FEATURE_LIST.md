@@ -152,6 +152,18 @@ Complete inventory of every feature in the application.
 - Descriptive error messages for timeout, DNS failure, connection refused, and HTTP errors
 - VLC user agent used for stream requests to maximize compatibility
 
+## Stream Metrics
+
+- Cumulative health counters per channel: deadCount, aliveCount, unresponsiveCount, playCount
+- Timestamps for last occurrence of each status: lastDeadAt, lastAliveAt, lastPlayedAt, lastUnresponsiveAt
+- Client-reported stream status via `POST /api/v1/channels/:id/report-status` (dead, alive, unresponsive)
+- Client-reported playback confirmation via `POST /api/v1/channels/:id/report-play`
+- Bulk health sync from scanner/client via `POST /api/v1/channels/health-sync` (up to 100 reports per call)
+- In-memory rate limiting: 1 status report per channel per device per 5 minutes, 1 play report per channel per device per 1 minute, 1 health sync per device per 5 minutes
+- Server-side probe results (channel test) automatically increment alive/dead counters
+- Enhanced admin stream health analytics: most failing streams, most popular streams, removal candidates (high failures + zero plays), unresponsive streams
+- Aggregate metrics in admin stats: total dead/alive/unresponsive/play counts across all channels
+
 ## Global M3U Playlist
 
 - Generate M3U playlist of all channels in the system

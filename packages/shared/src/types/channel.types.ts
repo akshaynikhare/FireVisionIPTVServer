@@ -24,6 +24,16 @@ export interface IChannel {
     isWorking?: boolean;
     responseTime?: number;
   };
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    lastDeadAt?: Date;
+    lastAliveAt?: Date;
+    lastPlayedAt?: Date;
+    lastUnresponsiveAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

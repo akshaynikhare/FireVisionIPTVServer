@@ -668,9 +668,44 @@ router.get('/stats/stream-health', async (req, res) => {
             $sum: { $cond: [{ $eq: ['$metadata.isWorking', null] }, 1, 0] },
           },
           avgResponseTime: { $avg: '$metadata.responseTime' },
+          totalDeadCount: { $sum: { $ifNull: ['$metrics.deadCount', 0] } },
+          totalAliveCount: { $sum: { $ifNull: ['$metrics.aliveCount', 0] } },
+          totalUnresponsiveCount: { $sum: { $ifNull: ['$metrics.unresponsiveCount', 0] } },
+          totalPlayCount: { $sum: { $ifNull: ['$metrics.playCount', 0] } },
         },
       },
     ]);
+
+    // Streams ranked by failure frequency (top 10 most failing)
+    const mostFailing = await Channel.find({ 'metrics.deadCount': { $gt: 0 } })
+      .sort({ 'metrics.deadCount': -1 })
+      .limit(10)
+      .select('channelId channelName channelGroup metrics')
+      .lean();
+
+    // Streams ranked by popularity (top 10 most played)
+    const mostPopular = await Channel.find({ 'metrics.playCount': { $gt: 0 } })
+      .sort({ 'metrics.playCount': -1 })
+      .limit(10)
+      .select('channelId channelName channelGroup metrics')
+      .lean();
+
+    // Streams with high failures but zero plays (removal candidates)
+    const removalCandidates = await Channel.find({
+      'metrics.deadCount': { $gt: 0 },
+      $or: [{ 'metrics.playCount': { $exists: false } }, { 'metrics.playCount': 0 }],
+    })
+      .sort({ 'metrics.deadCount': -1 })
+      .limit(10)
+      .select('channelId channelName channelGroup metrics')
+      .lean();
+
+    // Streams with unresponsive issues
+    const unresponsiveStreams = await Channel.find({ 'metrics.unresponsiveCount': { $gt: 0 } })
+      .sort({ 'metrics.unresponsiveCount': -1 })
+      .limit(10)
+      .select('channelId channelName channelGroup metrics')
+      .lean();
 
     // External source health (aggregated per source)
     const externalHealth = await ExternalSourceChannel.aggregate([
@@ -696,6 +731,16 @@ router.get('/stats/stream-health', async (req, res) => {
           failing: 0,
           untested: 0,
           avgResponseTime: null,
+          totalDeadCount: 0,
+          totalAliveCount: 0,
+          totalUnresponsiveCount: 0,
+          totalPlayCount: 0,
+        },
+        metrics: {
+          mostFailing,
+          mostPopular,
+          removalCandidates,
+          unresponsiveStreams,
         },
         external: externalHealth,
       },

@@ -7,6 +7,28 @@ const { escapeRegex } = require('../utils/escapeRegex');
 const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
+// In-memory rate-limit maps for stream metrics reporting
+const reportStatusLimits = new Map();
+const reportPlayLimits = new Map();
+const healthSyncLimits = new Map();
+
+// Cleanup stale rate-limit entries every 10 minutes
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, ts] of reportStatusLimits) {
+      if (now - ts > 5 * 60 * 1000) reportStatusLimits.delete(key);
+    }
+    for (const [key, ts] of reportPlayLimits) {
+      if (now - ts > 60 * 1000) reportPlayLimits.delete(key);
+    }
+    for (const [key, ts] of healthSyncLimits) {
+      if (now - ts > 5 * 60 * 1000) healthSyncLimits.delete(key);
+    }
+  },
+  10 * 60 * 1000,
+);
+
 // Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
@@ -111,6 +133,79 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
   } catch (error) {
     console.error('Error searching channels:', error);
     res.status(500).json({ success: false, error: 'Failed to search channels' });
+  }
+});
+
+// Bulk health sync from scanner/client — TV or session auth (must be BEFORE /:id to avoid route shadowing)
+// Rate limit: 1 per device per 5 minutes
+router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { deviceId, reports } = req.body;
+
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({ success: false, error: 'deviceId is required' });
+    }
+    if (!Array.isArray(reports) || reports.length === 0) {
+      return res.status(400).json({ success: false, error: 'reports array is required' });
+    }
+    if (reports.length > 100) {
+      return res.status(400).json({ success: false, error: 'Maximum 100 reports per sync' });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `health-sync:${deviceId}`;
+    const lastSync = healthSyncLimits.get(rateLimitKey);
+    if (lastSync && Date.now() - lastSync < 5 * 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One health sync per device per 5 minutes.',
+      });
+    }
+
+    const validStatuses = ['dead', 'alive', 'unresponsive', 'played'];
+    const results = { updated: 0, failed: 0, skipped: 0 };
+
+    for (const report of reports) {
+      if (!report.channelId || !report.status || !validStatuses.includes(report.status)) {
+        results.skipped++;
+        continue;
+      }
+
+      const update = {};
+      const now = new Date();
+
+      if (report.status === 'dead') {
+        update.$inc = { 'metrics.deadCount': 1 };
+        update.$set = { 'metrics.lastDeadAt': now };
+      } else if (report.status === 'alive') {
+        update.$inc = { 'metrics.aliveCount': 1 };
+        update.$set = { 'metrics.lastAliveAt': now };
+      } else if (report.status === 'unresponsive') {
+        update.$inc = { 'metrics.unresponsiveCount': 1 };
+        update.$set = { 'metrics.lastUnresponsiveAt': now };
+      } else if (report.status === 'played') {
+        update.$inc = { 'metrics.playCount': 1 };
+        update.$set = { 'metrics.lastPlayedAt': now };
+      }
+
+      try {
+        const result = await Channel.findByIdAndUpdate(report.channelId, update);
+        if (result) {
+          results.updated++;
+        } else {
+          results.failed++;
+        }
+      } catch {
+        results.failed++;
+      }
+    }
+
+    healthSyncLimits.set(rateLimitKey, Date.now());
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error('Error processing health sync:', error);
+    res.status(500).json({ success: false, error: 'Failed to process health sync' });
   }
 });
 
@@ -321,6 +416,17 @@ router.post('/:id/test', requireAuth, async (req, res) => {
     } else {
       delete channel.metadata.testError;
     }
+
+    // Update stream metrics counters
+    channel.metrics = channel.metrics || {};
+    if (isWorking) {
+      channel.metrics.aliveCount = (channel.metrics.aliveCount || 0) + 1;
+      channel.metrics.lastAliveAt = new Date();
+    } else {
+      channel.metrics.deadCount = (channel.metrics.deadCount || 0) + 1;
+      channel.metrics.lastDeadAt = new Date();
+    }
+
     await channel.save();
     audit({
       userId: req.user.id,
@@ -344,6 +450,116 @@ router.post('/:id/test', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error testing channel:', error);
     res.status(500).json({ success: false, error: 'Failed to test channel' });
+  }
+});
+
+// ============ STREAM METRICS REPORTING ============
+
+// Report stream status (dead/alive/unresponsive) — TV or session auth
+// Rate limit: 1 per channel per device per 5 minutes
+router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { status, deviceId } = req.body;
+
+    if (!status || !['dead', 'alive', 'unresponsive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'status must be one of: dead, alive, unresponsive',
+      });
+    }
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'deviceId is required',
+      });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const lastReport = reportStatusLimits.get(rateLimitKey);
+    if (lastReport && Date.now() - lastReport < 5 * 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One report per channel per device per 5 minutes.',
+      });
+    }
+
+    const update = {};
+    const now = new Date();
+
+    if (status === 'dead') {
+      update.$inc = { 'metrics.deadCount': 1 };
+      update.$set = { 'metrics.lastDeadAt': now };
+    } else if (status === 'alive') {
+      update.$inc = { 'metrics.aliveCount': 1 };
+      update.$set = { 'metrics.lastAliveAt': now };
+    } else if (status === 'unresponsive') {
+      update.$inc = { 'metrics.unresponsiveCount': 1 };
+      update.$set = { 'metrics.lastUnresponsiveAt': now };
+    }
+
+    const channel = await Channel.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    reportStatusLimits.set(rateLimitKey, Date.now());
+
+    res.json({
+      success: true,
+      data: { channelId: channel._id, status, metrics: channel.metrics },
+    });
+  } catch (error) {
+    console.error('Error reporting channel status:', error);
+    res.status(500).json({ success: false, error: 'Failed to report channel status' });
+  }
+});
+
+// Report successful playback — TV or session auth
+// Rate limit: 1 per channel per device per 1 minute
+router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'deviceId is required',
+      });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const lastReport = reportPlayLimits.get(rateLimitKey);
+    if (lastReport && Date.now() - lastReport < 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One play report per channel per device per minute.',
+      });
+    }
+
+    const channel = await Channel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $inc: { 'metrics.playCount': 1 },
+        $set: { 'metrics.lastPlayedAt': new Date() },
+      },
+      { new: true },
+    );
+
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    reportPlayLimits.set(rateLimitKey, Date.now());
+
+    res.json({
+      success: true,
+      data: { channelId: channel._id, metrics: channel.metrics },
+    });
+  } catch (error) {
+    console.error('Error reporting channel play:', error);
+    res.status(500).json({ success: false, error: 'Failed to report channel play' });
   }
 });
 
