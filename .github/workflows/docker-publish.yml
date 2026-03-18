@@ -46,7 +46,8 @@ jobs:
           else
             # Manual dispatch on branch: use branch-sha (e.g. main-a1b2c3d)
             SHORT_SHA=$(git rev-parse --short HEAD)
-            VERSION="${GITHUB_REF_NAME}-${SHORT_SHA}"
+            SAFE_BRANCH=$(echo "$GITHUB_REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            VERSION="${SAFE_BRANCH}-${SHORT_SHA}"
             IS_TAG=false
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
