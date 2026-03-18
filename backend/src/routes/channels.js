@@ -13,6 +13,7 @@ const reportPlayLimits = new Map();
 const healthSyncLimits = new Map();
 
 // Cleanup stale rate-limit entries every 10 minutes
+// .unref() ensures this timer doesn't prevent graceful process exit
 setInterval(
   () => {
     const now = Date.now();
@@ -27,7 +28,7 @@ setInterval(
     }
   },
   10 * 60 * 1000,
-);
+).unref();
 
 // Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
