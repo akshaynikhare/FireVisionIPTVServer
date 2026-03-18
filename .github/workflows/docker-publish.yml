@@ -46,7 +46,8 @@ jobs:
           else
             # Manual dispatch on branch: use branch-sha (e.g. main-a1b2c3d)
             SHORT_SHA=$(git rev-parse --short HEAD)
-            VERSION="${GITHUB_REF_NAME}-${SHORT_SHA}"
+            SAFE_BRANCH=$(echo "$GITHUB_REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            VERSION="${SAFE_BRANCH}-${SHORT_SHA}"
             IS_TAG=false
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -186,6 +187,30 @@ jobs:
             echo "stack_id=$STACK_ID" >> $GITHUB_OUTPUT
             echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
             echo "Found stack ID: $STACK_ID (endpoint: $ENDPOINT_ID)"
+          fi
+
+      - name: Ensure external network exists
+        run: |
+          ENDPOINT_ID=${{ steps.stack.outputs.endpoint_id }}
+          NETWORK_NAME="base_network_cadnative"
+
+          # Check if network exists
+          NETWORKS=$(curl -s \
+            "${{ vars.PORTAINER_URL }}/api/endpoints/$ENDPOINT_ID/docker/networks" \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}")
+
+          EXISTS=$(echo "$NETWORKS" | jq -r --arg name "$NETWORK_NAME" '.[] | select(.Name == $name) | .Name')
+
+          if [ -z "$EXISTS" ]; then
+            echo "Creating external network '$NETWORK_NAME'..."
+            curl -sf -X POST \
+              "${{ vars.PORTAINER_URL }}/api/endpoints/$ENDPOINT_ID/docker/networks/create" \
+              -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"Name\": \"$NETWORK_NAME\", \"Driver\": \"bridge\", \"CheckDuplicate\": true}"
+            echo "Network created."
+          else
+            echo "Network '$NETWORK_NAME' already exists."
           fi
 
       - name: Deploy to Portainer
