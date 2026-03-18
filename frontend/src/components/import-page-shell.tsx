@@ -581,7 +581,10 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
         };
       });
     try {
-      const res = await api.post('/iptv-org/import-grouped', { channels: toImport, replaceExisting });
+      const res = await api.post('/iptv-org/import-grouped', {
+        channels: toImport,
+        replaceExisting,
+      });
       setImportResult(res.data.message || `Imported ${toImport.length} channels with alternates`);
     } catch {
       setImportResult('Failed to import channels');
@@ -914,7 +917,11 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                   onClick={() => {
                     const allIds = groupedChannels.map((ch) => ch._uid);
                     const allSelected = groupedChannels.every((ch) => isSelected(ch._uid));
-                    allSelected ? unselectMany(allIds) : selectMany(allIds);
+                    if (allSelected) {
+                      unselectMany(allIds);
+                    } else {
+                      selectMany(allIds);
+                    }
                   }}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Toggle page selection"
@@ -969,20 +976,22 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                   <span className="text-xs text-muted-foreground truncate">
                     {ch.country || '—'}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {ch.streamCount}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{ch.streamCount}</span>
                   <div className="flex items-center gap-1.5">
                     <StatusDot status={ch.bestStream?.liveness?.status || 'unknown'} />
                   </div>
                 </div>
                 <GroupedStreamRow
                   streams={ch.streams}
-                  selectedStreamUrl={selectedStreams[ch.channelId] || ch.bestStream?.streamUrl || ''}
+                  selectedStreamUrl={
+                    selectedStreams[ch.channelId] || ch.bestStream?.streamUrl || ''
+                  }
                   onSelectStream={(url) =>
                     setSelectedStreams((prev) => ({ ...prev, [ch.channelId]: url }))
                   }
-                  onTestStream={isAdmin ? (stream) => handleTestGroupedStream(ch.channelId, stream) : undefined}
+                  onTestStream={
+                    isAdmin ? (stream) => handleTestGroupedStream(ch.channelId, stream) : undefined
+                  }
                   testingStreamUrl={testingStreamUrl}
                 />
               </div>
