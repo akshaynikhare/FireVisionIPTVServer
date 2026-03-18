@@ -1213,16 +1213,16 @@ router.get('/google/callback', async (req, res) => {
  * GitHub OAuth - Initiate authentication
  */
 router.get('/github', (req, res) => {
-  const githubClientId = process.env.GITHUB_CLIENT_ID;
+  const githubClientId = process.env.GH_OAUTH_CLIENT_ID;
   const redirectUri =
-    process.env.GITHUB_REDIRECT_URI ||
+    process.env.GH_OAUTH_REDIRECT_URI ||
     `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
 
   if (!githubClientId || githubClientId === 'your-github-client-id') {
     return res
       .status(500)
       .send(
-        'GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID in environment variables.',
+        'GitHub OAuth is not configured. Please set GH_OAUTH_CLIENT_ID in environment variables.',
       );
   }
 
@@ -1259,10 +1259,10 @@ router.get('/github/callback', async (req, res) => {
       return res.redirect('/login?error=invalid_state');
     }
 
-    const githubClientId = process.env.GITHUB_CLIENT_ID;
-    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+    const githubClientId = process.env.GH_OAUTH_CLIENT_ID;
+    const githubClientSecret = process.env.GH_OAUTH_CLIENT_SECRET;
     const redirectUri =
-      process.env.GITHUB_REDIRECT_URI ||
+      process.env.GH_OAUTH_REDIRECT_URI ||
       `${req.protocol}://${req.get('host')}/api/v1/auth/github/callback`;
 
     // Exchange code for access token

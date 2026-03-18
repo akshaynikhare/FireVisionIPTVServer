@@ -16,17 +16,17 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://tv.cadnative.com/api/v1/auth/google/callback}
-      GITHUB_CLIENT_ID: ${GH_OAUTH_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GH_OAUTH_CLIENT_SECRET}
-      GITHUB_REDIRECT_URI: ${GH_OAUTH_REDIRECT_URI:-https://tv.cadnative.com/api/v1/auth/github/callback}
+      GH_OAUTH_CLIENT_ID: ${GH_OAUTH_CLIENT_ID}
+      GH_OAUTH_CLIENT_SECRET: ${GH_OAUTH_CLIENT_SECRET}
+      GH_OAUTH_REDIRECT_URI: ${GH_OAUTH_REDIRECT_URI:-https://tv.cadnative.com/api/v1/auth/github/callback}
       SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME:-admin}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
       SUPER_ADMIN_CHANNEL_LIST_CODE: ${SUPER_ADMIN_CHANNEL_LIST_CODE}
-      APP_GITHUB_OWNER: ${GH_APP_OWNER:-akshaynikhare}
-      APP_GITHUB_REPO: ${GH_APP_REPO:-FireVisionIPTV}
-      APP_GITHUB_APK_PATTERN: ${GH_APP_APK_PATTERN:-.apk}
-      APP_GITHUB_TOKEN: ${GH_APP_TOKEN}
+      GH_APP_OWNER: ${GH_APP_OWNER:-akshaynikhare}
+      GH_APP_REPO: ${GH_APP_REPO:-FireVisionIPTV}
+      GH_APP_APK_PATTERN: ${GH_APP_APK_PATTERN:-.apk}
+      GH_APP_TOKEN: ${GH_APP_TOKEN}
       MAIL_PROVIDER: brevo
       BREVO_HOST: ${BREVO_HOST:-smtp-relay.brevo.com}
       BREVO_PORT: ${BREVO_PORT:-587}
@@ -37,6 +37,7 @@ services:
       ALLOWED_ORIGINS: https://tv.cadnative.com
     networks:
       - firevision-network
+      - gkz-network
     depends_on:
       mongodb:
         condition: service_healthy
@@ -68,6 +69,7 @@ services:
       NEXT_PUBLIC_API_URL: http://api:3000
     networks:
       - firevision-network
+      - gkz-network
     depends_on:
       api:
         condition: service_healthy
@@ -154,39 +156,12 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
-
-  nginx:
-    image: nginx:alpine
-    container_name: firevision-nginx
-    restart: unless-stopped
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    networks:
-      - firevision-network
-    depends_on:
-      api:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost/health']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: 'json-file'
-      options:
-        max-size: '10m'
-        max-file: '3'
-
 networks:
   firevision-network:
     driver: bridge
+  gkz-network:
+    external: true
+    name: base_network_cadnative
 
 volumes:
   mongodb_data:

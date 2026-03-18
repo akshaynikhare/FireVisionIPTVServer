@@ -4,10 +4,10 @@ const axios = require('axios');
 
 // GitHub APK update routes
 
-const GITHUB_OWNER = process.env.APP_GITHUB_OWNER || 'akshaynikhare';
-const GITHUB_REPO = process.env.APP_GITHUB_REPO || 'FireVisionIPTV';
-const GITHUB_APK_PATTERN = process.env.APP_GITHUB_APK_PATTERN || '.apk';
-const GITHUB_TOKEN = process.env.APP_GITHUB_TOKEN;
+const GITHUB_OWNER = process.env.GH_APP_OWNER || 'akshaynikhare';
+const GITHUB_REPO = process.env.GH_APP_REPO || 'FireVisionIPTV';
+const GITHUB_APK_PATTERN = process.env.GH_APP_APK_PATTERN || '.apk';
+const GITHUB_TOKEN = process.env.GH_APP_TOKEN;
 
 // APP_VERSION is injected at build time via Docker build arg (e.g. "1.2.3")
 const APP_VERSION = process.env.APP_VERSION || '0.0.0';
