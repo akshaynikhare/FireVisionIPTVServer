@@ -12,6 +12,19 @@ export const channelMetadataSchema = z
   })
   .optional();
 
+export const channelMetricsSchema = z
+  .object({
+    deadCount: z.number().int().default(0),
+    aliveCount: z.number().int().default(0),
+    unresponsiveCount: z.number().int().default(0),
+    playCount: z.number().int().default(0),
+    lastDeadAt: z.coerce.date().optional(),
+    lastAliveAt: z.coerce.date().optional(),
+    lastPlayedAt: z.coerce.date().optional(),
+    lastUnresponsiveAt: z.coerce.date().optional(),
+  })
+  .optional();
+
 export const createChannelSchema = z.object({
   channelId: z.string().min(1, 'Channel ID is required'),
   channelName: z.string().trim().min(1, 'Channel name is required'),
@@ -24,6 +37,7 @@ export const createChannelSchema = z.object({
   tvgLogo: z.string().default(''),
   order: z.number().int().default(0),
   metadata: channelMetadataSchema,
+  metrics: channelMetricsSchema,
 });
 
 export const updateChannelSchema = createChannelSchema.partial();

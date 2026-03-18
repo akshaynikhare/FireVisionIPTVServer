@@ -409,26 +409,28 @@ router.post('/:id/test', requireAuth, async (req, res) => {
       isWorking = false;
     }
 
-    channel.metadata = channel.metadata || {};
-    channel.metadata.isWorking = isWorking;
-    channel.metadata.lastTested = new Date();
+    const now = new Date();
+    const metadataUpdate = {
+      'metadata.isWorking': isWorking,
+      'metadata.lastTested': now,
+    };
     if (error) {
-      channel.metadata.testError = error;
-    } else {
-      delete channel.metadata.testError;
+      metadataUpdate['metadata.testError'] = error;
     }
 
-    // Update stream metrics counters
-    channel.metrics = channel.metrics || {};
-    if (isWorking) {
-      channel.metrics.aliveCount = (channel.metrics.aliveCount || 0) + 1;
-      channel.metrics.lastAliveAt = new Date();
-    } else {
-      channel.metrics.deadCount = (channel.metrics.deadCount || 0) + 1;
-      channel.metrics.lastDeadAt = new Date();
+    // Atomic update: metadata fields + metrics counters
+    const metricsInc = isWorking ? { 'metrics.aliveCount': 1 } : { 'metrics.deadCount': 1 };
+    const metricsSet = isWorking ? { 'metrics.lastAliveAt': now } : { 'metrics.lastDeadAt': now };
+
+    const updateOp = {
+      $set: { ...metadataUpdate, ...metricsSet },
+      $inc: metricsInc,
+    };
+    if (!error) {
+      updateOp.$unset = { 'metadata.testError': '' };
     }
 
-    await channel.save();
+    await Channel.findByIdAndUpdate(req.params.id, updateOp);
     audit({
       userId: req.user.id,
       action: 'test_channel',
@@ -444,7 +446,7 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         channelId: channel._id,
         channelName: channel.channelName,
         isWorking,
-        testedAt: channel.metadata.lastTested,
+        testedAt: now,
         error: error || undefined,
       },
     });
