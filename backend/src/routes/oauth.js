@@ -9,9 +9,9 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || '';
 
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || '';
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || '';
-const GITHUB_REDIRECT_URI = process.env.GITHUB_REDIRECT_URI || '';
+const GITHUB_CLIENT_ID = process.env.GH_OAUTH_CLIENT_ID || '';
+const GITHUB_CLIENT_SECRET = process.env.GH_OAUTH_CLIENT_SECRET || '';
+const GITHUB_REDIRECT_URI = process.env.GH_OAUTH_REDIRECT_URI || '';
 
 // Helper: generate random password (User model requires one)
 function generateRandomPassword() {
