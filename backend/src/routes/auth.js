@@ -83,47 +83,66 @@ const requireAuth = async (req, res, next) => {
     // Find session in database
     const session = await Session.findOne({ sessionId }).populate('userId');
 
-    if (!session) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid session',
-      });
+    if (session) {
+      // Check if session is expired
+      if (!session.isValid()) {
+        await Session.deleteOne({ sessionId });
+        return res.status(401).json({
+          success: false,
+          error: 'Session expired',
+        });
+      }
+
+      // Check if user still exists and is active
+      if (!session.userId || !session.userId.isActive) {
+        await Session.deleteOne({ sessionId });
+        return res.status(401).json({
+          success: false,
+          error: 'User account is inactive',
+        });
+      }
+
+      // Update last activity
+      await session.updateActivity();
+
+      // Attach user info to request
+      req.user = {
+        id: session.userId._id,
+        username: session.userId.username,
+        email: session.userId.email,
+        role: session.userId.role,
+        channelListCode: session.userId.channelListCode,
+        isActive: session.userId.isActive,
+      };
+
+      req.sessionId = sessionId;
+
+      return next();
     }
 
-    // Check if session is expired
-    if (!session.isValid()) {
-      await Session.deleteOne({ sessionId });
-      return res.status(401).json({
-        success: false,
-        error: 'Session expired',
-      });
+    // Fallback: treat X-Session-ID as a channel list code (TV app auth)
+    const tvUser = await User.findOne({
+      channelListCode: sessionId.toUpperCase(),
+      isActive: true,
+    });
+
+    if (tvUser) {
+      req.user = {
+        id: tvUser._id,
+        username: tvUser.username,
+        email: tvUser.email,
+        role: tvUser.role,
+        channelListCode: tvUser.channelListCode,
+        isActive: tvUser.isActive,
+      };
+      req.sessionId = sessionId;
+      return next();
     }
 
-    // Check if user still exists and is active
-    if (!session.userId || !session.userId.isActive) {
-      await Session.deleteOne({ sessionId });
-      return res.status(401).json({
-        success: false,
-        error: 'User account is inactive',
-      });
-    }
-
-    // Update last activity
-    await session.updateActivity();
-
-    // Attach user info to request
-    req.user = {
-      id: session.userId._id,
-      username: session.userId.username,
-      email: session.userId.email,
-      role: session.userId.role,
-      channelListCode: session.userId.channelListCode,
-      isActive: session.userId.isActive,
-    };
-
-    req.sessionId = sessionId;
-
-    next();
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid session',
+    });
   } catch (error) {
     console.error('Auth middleware error:', error);
     return res.status(500).json({
