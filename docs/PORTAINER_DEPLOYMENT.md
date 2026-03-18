@@ -63,24 +63,40 @@ Images are published to GHCR (`ghcr.io/akshaynikhare/firevisioniptvserver`). No 
 
 #### Application Secrets
 
-| Secret Name                  | Description                  | How to Generate                                                    |
-| ---------------------------- | ---------------------------- | ------------------------------------------------------------------ |
-| `MONGODB_URI`                | MongoDB connection string    | `mongodb://mongodb:27017/firevision-iptv`                          |
-| `REDIS_URL`                  | Redis connection string      | `redis://redis:6379`                                               |
-| `JWT_SECRET`                 | JWT signing secret           | `openssl rand -base64 32`                                          |
-| `JWT_REFRESH_SECRET`         | Refresh token secret         | `openssl rand -base64 32`                                          |
-| `API_KEY`                    | Admin API key                | `openssl rand -hex 32`                                             |
-| `GITHUB_TOKEN`               | GitHub personal access token | From GitHub Settings → Developer settings → Personal access tokens |
-| `GITHUB_REPO_OWNER`          | GitHub repository owner      | `akshaynikhare`                                                    |
-| `GITHUB_REPO_NAME`           | GitHub repository name       | `FireVisionIPTV`                                                   |
-| `OAUTH_GOOGLE_CLIENT_ID`     | Google OAuth client ID       | From Google Cloud Console                                          |
-| `OAUTH_GOOGLE_CLIENT_SECRET` | Google OAuth secret          | From Google Cloud Console                                          |
-| `OAUTH_GITHUB_CLIENT_ID`     | GitHub OAuth client ID       | From GitHub OAuth Apps                                             |
-| `OAUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth secret          | From GitHub OAuth Apps                                             |
-| `BREVO_HOST`                 | Brevo SMTP host              | `smtp-relay.brevo.com`                                             |
-| `BREVO_PORT`                 | Brevo SMTP port              | `587`                                                              |
-| `BREVO_USER`                 | Brevo SMTP key               | From Brevo dashboard                                               |
-| `BREVO_PASSWORD`             | Brevo SMTP password          | From Brevo dashboard                                               |
+| Secret Name              | Description                 | How to Generate                                                    |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------ |
+| `JWT_ACCESS_SECRET`      | JWT signing secret          | `openssl rand -base64 32`                                          |
+| `JWT_REFRESH_SECRET`     | Refresh token secret        | `openssl rand -base64 32`                                          |
+| `GOOGLE_CLIENT_SECRET`   | Google OAuth secret         | From Google Cloud Console                                          |
+| `GH_OAUTH_CLIENT_SECRET` | GitHub OAuth secret         | From GitHub OAuth Apps                                             |
+| `SUPER_ADMIN_PASSWORD`   | Super admin password        | Strong random password                                             |
+| `BREVO_PASSWORD`         | Brevo SMTP password         | From Brevo dashboard                                               |
+| `GH_APP_TOKEN`           | GitHub API token (optional) | From GitHub Settings → Developer settings → Personal access tokens |
+
+#### Application Variables
+
+| Variable Name                   | Description               | Default                                                |
+| ------------------------------- | ------------------------- | ------------------------------------------------------ |
+| `GOOGLE_CLIENT_ID`              | Google OAuth client ID    | From Google Cloud Console                              |
+| `GH_OAUTH_CLIENT_ID`            | GitHub OAuth client ID    | From GitHub OAuth Apps                                 |
+| `GOOGLE_REDIRECT_URI`           | Google OAuth callback URL | `https://tv.cadnative.com/api/v1/auth/google/callback` |
+| `GH_OAUTH_REDIRECT_URI`         | GitHub OAuth callback URL | `https://tv.cadnative.com/api/v1/auth/github/callback` |
+| `SUPER_ADMIN_USERNAME`          | Super admin username      | `admin`                                                |
+| `SUPER_ADMIN_EMAIL`             | Super admin email         | `admin@firevision.local`                               |
+| `SUPER_ADMIN_CHANNEL_LIST_CODE` | Super admin channel code  |                                                        |
+| `GH_APP_OWNER`                  | GitHub repo owner for APK | `akshaynikhare`                                        |
+| `GH_APP_REPO`                   | GitHub repo name for APK  | `FireVisionIPTV`                                       |
+| `GH_APP_APK_PATTERN`            | APK asset pattern         | `.apk`                                                 |
+| `BREVO_HOST`                    | Brevo SMTP host           | `smtp-relay.brevo.com`                                 |
+| `BREVO_PORT`                    | Brevo SMTP port           | `587`                                                  |
+| `BREVO_USER`                    | Brevo SMTP key            | From Brevo dashboard                                   |
+| `MAIL_FROM`                     | Sender email address      | `noreply@firevision.local`                             |
+| `APP_URL`                       | Frontend URL for emails   | `https://tv.cadnative.com`                             |
+| `LIVENESS_CHECK_INTERVAL_MS`    | Liveness check interval   | `86400000` (24h)                                       |
+| `EPG_REFRESH_INTERVAL_MS`       | EPG refresh interval      | `21600000` (6h)                                        |
+| `CACHE_REFRESH_INTERVAL_MS`     | Cache refresh interval    | `3600000` (1h)                                         |
+
+MongoDB and Redis URIs are hardcoded in the compose file (internal Docker networking).
 
 ### 3. Test the Deployment Workflow
 

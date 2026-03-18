@@ -8,6 +8,10 @@ import {
   Smartphone,
   Activity,
   TrendingUp,
+  Radio,
+  Clock,
+  UserPlus,
+  Monitor,
 } from 'lucide-react';
 import {
   PieChart,
@@ -25,6 +29,60 @@ import {
 } from 'recharts';
 import api from '@/lib/api';
 
+interface RecentUser {
+  username: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+interface ActiveSession {
+  username: string;
+  email: string;
+  lastActivity: string;
+  ipAddress?: string;
+  location?: string;
+}
+
+interface RecentPairing {
+  deviceName: string;
+  deviceModel: string;
+  status: string;
+  username?: string;
+  createdAt: string;
+}
+
+interface StreamHealthData {
+  channels: {
+    total: number;
+    working: number;
+    failing: number;
+    untested: number;
+    avgResponseTime: number | null;
+  };
+  external: Array<{
+    _id: string;
+    total: number;
+    alive: number;
+    dead: number;
+    unknown: number;
+    avgResponseTime: number | null;
+  }>;
+}
+
+interface SchedulerTask {
+  taskName: string;
+  lastStatus: string;
+  lastStartedAt: string;
+  lastDurationMs: number | null;
+  lastError?: string;
+  totalRuns: number;
+  completed: number;
+  failed: number;
+  avgDuration: number | null;
+}
+
 interface DetailedStats {
   channels: {
     total: number;
@@ -32,20 +90,21 @@ interface DetailedStats {
     inactive: number;
     byGroup: Array<{ _id: string; count: number }> | Record<string, number>;
   };
-  users: { total: number; active: number };
+  users: { total: number; active: number; recent: RecentUser[] };
   sessions: {
     total: number;
     active: number;
+    activeSessions: ActiveSession[];
     byLocation?: Array<{ _id: string; count: number }>;
   };
-  pairings: { total: number; pending: number; completed: number; today: number };
+  pairings: {
+    total: number;
+    pending: number;
+    completed: number;
+    today: number;
+    recent: RecentPairing[];
+  };
   appVersions: { total: number; latest: string | null };
-  activity?: Array<{
-    type: string;
-    title: string;
-    description: string;
-    timestamp: string;
-  }>;
 }
 
 interface TrendPoint {
@@ -73,21 +132,30 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function timeAgo(timestamp: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(timestamp).getTime()) / 1000
-  );
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+function timeAgo(ts: string | null | undefined): string {
+  if (!ts) return '—';
+  const sec = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (isNaN(sec)) return '—';
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatMs(ms: number | null): string {
+  if (ms == null) return '—';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatSourceName(id: string): string {
+  return id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function normalizeByGroup(
-  byGroup: Array<{ _id: string; count: number }> | Record<string, number>
+  byGroup: Array<{ _id: string; count: number }> | Record<string, number>,
 ): Array<{ name: string; value: number }> {
   if (Array.isArray(byGroup)) {
     return byGroup.map((g) => ({
@@ -117,21 +185,13 @@ function StatCard({
       </div>
       <div>
         <p className="text-2xl font-display font-bold tabular-nums">{value}</p>
-        <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
       </div>
     </div>
   );
 }
 
-function ChartCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border border-border">
       <div className="px-4 py-2 bg-muted/50 border-b border-border">
@@ -202,17 +262,11 @@ function TrendChart({
       </div>
       <div className="p-4">
         {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No data for this period
-          </p>
+          <p className="text-sm text-muted-foreground text-center py-8">No data for this period</p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={formatted}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
@@ -252,18 +306,25 @@ export default function StatsPage() {
   const [sessionTrend, setSessionTrend] = useState<TrendPoint[]>([]);
   const [pairingTrend, setPairingTrend] = useState<TrendPoint[]>([]);
 
+  const [streamHealth, setStreamHealth] = useState<StreamHealthData | null>(null);
+  const [schedulerTasks, setSchedulerTasks] = useState<SchedulerTask[]>([]);
+
   const [userRange, setUserRange] = useState<TimeRange>('30d');
   const [sessionRange, setSessionRange] = useState<TimeRange>('30d');
   const [pairingRange, setPairingRange] = useState<TimeRange>('30d');
 
   useEffect(() => {
     const controller = new AbortController();
-    async function fetchStats() {
+    async function fetchAll() {
       try {
-        const res = await api.get('/admin/stats/detailed', {
-          signal: controller.signal,
-        });
-        const d = res.data?.data || res.data;
+        const [detailedRes, healthRes, schedulerRes] = await Promise.all([
+          api.get('/admin/stats/detailed', { signal: controller.signal }),
+          api.get('/admin/stats/stream-health', { signal: controller.signal }).catch(() => null),
+          api.get('/admin/stats/scheduler', { signal: controller.signal }).catch(() => null),
+        ]);
+        if (controller.signal.aborted) return;
+
+        const d = detailedRes.data?.data || detailedRes.data;
         setStats({
           channels: {
             total: d.channels?.total ?? 0,
@@ -271,10 +332,15 @@ export default function StatsPage() {
             inactive: d.channels?.inactive ?? 0,
             byGroup: d.channels?.byGroup || [],
           },
-          users: { total: d.users?.total ?? 0, active: d.users?.active ?? 0 },
+          users: {
+            total: d.users?.total ?? 0,
+            active: d.users?.active ?? 0,
+            recent: d.users?.recent || [],
+          },
           sessions: {
             total: d.sessions?.total ?? 0,
             active: d.sessions?.active ?? 0,
+            activeSessions: d.sessions?.activeSessions || [],
             byLocation: d.sessions?.byLocation || [],
           },
           pairings: {
@@ -282,39 +348,37 @@ export default function StatsPage() {
             pending: d.pairings?.pending ?? 0,
             completed: d.pairings?.completed ?? 0,
             today: d.pairings?.todayCount ?? d.pairings?.today ?? 0,
+            recent: d.pairings?.recent || [],
           },
           appVersions: {
             total: d.app?.totalVersions ?? d.appVersions?.total ?? 0,
             latest: d.app?.latestVersion ?? d.appVersions?.latest ?? null,
           },
-          activity: d.activity || [],
         });
+
+        if (healthRes) setStreamHealth(healthRes.data?.data || null);
+        if (schedulerRes) setSchedulerTasks(schedulerRes.data?.data || []);
       } catch {
+        if (controller.signal.aborted) return;
         setError('Failed to load statistics');
       } finally {
         setLoading(false);
       }
     }
-    fetchStats();
+    fetchAll();
     return () => controller.abort();
   }, []);
 
   const fetchTrend = useCallback(
-    async (
-      type: string,
-      range: TimeRange,
-      setter: (d: TrendPoint[]) => void
-    ) => {
+    async (type: string, range: TimeRange, setter: (d: TrendPoint[]) => void) => {
       try {
-        const res = await api.get(
-          `/admin/stats/trends/${type}?range=${range}`
-        );
+        const res = await api.get(`/admin/stats/trends/${type}?range=${range}`);
         setter(res.data?.data || []);
       } catch {
         setter([]);
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -353,50 +417,26 @@ export default function StatsPage() {
     name: l._id || 'Unknown',
     value: l.count,
   }));
-  const activities = stats?.activity || [];
-
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
-          Statistics
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          System metrics and trends
-        </p>
+        <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">Statistics</h1>
+        <p className="text-sm text-muted-foreground mt-1">System metrics and trends</p>
       </div>
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Channels"
-          value={stats?.channels.total ?? 0}
-          icon={Tv}
-        />
-        <StatCard
-          label="Total Users"
-          value={stats?.users.total ?? 0}
-          icon={Users}
-        />
-        <StatCard
-          label="Active Sessions"
-          value={stats?.sessions.active ?? 0}
-          icon={Activity}
-        />
-        <StatCard
-          label="Pairings Today"
-          value={stats?.pairings.today ?? 0}
-          icon={Smartphone}
-        />
+        <StatCard label="Total Channels" value={stats?.channels.total ?? 0} icon={Tv} />
+        <StatCard label="Total Users" value={stats?.users.total ?? 0} icon={Users} />
+        <StatCard label="Active Sessions" value={stats?.sessions.active ?? 0} icon={Activity} />
+        <StatCard label="Pairings Today" value={stats?.pairings.today ?? 0} icon={Smartphone} />
       </div>
 
       {/* Charts row: Pie + Bar */}
       <div className="grid md:grid-cols-2 gap-6">
         <ChartCard title="Channels by Group">
           {channelGroups.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No channel data
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-8">No channel data</p>
           ) : (
             <div className="flex flex-col items-center">
               <ResponsiveContainer width="100%" height={240}>
@@ -413,10 +453,7 @@ export default function StatsPage() {
                     strokeWidth={2}
                   >
                     {channelGroups.map((_entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      />
+                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
@@ -431,12 +468,8 @@ export default function StatsPage() {
                         backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
                       }}
                     />
-                    <span className="text-muted-foreground truncate max-w-[120px]">
-                      {g.name}
-                    </span>
-                    <span className="font-display font-bold tabular-nums">
-                      {g.value}
-                    </span>
+                    <span className="text-muted-foreground truncate max-w-[120px]">{g.name}</span>
+                    <span className="font-display font-bold tabular-nums">{g.value}</span>
                   </div>
                 ))}
               </div>
@@ -446,16 +479,10 @@ export default function StatsPage() {
 
         <ChartCard title="Sessions by Location">
           {locationData.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No location data
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-8">No location data</p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart
-                data={locationData}
-                layout="vertical"
-                margin={{ left: 10, right: 20 }}
-              >
+              <BarChart data={locationData} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="hsl(var(--border))"
@@ -483,11 +510,7 @@ export default function StatsPage() {
                   width={100}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar
-                  dataKey="value"
-                  fill="hsl(220, 60%, 50%)"
-                  radius={[0, 2, 2, 0]}
-                />
+                <Bar dataKey="value" fill="hsl(220, 60%, 50%)" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -526,25 +549,6 @@ export default function StatsPage() {
           />
         </div>
       </div>
-
-      {/* Activity timeline */}
-      {activities.length > 0 && (
-        <ChartCard title="Recent Activity">
-          <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-            {activities.map((a, i) => (
-              <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="mt-0.5 h-2 w-2 rounded-full bg-primary shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm truncate">{a.description}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {timeAgo(a.timestamp)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      )}
 
       {/* Summary table */}
       <div className="grid sm:grid-cols-2 gap-6">
@@ -597,6 +601,299 @@ export default function StatsPage() {
             </div>
           </dl>
         </div>
+      </div>
+
+      {/* Stream Health */}
+      {streamHealth && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Radio className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Stream Health
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Local channels */}
+            <div className="border border-border">
+              <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                <h3 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Local Channels
+                </h3>
+              </div>
+              <div className="p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Working</span>
+                  <span className="font-display font-bold tabular-nums text-[hsl(var(--signal-green))]">
+                    {streamHealth.channels.working}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Failing</span>
+                  <span className="font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                    {streamHealth.channels.failing}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Untested</span>
+                  <span className="font-display font-bold tabular-nums">
+                    {streamHealth.channels.untested}
+                  </span>
+                </div>
+                {streamHealth.channels.avgResponseTime != null && (
+                  <div className="flex items-center justify-between text-sm pt-1 border-t border-border">
+                    <span className="text-muted-foreground">Avg Response</span>
+                    <span className="font-display font-bold tabular-nums">
+                      {formatMs(streamHealth.channels.avgResponseTime)}
+                    </span>
+                  </div>
+                )}
+                {streamHealth.channels.total > 0 && (
+                  <div className="h-2 flex mt-2 overflow-hidden">
+                    <div
+                      className="bg-[hsl(var(--signal-green))]"
+                      style={{
+                        width: `${(streamHealth.channels.working / streamHealth.channels.total) * 100}%`,
+                      }}
+                    />
+                    <div
+                      className="bg-[hsl(var(--signal-red))]"
+                      style={{
+                        width: `${(streamHealth.channels.failing / streamHealth.channels.total) * 100}%`,
+                      }}
+                    />
+                    <div
+                      className="bg-muted"
+                      style={{
+                        width: `${(streamHealth.channels.untested / streamHealth.channels.total) * 100}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* External sources */}
+            {streamHealth.external.map((src) => (
+              <div key={src._id} className="border border-border">
+                <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                  <h3 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                    {formatSourceName(src._id)}
+                  </h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Alive</span>
+                    <span className="font-display font-bold tabular-nums text-[hsl(var(--signal-green))]">
+                      {src.alive}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Dead</span>
+                    <span className="font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                      {src.dead}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Unknown</span>
+                    <span className="font-display font-bold tabular-nums">{src.unknown}</span>
+                  </div>
+                  {src.avgResponseTime != null && (
+                    <div className="flex items-center justify-between text-sm pt-1 border-t border-border">
+                      <span className="text-muted-foreground">Avg Response</span>
+                      <span className="font-display font-bold tabular-nums">
+                        {formatMs(src.avgResponseTime)}
+                      </span>
+                    </div>
+                  )}
+                  {src.total > 0 && (
+                    <div className="h-2 flex mt-2 overflow-hidden">
+                      <div
+                        className="bg-[hsl(var(--signal-green))]"
+                        style={{ width: `${(src.alive / src.total) * 100}%` }}
+                      />
+                      <div
+                        className="bg-[hsl(var(--signal-red))]"
+                        style={{ width: `${(src.dead / src.total) * 100}%` }}
+                      />
+                      <div
+                        className="bg-muted"
+                        style={{ width: `${(src.unknown / src.total) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Scheduler Task History */}
+      {schedulerTasks.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Scheduler Tasks
+            </h2>
+          </div>
+          <div className="border border-border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="px-4 py-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                    Task
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                    Last Status
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                    Last Run
+                  </th>
+                  <th className="px-4 py-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden md:table-cell">
+                    Duration
+                  </th>
+                  <th className="px-4 py-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden lg:table-cell">
+                    Success Rate
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {schedulerTasks.map((task) => {
+                  const rate =
+                    task.totalRuns > 0 ? Math.round((task.completed / task.totalRuns) * 100) : null;
+                  return (
+                    <tr key={task.taskName}>
+                      <td className="px-4 py-2.5 font-medium truncate max-w-[200px]">
+                        {task.taskName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 text-xs uppercase tracking-[0.1em] ${
+                            task.lastStatus === 'completed'
+                              ? 'bg-[hsl(var(--signal-green))]/15 text-[hsl(var(--signal-green))]'
+                              : task.lastStatus === 'failed'
+                                ? 'bg-[hsl(var(--signal-red))]/15 text-[hsl(var(--signal-red))]'
+                                : task.lastStatus === 'running'
+                                  ? 'bg-primary/15 text-primary'
+                                  : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {task.lastStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
+                        {task.lastStartedAt ? timeAgo(task.lastStartedAt) : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-display tabular-nums hidden md:table-cell">
+                        {formatMs(task.lastDurationMs)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-display tabular-nums hidden lg:table-cell">
+                        {rate != null ? `${rate}%` : '—'}
+                        {task.totalRuns > 0 && (
+                          <span className="text-muted-foreground text-xs ml-1">
+                            ({task.completed}/{task.totalRuns})
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Users / Active Sessions / Recent Pairings */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent Users */}
+        <ChartCard title="Recent Users">
+          {(stats?.users.recent?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No recent users</p>
+          ) : (
+            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+              {stats?.users.recent.slice(0, 8).map((u, i) => (
+                <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="h-7 w-7 flex items-center justify-center bg-primary/10 text-primary shrink-0">
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{u.username}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {timeAgo(u.createdAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ChartCard>
+
+        {/* Active Sessions */}
+        <ChartCard title="Active Sessions">
+          {(stats?.sessions.activeSessions?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No active sessions</p>
+          ) : (
+            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+              {stats?.sessions.activeSessions.slice(0, 8).map((s, i) => (
+                <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="h-7 w-7 flex items-center justify-center bg-[hsl(var(--signal-green))]/10 text-[hsl(var(--signal-green))] shrink-0">
+                    <Monitor className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{s.username}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {s.location && s.location !== 'Unknown'
+                        ? s.location
+                        : s.ipAddress || 'Unknown'}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {timeAgo(s.lastActivity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ChartCard>
+
+        {/* Recent Pairings */}
+        <ChartCard title="Recent Pairings">
+          {(stats?.pairings.recent?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No recent pairings</p>
+          ) : (
+            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+              {stats?.pairings.recent.slice(0, 8).map((p, i) => (
+                <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="h-7 w-7 flex items-center justify-center bg-primary/10 text-primary shrink-0">
+                    <Smartphone className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {p.deviceName || p.deviceModel || 'Unknown Device'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {p.username || 'Unpaired'}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 uppercase tracking-[0.1em] shrink-0 ${
+                      p.status === 'completed'
+                        ? 'bg-[hsl(var(--signal-green))]/15 text-[hsl(var(--signal-green))]'
+                        : p.status === 'pending'
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ChartCard>
       </div>
     </div>
   );

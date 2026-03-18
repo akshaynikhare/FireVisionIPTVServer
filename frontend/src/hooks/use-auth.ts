@@ -8,9 +8,7 @@ import api from '@/lib/api';
 export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const router = useRouter();
   const { user, sessionId, setUser } = useAuthStore();
-  const [hydrated, setHydrated] = useState(() =>
-    typeof window !== 'undefined' ? (useAuthStore.persist?.hasHydrated?.() ?? false) : false,
-  );
+  const [hydrated, setHydrated] = useState(false);
   const validated = useRef(false);
 
   useEffect(() => {
@@ -18,16 +16,16 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
     const unsub = useAuthStore.persist?.onFinishHydration?.(() => {
       setHydrated(true);
     });
+    if (useAuthStore.persist?.hasHydrated?.()) {
+      setHydrated(true);
+    }
     return () => unsub?.();
   }, [hydrated]);
 
-  // Validate session with backend on page load and sync emailVerified
   useEffect(() => {
     if (!hydrated || validated.current) return;
     if (!user || !sessionId) return;
-
     validated.current = true;
-
     api
       .get('/auth/me')
       .then((res) => {
@@ -38,23 +36,19 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
       })
       .catch(() => {
         // 401 is handled by the response interceptor (calls logout + redirects)
-        // Other errors are transient — don't log the user out
       });
   }, [hydrated, user, sessionId, setUser]);
 
   useEffect(() => {
     if (!hydrated) return;
-
     if (!user || !sessionId) {
       router.replace('/login');
       return;
     }
-
     if (user.emailVerified === false) {
       router.replace('/verify-email');
       return;
     }
-
     if (requiredRole && user.role !== requiredRole) {
       router.replace(user.role === 'Admin' ? '/admin' : '/user');
       return;

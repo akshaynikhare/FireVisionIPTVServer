@@ -9,6 +9,8 @@ const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { audit } = require('../services/audit-log');
 const AuditLog = require('../models/AuditLog');
+const { ExternalSourceChannel } = require('../models/ExternalSourceCache');
+const { ScheduledTaskRun } = require('../models/ScheduledTaskRun');
 
 // Apply session authentication and admin role check to all admin routes
 router.use(requireAuth);
@@ -608,7 +610,9 @@ router.get('/stats/trends/:type', async (req, res) => {
         dateField = 'createdAt';
         break;
       default:
-        return res.status(400).json({ success: false, error: 'Invalid trend type. Use: users, sessions, pairings' });
+        return res
+          .status(400)
+          .json({ success: false, error: 'Invalid trend type. Use: users, sessions, pairings' });
     }
 
     const pipeline = [
@@ -645,6 +649,117 @@ router.get('/stats/trends/:type', async (req, res) => {
   } catch (error) {
     console.error('Error fetching trend stats:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch trend statistics' });
+  }
+});
+
+// ============ STREAM HEALTH ============
+
+router.get('/stats/stream-health', async (req, res) => {
+  try {
+    // Channel health (local channels)
+    const [channelHealth] = await Channel.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          working: { $sum: { $cond: [{ $eq: ['$metadata.isWorking', true] }, 1, 0] } },
+          failing: { $sum: { $cond: [{ $eq: ['$metadata.isWorking', false] }, 1, 0] } },
+          untested: {
+            $sum: { $cond: [{ $eq: ['$metadata.isWorking', null] }, 1, 0] },
+          },
+          avgResponseTime: { $avg: '$metadata.responseTime' },
+        },
+      },
+    ]);
+
+    // External source health (aggregated per source)
+    const externalHealth = await ExternalSourceChannel.aggregate([
+      {
+        $group: {
+          _id: '$source',
+          total: { $sum: 1 },
+          alive: { $sum: { $cond: [{ $eq: ['$liveness.status', 'alive'] }, 1, 0] } },
+          dead: { $sum: { $cond: [{ $eq: ['$liveness.status', 'dead'] }, 1, 0] } },
+          unknown: { $sum: { $cond: [{ $eq: ['$liveness.status', 'unknown'] }, 1, 0] } },
+          avgResponseTime: { $avg: '$liveness.responseTimeMs' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        channels: channelHealth || {
+          total: 0,
+          working: 0,
+          failing: 0,
+          untested: 0,
+          avgResponseTime: null,
+        },
+        external: externalHealth,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching stream health:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stream health' });
+  }
+});
+
+// ============ SCHEDULER HISTORY ============
+
+router.get('/stats/scheduler', async (req, res) => {
+  try {
+    // Get the most recent run for each task
+    const latestRuns = await ScheduledTaskRun.aggregate([
+      { $sort: { startedAt: -1 } },
+      {
+        $group: {
+          _id: '$taskName',
+          lastRun: { $first: '$$ROOT' },
+        },
+      },
+      { $replaceRoot: { newRoot: '$lastRun' } },
+      { $sort: { startedAt: -1 } },
+    ]);
+
+    // Get success/fail counts per task (last 50 runs each)
+    const taskStats = await ScheduledTaskRun.aggregate([
+      { $sort: { startedAt: -1 } },
+      {
+        $group: {
+          _id: '$taskName',
+          totalRuns: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
+          avgDuration: { $avg: '$durationMs' },
+        },
+      },
+    ]);
+
+    const statsMap = {};
+    taskStats.forEach((s) => {
+      statsMap[s._id] = {
+        totalRuns: s.totalRuns,
+        completed: s.completed,
+        failed: s.failed,
+        avgDuration: s.avgDuration,
+      };
+    });
+
+    const tasks = latestRuns.map((run) => ({
+      taskName: run.taskName,
+      lastStatus: run.status,
+      lastStartedAt: run.startedAt,
+      lastDurationMs: run.durationMs,
+      lastError: run.error,
+      ...(statsMap[run.taskName] || {}),
+    }));
+
+    res.json({ success: true, data: tasks });
+  } catch (error) {
+    console.error('Error fetching scheduler stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch scheduler stats' });
   }
 });
 
