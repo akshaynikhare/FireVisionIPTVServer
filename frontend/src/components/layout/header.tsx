@@ -44,7 +44,7 @@ export function Header() {
 
   return (
     <header className="flex h-11 items-center justify-end border-b border-border bg-background px-4">
-      <div className="flex items-center gap-1">
+      <div className="relative inline-flex items-center gap-1.5">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="relative flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"

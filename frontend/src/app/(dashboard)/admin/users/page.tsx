@@ -335,7 +335,7 @@ export default function UsersPage() {
                 />
               ),
               cell: (u) => (
-                <div className="flex items-center gap-1.5">
+                <div className="relative inline-flex items-center gap-1.5">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-signal-green' : 'bg-signal-red'}`}
                     aria-hidden="true"
@@ -348,9 +348,12 @@ export default function UsersPage() {
             },
             {
               key: 'actions',
-              headerClassName:
-                'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right',
-              header: 'Actions',
+              headerClassName: 'text-right',
+              header: (
+                <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Actions
+                </span>
+              ),
               cell: (u) => (
                 <div className="flex items-center justify-end gap-1">
                   <button

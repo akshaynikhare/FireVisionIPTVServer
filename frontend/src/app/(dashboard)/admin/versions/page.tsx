@@ -219,7 +219,7 @@ export default function VersionsPage() {
                     {v.releasedAt && <span>{new Date(v.releasedAt).toLocaleDateString()}</span>}
                     {v.apkFileSize && <span>{formatBytes(v.apkFileSize)}</span>}
                     {v.releaseNotes && (
-                      <span className="flex items-center gap-1">
+                      <span className="relative inline-flex items-center gap-1.5">
                         <FileText className="h-3 w-3" /> Has notes
                       </span>
                     )}

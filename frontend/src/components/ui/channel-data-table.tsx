@@ -75,8 +75,8 @@ export default function ChannelDataTable<T>({
     ...columns,
     {
       key: 'actions',
-      headerClassName: `${HEADER_TEXT} text-right`,
-      header: 'Actions',
+      headerClassName: `text-right`,
+      header: <span className={HEADER_TEXT}>Actions</span>,
       cell: (item) => <ChannelRowActions {...getActions(item)} />,
     },
   ];

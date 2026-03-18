@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import { Eye, Play, TestTube, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Eye, Play, Zap, Pencil, Trash2, Loader2 } from 'lucide-react';
 
 interface ChannelRowActionsProps {
   onDetail?: () => void;
@@ -52,11 +52,7 @@ export default function ChannelRowActions({
           className={`${btnBase} hover:text-primary disabled:opacity-50`}
           aria-label="Test stream"
         >
-          {testing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <TestTube className="h-4 w-4" />
-          )}
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
         </button>
       )}
       {onEdit && (

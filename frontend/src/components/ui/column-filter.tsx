@@ -107,7 +107,7 @@ export default function ColumnFilter({
   }
 
   return (
-    <div ref={containerRef} className="relative inline-flex items-center gap-1">
+    <div ref={containerRef} className="relative inline-flex items-center gap-1.5">
       {label && (
         <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
           {label}
@@ -118,7 +118,7 @@ export default function ColumnFilter({
           setOpen((prev) => !prev);
           setFilterSearch('');
         }}
-        className={`flex items-center justify-center h-10 w-10 rounded-sm transition-colors ${
+        className={`flex items-center justify-center rounded-sm transition-colors ${
           isActive
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground/50 hover:text-muted-foreground'

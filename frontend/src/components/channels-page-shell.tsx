@@ -7,7 +7,6 @@ import {
   Plus,
   Upload,
   X,
-  TestTube,
   Download,
   Check,
   Zap,
@@ -265,10 +264,10 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
   // Init
   useEffect(() => {
+    setOrigin(window.location.origin);
     if (isAdmin) {
       refreshFilterOptions();
     } else {
-      setOrigin(window.location.origin);
       fetchMyChannels();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -543,16 +542,25 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     setImportLoading(true);
     setImportResult('');
     try {
-      const res = await api.post('/admin/channels/import-m3u', {
-        m3uContent: importContent,
-        clearExisting: importClear,
-      });
+      const endpoint = isAdmin ? '/admin/channels/import-m3u' : '/user-playlist/me/import-m3u';
+      const payload = isAdmin
+        ? { m3uContent: importContent, clearExisting: importClear }
+        : { m3uContent: importContent };
+      const res = await api.post(endpoint, payload);
       const data = res.data;
-      setImportResult(`Imported ${data.imported || data.count || 0} channels`);
+      setImportResult(
+        isAdmin
+          ? `Imported ${data.imported || data.count || 0} channels`
+          : `Added ${data.added || data.count || 0} channels to your list`,
+      );
       setImportContent('');
       setImportClear(false);
-      fetchChannels();
-      refreshFilterOptions();
+      if (isAdmin) {
+        fetchChannels();
+        refreshFilterOptions();
+      } else {
+        fetchMyChannels();
+      }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       setImportResult(axiosErr.response?.data?.error || 'Import failed');
@@ -611,6 +619,55 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     } finally {
       setTestingAll(false);
     }
+  }
+
+  async function handleTestAllUser() {
+    const toTest = userPaginated.length > 0 ? userPaginated : channels.slice(0, PAGE_SIZE);
+    if (toTest.length === 0) return;
+    setTestingAll(true);
+    setTestResults(null);
+    let working = 0;
+    let failed = 0;
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < toTest.length; i += BATCH_SIZE) {
+      const batch = toTest.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (ch) => {
+          const res = await api.post(`/channels/${ch._id}/test`);
+          return { ch, result: res.data.data || res.data };
+        }),
+      );
+
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          const { ch, result } = r.value;
+          const isWorking = result.isWorking ?? result.working;
+          if (isWorking) working++;
+          else failed++;
+          setChannels((prev) =>
+            prev.map((c) =>
+              c._id === ch._id
+                ? {
+                    ...c,
+                    metadata: {
+                      ...c.metadata,
+                      isWorking,
+                      lastTested: new Date().toISOString(),
+                      responseTime: result.responseTime,
+                    },
+                  }
+                : c,
+            ),
+          );
+        } else {
+          failed++;
+        }
+      }
+    }
+
+    setTestResults({ working, failed });
+    setTestingAll(false);
   }
 
   // User: Add from system
@@ -747,16 +804,30 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             />
           ),
           cell: (c) => (
-            <StatusDot
-              status={
-                c.metadata?.isWorking === true
-                  ? 'alive'
-                  : c.metadata?.isWorking === false
-                    ? 'dead'
-                    : 'untested'
-              }
-              size="sm"
-            />
+            <div className="inline-flex items-center gap-1.5">
+              {testing === c._id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              ) : (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'alive'
+                      : c.metadata?.isWorking === false
+                        ? 'dead'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              )}
+              <button
+                onClick={() => handleTestOne(c)}
+                disabled={testing === c._id}
+                className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                title="Test stream"
+              >
+                <Zap className="h-3 w-3" />
+              </button>
+            </div>
           ),
         },
       ]
@@ -766,10 +837,10 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           ariaSort:
             sortField === 'group' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
           header: (
-            <div className="flex items-center gap-1">
+            <div className="relative inline-flex items-center gap-1.5">
               <button
                 onClick={() => handleSort('group')}
-                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
               >
                 Group <SortIcon field="group" />
               </button>
@@ -797,16 +868,30 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             />
           ),
           cell: (c) => (
-            <StatusDot
-              status={
-                c.metadata?.isWorking === true
-                  ? 'working'
-                  : c.metadata?.isWorking === false
-                    ? 'not-working'
-                    : 'untested'
-              }
-              size="sm"
-            />
+            <div className="inline-flex items-center gap-1.5">
+              {testing === c._id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              ) : (
+                <StatusDot
+                  status={
+                    c.metadata?.isWorking === true
+                      ? 'working'
+                      : c.metadata?.isWorking === false
+                        ? 'not-working'
+                        : 'untested'
+                  }
+                  size="sm"
+                />
+              )}
+              <button
+                onClick={() => handleTestOne(c)}
+                disabled={testing === c._id}
+                className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                title="Test stream"
+              >
+                <Zap className="h-3 w-3" />
+              </button>
+            </div>
           ),
         },
       ];
@@ -824,66 +909,39 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
-            {isAdmin ? 'Channels' : 'My Channels'}
-          </h1>
+          <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Channels</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isAdmin ? `${totalCount} total channels` : `${channels.length} channels`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!isAdmin && (
-            <Link
-              href="/user/quick-pick"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
-            >
-              <Zap className="h-4 w-4" /> Quick Pick
-            </Link>
-          )}
-          {isAdmin ? (
-            <button
-              onClick={() => {
+          <Link
+            href={isAdmin ? '/admin/quick-pick' : '/user/quick-pick'}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
+          >
+            <Zap className="h-4 w-4" /> Quick Pick
+          </Link>
+          <button
+            onClick={() => {
+              if (isAdmin) {
                 setShowAdd(true);
                 setAddError('');
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" /> Add Channel
-            </button>
-          ) : (
-            <button
-              onClick={() => {
+              } else {
                 setShowAdd(!showAdd);
                 if (!showAdd && allChannels.length === 0) fetchAllChannels();
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" /> Add
-            </button>
-          )}
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => setShowImport(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
-              >
-                <Upload className="h-4 w-4" /> Import M3U
-              </button>
-              <button
-                onClick={handleTestAll}
-                disabled={testingAll}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
-              >
-                {testingAll ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <TestTube className="h-4 w-4" />
-                )}{' '}
-                Test All
-              </button>
-            </>
-          )}
-          {!isAdmin && channels.length > 0 && (
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Add Stream
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
+          >
+            <Upload className="h-4 w-4" /> Import M3U
+          </button>
+          {channels.length > 0 && (
             <button
               onClick={handleCopyM3U}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
@@ -893,22 +951,34 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              M3U
+              Export M3U
             </button>
           )}
+          <button
+            onClick={isAdmin ? handleTestAll : handleTestAllUser}
+            disabled={testingAll}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
+          >
+            {testingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            Test All
+          </button>
           {channels.length > 0 && (
             <button
               onClick={() => (isAdmin ? setShowBulkDelete(true) : handleBulkDelete())}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-destructive/30 bg-card shadow-sm transition-colors hover:border-destructive/60 text-destructive uppercase tracking-[0.1em]"
             >
-              <Trash2 className="h-4 w-4" /> {isAdmin ? 'Delete All' : 'Clear All'}
+              <Trash2 className="h-4 w-4" /> Delete All
             </button>
           )}
         </div>
       </div>
 
-      {/* Admin: Test results banner */}
-      {isAdmin && testResults && (
+      {/* Test results banner */}
+      {testResults && (
         <div className="border border-border bg-muted/50 px-4 py-3 text-sm flex items-center justify-between">
           <span>
             Test complete:{' '}
@@ -1007,18 +1077,31 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         ariaLabel="Search channels"
       />
 
-      {/* User: Info bar */}
-      {!isAdmin && (
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {filtered.length} channels
-          {filtered.length !== channels.length && ` (filtered from ${channels.length})`}
-        </p>
-      )}
+      {/* Stream health stats */}
+      {(() => {
+        const list = isAdmin ? channels : channels;
+        const working = list.filter((c) => c.metadata?.isWorking === true).length;
+        const notWorking = list.filter((c) => c.metadata?.isWorking === false).length;
+        const untested = list.length - working - notWorking;
+        return (
+          <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/50 border border-border text-xs">
+            <Zap className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-signal-green font-medium">{working} working</span>
+            <span className="text-signal-red font-medium">{notWorking} not working</span>
+            <span className="text-muted-foreground font-medium">{untested} untested</span>
+            {!isAdmin && filtered.length !== channels.length && (
+              <span className="text-muted-foreground">
+                (showing {filtered.length} of {channels.length})
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Channel List */}
       <ChannelDataTable<Channel>
         data={displayData}
-        gridTemplate={isAdmin ? '1fr 1fr 100px 100px 80px 140px' : '1fr 180px 100px 140px'}
+        gridTemplate={isAdmin ? '1fr 1fr 100px 100px 120px 110px' : '1fr 180px 130px 110px'}
         ariaLabel={isAdmin ? 'Channels table' : 'My channels table'}
         emptyMessage={
           debouncedSearch
@@ -1035,7 +1118,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           !isAdmin ? (
             <button
               onClick={() => handleSort('name')}
-              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+              className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
             >
               Name <SortIcon field="name" />
             </button>
@@ -1054,8 +1137,6 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         getActions={(c) => ({
           onDetail: () => setDetailChannel(c),
           onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
-          onTest: () => handleTestOne(c),
-          testing: testing === c._id,
           onEdit: isAdmin ? () => openEdit(c) : undefined,
           onDelete: () => handleDelete(c._id),
         })}
@@ -1351,52 +1432,52 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         />
       )}
 
-      {/* Admin: M3U Import Modal */}
-      {isAdmin && (
-        <Modal
-          open={showImport}
-          onClose={() => setShowImport(false)}
-          title="Import M3U Playlist"
-          size="lg"
-        >
-          <form onSubmit={handleImport} className="p-5 space-y-4">
-            {importResult && (
-              <div
-                className={`border px-3 py-2 text-sm ${importResult.startsWith('Imported') ? 'border-signal-green/40 bg-signal-green/10 text-signal-green' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
-              >
-                {importResult}
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                M3U Content
-              </label>
-              <textarea
-                value={importContent}
-                onChange={(e) => setImportContent(e.target.value)}
-                rows={10}
-                required
-                className="w-full border border-border bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary resize-y"
-                placeholder={
-                  '#EXTM3U\n#EXTINF:-1 tvg-name="Channel" group-title="Group",Channel Name\nhttp://stream.url/live'
-                }
-              />
+      {/* M3U Import Modal */}
+      <Modal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        title="Import M3U Playlist"
+        size="lg"
+      >
+        <form onSubmit={handleImport} className="p-5 space-y-4">
+          {importResult && (
+            <div
+              className={`border px-3 py-2 text-sm ${importResult.startsWith('Imported') || importResult.startsWith('Added') ? 'border-signal-green/40 bg-signal-green/10 text-signal-green' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}
+            >
+              {importResult}
             </div>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
-              >
-                <Upload className="h-4 w-4" /> Upload File
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".m3u,.m3u8"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
+          )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+              M3U Content
+            </label>
+            <textarea
+              value={importContent}
+              onChange={(e) => setImportContent(e.target.value)}
+              rows={10}
+              required
+              className="w-full border border-border bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary resize-y"
+              placeholder={
+                '#EXTM3U\n#EXTINF:-1 tvg-name="Channel" group-title="Group",Channel Name\nhttp://stream.url/live'
+              }
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+            >
+              <Upload className="h-4 w-4" /> Upload File
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".m3u,.m3u8"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            {isAdmin && (
               <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
@@ -1406,26 +1487,26 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                 />
                 Clear existing channels before import
               </label>
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="submit"
-                disabled={importLoading || !importContent.trim()}
-                className="inline-flex items-center px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                {importLoading ? 'Importing...' : 'Import'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowImport(false)}
-                className="px-6 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+            )}
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={importLoading || !importContent.trim()}
+              className="inline-flex items-center px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {importLoading ? 'Importing...' : 'Import'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImport(false)}
+              className="px-6 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

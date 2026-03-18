@@ -219,6 +219,23 @@ router.get('/api/languages', async (req, res) => {
   }
 });
 
+// Fetch distinct countries with channel counts from cached data
+router.get('/countries', async (req, res) => {
+  try {
+    const { IptvOrgChannel } = require('../models/IptvOrgCache');
+    const results = await IptvOrgChannel.aggregate([
+      { $match: { country: { $nin: [null, ''] } } },
+      { $group: { _id: '$country', channelCount: { $sum: 1 } } },
+      { $sort: { channelCount: -1 } },
+    ]);
+    const data = results.map((r) => ({ code: r._id, channelCount: r.channelCount }));
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    console.error('Error fetching IPTV-org countries:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch countries' });
+  }
+});
+
 // Fetch available playlists from IPTV-org
 router.get('/playlists', async (req, res) => {
   try {

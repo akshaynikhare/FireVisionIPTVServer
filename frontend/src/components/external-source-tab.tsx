@@ -11,6 +11,7 @@ interface ExternalSourceTabProps {
   sourceKey: string;
   sourceLabel: string;
   defaultRegion?: string;
+  topSlot?: ReactNode;
   children: (props: {
     channels: SourceChannel[];
     region: string;
@@ -22,6 +23,7 @@ export default function ExternalSourceTab({
   sourceKey,
   sourceLabel,
   defaultRegion = 'us',
+  topSlot,
   children,
 }: ExternalSourceTabProps) {
   const { toast } = useToast();
@@ -59,6 +61,8 @@ export default function ExternalSourceTab({
 
   return (
     <div className="space-y-4">
+      {topSlot}
+
       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Select Region</p>
 
       {regionsLoading ? (

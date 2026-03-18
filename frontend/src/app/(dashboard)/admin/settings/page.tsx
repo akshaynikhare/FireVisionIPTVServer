@@ -132,7 +132,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <dt className="text-sm text-muted-foreground">Status</dt>
-              <dd className="flex items-center gap-1.5">
+              <dd className="relative inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
                 <span className="text-sm font-medium capitalize">{info.status}</span>
               </dd>
@@ -248,7 +248,7 @@ export default function SettingsPage() {
                     <span className="text-xs text-muted-foreground">{entry.count} items</span>
                   )}
                   <span className="text-xs text-muted-foreground">{formatAge(entry.age)}</span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="relative inline-flex items-center gap-1.5">
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${entry.cached ? 'bg-signal-green' : 'bg-muted-foreground/30'}`}
                     />

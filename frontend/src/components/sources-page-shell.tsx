@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Tv, Monitor, Activity, Download } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Tv, Monitor, Zap, Download } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,9 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
   const { playStream } = useStreamPlayer();
   const [detailChannel, setDetailChannel] = useState<SourceChannel | null>(null);
   const selection = useBulkSelection();
+  const [statsData, setStatsData] = useState<{ stats: LivenessStats; inProgress: boolean } | null>(
+    null,
+  );
 
   const handlePlay = useCallback(
     (ch: SourceChannel) => {
@@ -101,6 +104,7 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
               onClick={() => {
                 setActiveTab(tab.id);
                 selection.unselectAll();
+                setStatsData(null);
               }}
               className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium uppercase tracking-[0.1em] transition-colors border-b-2 -mb-px ${
                 isActive
@@ -120,6 +124,11 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
           key={activeTab}
           sourceKey={activeTab}
           sourceLabel={TABS.find((t) => t.id === activeTab)!.label}
+          topSlot={
+            statsData ? (
+              <LivenessStatsBar stats={statsData.stats} inProgress={statsData.inProgress} />
+            ) : null
+          }
         >
           {({ channels, region, onChannelUpdate }) => (
             <SourceContent
@@ -131,6 +140,7 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
               onDetail={setDetailChannel}
               onChannelUpdate={onChannelUpdate}
               mode={mode}
+              onStatsChange={setStatsData}
             />
           )}
         </ExternalSourceTab>
@@ -164,6 +174,7 @@ function SourceContent({
   onDetail,
   onChannelUpdate,
   mode,
+  onStatsChange,
 }: {
   channels: SourceChannel[];
   source: SourceTab;
@@ -173,6 +184,7 @@ function SourceContent({
   onDetail: (ch: SourceChannel) => void;
   onChannelUpdate: (uid: string, liveness: ChannelLiveness) => void;
   mode: 'admin' | 'user';
+  onStatsChange: (data: { stats: LivenessStats; inProgress: boolean } | null) => void;
 }) {
   const { toast } = useToast();
   const [importing, setImporting] = useState(false);
@@ -183,6 +195,24 @@ function SourceContent({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isAdmin = mode === 'admin';
+
+  const channelStats = useMemo(() => {
+    if (channels.length === 0) return null;
+    const alive = channels.filter((c) => c.liveness?.status === 'alive').length;
+    const dead = channels.filter((c) => c.liveness?.status === 'dead').length;
+    const unknown = channels.length - alive - dead;
+    return { alive, dead, unknown };
+  }, [channels]);
+
+  const displayStats = isAdmin ? livenessStats : channelStats;
+
+  useEffect(() => {
+    if (displayStats) {
+      onStatsChange({ stats: displayStats, inProgress: batchTesting });
+    } else {
+      onStatsChange(null);
+    }
+  }, [displayStats, batchTesting, onStatsChange]);
 
   const fetchLivenessStats = useCallback(async () => {
     if (!isAdmin || !source || !region) return;
@@ -286,29 +316,12 @@ function SourceContent({
       selection={selection}
       onPlay={onPlay}
       onDetail={onDetail}
-      showLiveness={isAdmin}
+      showLiveness
       onTestChannel={handleTestChannel}
-      headerSlot={
-        isAdmin && livenessStats ? (
-          <LivenessStatsBar stats={livenessStats} inProgress={batchTesting} />
-        ) : null
-      }
       toolbarActions={
         <>
           {isAdmin && (
             <>
-              <button
-                onClick={handleBatchLivenessCheck}
-                disabled={batchTesting}
-                className="inline-flex items-center gap-2 px-4 py-2.5 h-10 text-sm font-medium border border-border bg-card text-foreground uppercase tracking-[0.1em] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {batchTesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Activity className="h-4 w-4" />
-                )}
-                {batchTesting ? 'Checking...' : 'Check Liveness'}
-              </button>
               <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
@@ -318,6 +331,18 @@ function SourceContent({
                 />
                 Replace existing
               </label>
+              <button
+                onClick={handleBatchLivenessCheck}
+                disabled={batchTesting}
+                className="inline-flex items-center gap-2 px-4 py-2.5 h-10 text-sm font-medium border border-border bg-card text-foreground uppercase tracking-[0.1em] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {batchTesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                {batchTesting ? 'Checking...' : 'Check Liveness'}
+              </button>
             </>
           )}
           <button

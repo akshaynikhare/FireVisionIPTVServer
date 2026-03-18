@@ -11,7 +11,6 @@ import {
   ArrowDown,
   CheckSquare,
   Square,
-  Activity,
   Zap,
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -26,6 +25,7 @@ import SearchInput from '@/components/ui/search-input';
 import SelectionToolbar from '@/components/ui/selection-toolbar';
 import StatusDot from '@/components/ui/status-dot';
 import ChannelLogo from '@/components/ui/channel-logo';
+import LivenessStatsBar from '@/components/ui/liveness-stats-bar';
 import ChannelDetailModal, { type ChannelField } from '@/components/channel-detail-modal';
 import ChannelRowActions from '@/components/ui/channel-row-actions';
 import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
@@ -95,6 +95,30 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
 
+  // Region selector
+  const [regions, setRegions] = useState<{ code: string; channelCount: number }[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [showAllRegions, setShowAllRegions] = useState(false);
+
+  const regionDisplayNames = useMemo(() => {
+    const dn = (() => {
+      try {
+        return new Intl.DisplayNames(['en'], { type: 'region' });
+      } catch {
+        return null;
+      }
+    })();
+    return Object.fromEntries(
+      regions.map((r) => {
+        try {
+          return [r.code, dn?.of(r.code) || r.code];
+        } catch {
+          return [r.code, r.code];
+        }
+      }),
+    );
+  }, [regions]);
+
   // Datatable state
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
@@ -145,17 +169,21 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   );
 
   useEffect(() => {
-    async function fetchPlaylists() {
+    async function fetchInitial() {
       try {
-        const res = await api.get('/iptv-org/playlists');
-        setPlaylists(res.data.data || []);
+        const [playlistRes, regionRes] = await Promise.all([
+          api.get('/iptv-org/playlists'),
+          api.get('/iptv-org/countries'),
+        ]);
+        setPlaylists(playlistRes.data.data || []);
+        setRegions(regionRes.data.data || []);
       } catch {
         // ignore
       } finally {
         setLoading(false);
       }
     }
-    fetchPlaylists();
+    fetchInitial();
     if (isAdmin) fetchLivenessStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
@@ -170,8 +198,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     }
   }
 
-  async function handleSelectPlaylist(playlist: Playlist) {
-    setSelectedPlaylist(playlist.id);
+  function resetTableState() {
     setFetchingChannels(true);
     setChannels([]);
     unselectAll();
@@ -181,6 +208,28 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     setSelectedCategories([]);
     setSelectedLanguages([]);
     setSelectedCountries([]);
+  }
+
+  async function handleSelectRegion(code: string) {
+    setSelectedRegion(code);
+    setSelectedPlaylist(null);
+    resetTableState();
+
+    try {
+      const params = new URLSearchParams();
+      params.set('country', code);
+      await fetchChannelsFromApi(params);
+    } catch {
+      toast('Failed to fetch channels', 'error');
+    } finally {
+      setFetchingChannels(false);
+    }
+  }
+
+  async function handleSelectPlaylist(playlist: Playlist) {
+    setSelectedPlaylist(playlist.id);
+    setSelectedRegion(null);
+    resetTableState();
 
     try {
       const params = new URLSearchParams();
@@ -197,19 +246,23 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
         if (playlist.categories?.length) params.set('category', playlist.categories.join(','));
       }
 
-      const res = await api.get(`/iptv-org/fetch?${params.toString()}`);
-      const data = (res.data.data || []).map((ch: Omit<EnrichedChannel, '_uid'>, i: number) => ({
-        ...ch,
-        _uid: String(i),
-      }));
-      setChannels(data);
-      if (!isAdmin) {
-        selectMany(data.map((c: EnrichedChannel) => c._uid));
-      }
+      await fetchChannelsFromApi(params);
     } catch {
       toast('Failed to fetch channels', 'error');
     } finally {
       setFetchingChannels(false);
+    }
+  }
+
+  async function fetchChannelsFromApi(params: URLSearchParams) {
+    const res = await api.get(`/iptv-org/fetch?${params.toString()}`);
+    const data = (res.data.data || []).map((ch: Omit<EnrichedChannel, '_uid'>, i: number) => ({
+      ...ch,
+      _uid: String(i),
+    }));
+    setChannels(data);
+    if (!isAdmin) {
+      selectMany(data.map((c: EnrichedChannel) => c._uid));
     }
   }
 
@@ -281,15 +334,11 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
         selected: selectedCountries,
         allOptions: countryOptions,
       },
-      ...(isAdmin
-        ? [
-            {
-              accessor: (c: EnrichedChannel) => c.liveness?.status || 'unknown',
-              selected: selectedStatuses,
-              allOptions: ['alive', 'dead', 'unknown'],
-            },
-          ]
-        : []),
+      {
+        accessor: (c: EnrichedChannel) => c.liveness?.status || 'unknown',
+        selected: selectedStatuses,
+        allOptions: ['alive', 'dead', 'unknown'],
+      },
     ],
     [
       selectedCategories,
@@ -299,7 +348,6 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
       selectedCountries,
       countryOptions,
       selectedStatuses,
-      isAdmin,
     ],
   );
 
@@ -460,6 +508,18 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     }
   }
 
+  // Client-side liveness stats (used for user mode)
+  const channelLivenessStats = useMemo(() => {
+    if (channels.length === 0) return null;
+    const alive = channels.filter((c) => c.liveness?.status === 'alive').length;
+    const dead = channels.filter((c) => c.liveness?.status === 'dead').length;
+    const unknown = channels.length - alive - dead;
+    return { alive, dead, unknown };
+  }, [channels]);
+
+  // Use server stats for admin (global), client-side stats for user (loaded channels)
+  const displayStats = isAdmin ? livenessStats : channelLivenessStats;
+
   // Detail modal fields
   const detailFields: ChannelField[] = detailChannel
     ? [
@@ -495,10 +555,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     );
   }
 
-  // Grid template: admin has status column
-  const gridTemplate = isAdmin
-    ? '40px 44px 1fr 160px 100px 120px 80px 100px'
-    : '40px 44px 1fr 160px 100px 120px 100px';
+  const gridTemplate = '40px 44px 1fr 160px 100px 120px 80px 100px';
 
   return (
     <div className="space-y-6">
@@ -514,62 +571,60 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
               : 'Auto-fetch channels from iptv-org.github.io'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
+        {isAdmin && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleBatchLivenessCheck}
-              disabled={batchTesting}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
+              onClick={handleClearCache}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
             >
-              {batchTesting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Activity className="h-4 w-4" />
-              )}
-              {batchTesting ? 'Checking...' : 'Check Liveness'}
+              <RefreshCw className="h-4 w-4" /> Clear Cache
             </button>
-          )}
-          <button
-            onClick={handleClearCache}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
-          >
-            <RefreshCw className="h-4 w-4" /> Clear Cache
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Liveness Stats (admin only) */}
-      {isAdmin && livenessStats && (
-        <div className="flex items-center gap-4 px-4 py-2.5 border border-border bg-card">
-          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Stream Health
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-xs">
-              <StatusDot status="alive" showLabel={false} size="md" />
-              <span className="font-medium">{livenessStats.alive}</span>
-              <span className="text-muted-foreground">alive</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-xs">
-              <StatusDot status="dead" showLabel={false} size="md" />
-              <span className="font-medium">{livenessStats.dead}</span>
-              <span className="text-muted-foreground">dead</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-xs">
-              <StatusDot status="unknown" showLabel={false} size="md" />
-              <span className="font-medium">{livenessStats.unknown}</span>
-              <span className="text-muted-foreground">unknown</span>
-            </span>
+      {displayStats && <LivenessStatsBar stats={displayStats} inProgress={batchTesting} />}
+
+      {regions.length > 0 && (
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
+            Select Region
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(showAllRegions ? regions : regions.slice(0, 5)).map((r) => (
+              <button
+                key={r.code}
+                onClick={() => handleSelectRegion(r.code)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
+                  selectedRegion === r.code
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-card shadow-sm hover:border-primary/40'
+                }`}
+              >
+                {regionDisplayNames[r.code]}
+                <span className="text-muted-foreground text-xs">({r.channelCount})</span>
+              </button>
+            ))}
           </div>
-          {batchTesting && (
-            <span className="text-xs text-muted-foreground animate-pulse">
-              Batch check in progress...
-            </span>
+          {!showAllRegions && regions.length > 5 && (
+            <button
+              onClick={() => setShowAllRegions(true)}
+              className="mt-3 text-xs text-primary hover:text-primary/80 uppercase tracking-[0.1em] font-medium"
+            >
+              Show all regions ({regions.length - 5} more)
+            </button>
+          )}
+          {showAllRegions && (
+            <button
+              onClick={() => setShowAllRegions(false)}
+              className="mt-3 text-xs text-primary hover:text-primary/80 uppercase tracking-[0.1em] font-medium"
+            >
+              Show fewer regions
+            </button>
           )}
         </div>
       )}
 
-      {/* Playlist buttons */}
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           Select a Playlist
@@ -617,15 +672,29 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
             />
             <div className="flex items-center gap-2 flex-wrap">
               {isAdmin && (
-                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={replaceExisting}
-                    onChange={(e) => setReplaceExisting(e.target.checked)}
-                    className="accent-primary"
-                  />
-                  Replace existing
-                </label>
+                <>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={replaceExisting}
+                      onChange={(e) => setReplaceExisting(e.target.checked)}
+                      className="accent-primary"
+                    />
+                    Replace existing
+                  </label>
+                  <button
+                    onClick={handleBatchLivenessCheck}
+                    disabled={batchTesting}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border bg-card text-foreground uppercase tracking-[0.1em] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {batchTesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                    {batchTesting ? 'Checking...' : 'Check Liveness'}
+                  </button>
+                </>
               )}
               <button
                 onClick={handleImport}
@@ -728,7 +797,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                     <button
                       onClick={() => handleSort('name')}
                       aria-label="Sort by name"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                      className="relative inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                     >
                       Name <SortIcon field="name" />
                     </button>
@@ -751,11 +820,11 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                         : 'descending'
                       : 'none',
                   header: (
-                    <div className="flex items-center gap-1">
+                    <div className="relative inline-flex items-center gap-1.5">
                       <button
                         onClick={() => handleSort('category')}
                         aria-label="Sort by category"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                        className="relative inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                       >
                         Category <SortIcon field="category" />
                       </button>
@@ -806,11 +875,11 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                         : 'descending'
                       : 'none',
                   header: (
-                    <div className="flex items-center gap-1">
+                    <div className="relative inline-flex items-center gap-1.5">
                       <button
                         onClick={() => handleSort('language')}
                         aria-label="Sort by language"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
+                        className="relative inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors text-left"
                       >
                         Language <SortIcon field="language" />
                       </button>
@@ -828,50 +897,53 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                   ),
                   cell: (ch) => (
                     <span className="text-xs text-muted-foreground truncate">
-                      {ch.languages?.join(', ') || '—'}
+                      {ch.languages?.length
+                        ? ch.languages.length <= 2
+                          ? ch.languages.join(', ')
+                          : `${ch.languages.slice(0, 2).join(', ')} +${ch.languages.length - 2}`
+                        : '—'}
                     </span>
                   ),
                 },
-                ...(isAdmin
-                  ? [
-                      {
-                        key: 'status',
-                        header: (
-                          <ColumnFilter
-                            label="Status"
-                            options={['alive', 'dead', 'unknown']}
-                            selected={selectedStatuses}
-                            onChange={(v: string[]) => {
-                              setSelectedStatuses(v);
-                              setPage(1);
-                            }}
-                          />
-                        ),
-                        cell: (ch: EnrichedChannel) => (
-                          <div className="flex items-center gap-1.5">
-                            {testingChannelId === ch._uid ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                            ) : (
-                              <StatusDot status={ch.liveness?.status || 'unknown'} />
-                            )}
-                            <button
-                              onClick={() => handleTestChannel(ch)}
-                              disabled={testingChannelId === ch._uid}
-                              className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                              title="Test stream"
-                            >
-                              <Zap className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ),
-                      } satisfies DataTableColumn<EnrichedChannel>,
-                    ]
-                  : []),
+                {
+                  key: 'status',
+                  header: (
+                    <ColumnFilter
+                      label="Status"
+                      options={['alive', 'dead', 'unknown']}
+                      selected={selectedStatuses}
+                      onChange={(v: string[]) => {
+                        setSelectedStatuses(v);
+                        setPage(1);
+                      }}
+                    />
+                  ),
+                  cell: (ch: EnrichedChannel) => (
+                    <div className="relative inline-flex items-center gap-1.5">
+                      {testingChannelId === ch._uid ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      ) : (
+                        <StatusDot status={ch.liveness?.status || 'unknown'} />
+                      )}
+                      <button
+                        onClick={() => handleTestChannel(ch)}
+                        disabled={testingChannelId === ch._uid}
+                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                        title="Test stream"
+                      >
+                        <Zap className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ),
+                },
                 {
                   key: 'actions',
-                  headerClassName:
-                    'text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium text-right',
-                  header: 'Actions',
+                  headerClassName: 'text-right',
+                  header: (
+                    <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                      Actions
+                    </span>
+                  ),
                   cell: (ch) => (
                     <ChannelRowActions
                       onDetail={() => setDetailChannel(ch)}
