@@ -118,7 +118,7 @@ jobs:
           # Substitute env vars into the production compose file
           envsubst < docker-compose.production.yml > docker-compose.deploy.yml
 
-      - name: Resolve Portainer stack ID
+      - name: Resolve Portainer stack
         id: stack
         run: |
           STACKS=$(curl -s \
@@ -129,32 +129,68 @@ jobs:
           ENDPOINT_ID=$(echo "$STACKS" | jq -r '.[] | select(.Name == "FireVisionTV_Prod") | .EndpointId')
 
           if [ -z "$STACK_ID" ] || [ "$STACK_ID" = "null" ]; then
-            echo "Stack 'FireVisionTV_Prod' not found in Portainer"
-            exit 1
-          fi
+            echo "Stack 'FireVisionTV_Prod' not found — will create it"
+            echo "stack_exists=false" >> $GITHUB_OUTPUT
 
-          echo "stack_id=$STACK_ID" >> $GITHUB_OUTPUT
-          echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
-          echo "Found stack ID: $STACK_ID (endpoint: $ENDPOINT_ID)"
+            # Get the first available endpoint for stack creation
+            ENDPOINT_ID=$(curl -s \
+              "${{ vars.PORTAINER_URL }}/api/endpoints" \
+              -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+              | jq -r '.[0].Id')
+
+            if [ -z "$ENDPOINT_ID" ] || [ "$ENDPOINT_ID" = "null" ]; then
+              echo "No endpoints found in Portainer"
+              exit 1
+            fi
+
+            echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
+            echo "Using endpoint ID: $ENDPOINT_ID"
+          else
+            echo "stack_exists=true" >> $GITHUB_OUTPUT
+            echo "stack_id=$STACK_ID" >> $GITHUB_OUTPUT
+            echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
+            echo "Found stack ID: $STACK_ID (endpoint: $ENDPOINT_ID)"
+          fi
 
       - name: Deploy to Portainer
         id: deploy
         run: |
-          PAYLOAD=$(jq -n \
-            --arg stackFile "$(cat docker-compose.deploy.yml)" \
-            --argjson endpointId ${{ steps.stack.outputs.endpoint_id }} \
-            '{
-              stackFileContent: $stackFile,
-              env: [],
-              prune: false,
-              pullImage: true
-            }')
+          ENDPOINT_ID=${{ steps.stack.outputs.endpoint_id }}
+          STACK_FILE="$(cat docker-compose.deploy.yml)"
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
-            "${{ vars.PORTAINER_URL }}/api/stacks/${{ steps.stack.outputs.stack_id }}?endpointId=${{ steps.stack.outputs.endpoint_id }}" \
-            -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
+          if [ "${{ steps.stack.outputs.stack_exists }}" = "true" ]; then
+            echo "Updating existing stack..."
+            PAYLOAD=$(jq -n \
+              --arg stackFile "$STACK_FILE" \
+              --argjson endpointId "$ENDPOINT_ID" \
+              '{
+                stackFileContent: $stackFile,
+                env: [],
+                prune: false,
+                pullImage: true
+              }')
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+              "${{ vars.PORTAINER_URL }}/api/stacks/${{ steps.stack.outputs.stack_id }}?endpointId=$ENDPOINT_ID" \
+              -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD")
+          else
+            echo "Creating new stack..."
+            PAYLOAD=$(jq -n \
+              --arg name "FireVisionTV_Prod" \
+              --arg stackFile "$STACK_FILE" \
+              '{
+                name: $name,
+                stackFileContent: $stackFile
+              }')
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+              "${{ vars.PORTAINER_URL }}/api/stacks/create/standalone/string?endpointId=$ENDPOINT_ID" \
+              -H "X-API-Key: ${{ secrets.PORTAINER_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD")
+          fi
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
@@ -162,10 +198,10 @@ jobs:
           echo "HTTP Status: $HTTP_CODE"
 
           if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "Stack updated successfully"
+            echo "Stack deployed successfully"
             echo "deployment_status=success" >> $GITHUB_OUTPUT
           else
-            echo "Stack update failed: $RESPONSE_BODY"
+            echo "Stack deploy failed: $RESPONSE_BODY"
             echo "deployment_status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
