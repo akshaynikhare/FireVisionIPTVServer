@@ -38,22 +38,8 @@ services:
       - firevision-network
       - gkz-network
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })",
-        ]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - mongodb
+      - redis
     logging:
       driver: 'json-file'
       options:
@@ -68,14 +54,7 @@ services:
       - firevision-network
       - gkz-network
     depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3000/']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      - api
     logging:
       driver: 'json-file'
       options:
@@ -90,12 +69,6 @@ services:
       - mongodb_data:/data/db
     networks:
       - firevision-network
-    healthcheck:
-      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
     logging:
       driver: 'json-file'
       options:
@@ -111,12 +84,6 @@ services:
       - redis_data:/data
     networks:
       - firevision-network
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     logging:
       driver: 'json-file'
       options:
@@ -141,10 +108,8 @@ services:
         'echo "Waiting 5m for API to settle..." && sleep 300 && npx tsx backend/src/scheduler-entrypoint.ts',
       ]
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mongodb
+      - redis
     networks:
       - firevision-network
     logging:
