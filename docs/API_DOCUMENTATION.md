@@ -814,11 +814,17 @@ http://example.com/stream/hbo.m3u8
       "channelImg": "http://example.com/logos/hbo.png",
       "channelGroup": "Movies",
       "isActive": true,
-      "order": 1
+      "order": 1,
+      "alternateStreams": [
+        { "streamUrl": "http://example.com/alt1.m3u8", "quality": "720p" },
+        { "streamUrl": "http://example.com/alt2.m3u8", "quality": null }
+      ]
     }
   ]
 }
 ```
+
+**Note:** `alternateStreams` includes up to 3 alive, non-flagged alternate stream URLs with quality info. Dead or flagged alternates are excluded.
 
 ---
 
@@ -929,9 +935,15 @@ http://example.com/stream/hbo.m3u8
 
 ```json
 {
-  "deviceId": "device-abc-123"
+  "deviceId": "device-abc-123",
+  "proxyPlay": false,
+  "streamUrl": "http://example.com/alt-stream.m3u8"
 }
 ```
+
+- `deviceId` (required): Unique device identifier
+- `proxyPlay` (optional): Whether playback used the server proxy
+- `streamUrl` (optional): The actual stream URL that played. If this differs from the channel's primary `channelUrl` and matches an alternate stream, the server auto-promotes it: the alternate becomes the new primary and the old primary is demoted to alternates with `liveness.status = dead`
 
 **Rate Limit:** 1 report per channel per device per 1 minute
 
@@ -1696,5 +1708,5 @@ Same as `/me/channels` but includes filtered alternate streams for each channel.
 
 ---
 
-**Version:** 2.1.0
-**Last Updated:** 2026-03-18
+**Version:** 2.2.0
+**Last Updated:** 2026-03-22
