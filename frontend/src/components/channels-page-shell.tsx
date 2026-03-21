@@ -14,6 +14,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Heart,
 } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -183,6 +184,51 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
   const { playStream } = useStreamPlayer();
 
+  // Favorites
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const favoriteIdsRef = useRef<Set<string>>(new Set());
+  const [favSyncing, setFavSyncing] = useState<Set<string>>(new Set());
+
+  function updateFavoriteIds(next: Set<string>) {
+    favoriteIdsRef.current = next;
+    setFavoriteIds(next);
+  }
+
+  async function fetchFavorites() {
+    try {
+      const res = await api.get('/favorites');
+      const ids: string[] = res.data.channel_ids || [];
+      updateFavoriteIds(new Set(ids));
+    } catch {
+      // silent — favorites are non-critical
+    }
+  }
+
+  async function toggleFavorite(channelId: string) {
+    setFavSyncing((prev) => new Set(prev).add(channelId));
+    const wasFav = favoriteIdsRef.current.has(channelId);
+    const next = new Set(favoriteIdsRef.current);
+    if (wasFav) next.delete(channelId);
+    else next.add(channelId);
+    updateFavoriteIds(next);
+    try {
+      await api.post('/favorites', { channel_ids: Array.from(favoriteIdsRef.current) });
+    } catch {
+      // revert just this channel
+      const reverted = new Set(favoriteIdsRef.current);
+      if (wasFav) reverted.add(channelId);
+      else reverted.delete(channelId);
+      updateFavoriteIds(reverted);
+      toast('Failed to update favorites', 'error');
+    } finally {
+      setFavSyncing((prev) => {
+        const s = new Set(prev);
+        s.delete(channelId);
+        return s;
+      });
+    }
+  }
+
   // --- Admin: Server-side data fetching ---
   const fetchChannels = useCallback(
     async (signal?: AbortSignal) => {
@@ -276,6 +322,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   // Init
   useEffect(() => {
     setOrigin(window.location.origin);
+    fetchFavorites();
     if (isAdmin) {
       refreshFilterOptions();
     } else {
@@ -801,8 +848,34 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     : [];
 
   // Table columns based on mode
+  const favColumn: DataTableColumn<Channel> = {
+    key: 'fav',
+    header: (
+      <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+        <Heart className="h-3.5 w-3.5 inline" />
+      </span>
+    ),
+    cell: (c) => {
+      const isFav = favoriteIds.has(c._id);
+      return (
+        <button
+          onClick={() => toggleFavorite(c._id)}
+          disabled={favSyncing.has(c._id)}
+          className="flex items-center justify-center h-7 w-7 transition-colors disabled:opacity-50"
+          title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart
+            className={`h-4 w-4 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`}
+          />
+        </button>
+      );
+    },
+  };
+
   const tableColumns: DataTableColumn<Channel>[] = isAdmin
     ? [
+        favColumn,
         {
           key: 'group',
           header: (
@@ -902,6 +975,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         },
       ]
     : [
+        favColumn,
         {
           key: 'group',
           ariaSort:
@@ -1183,7 +1257,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       <ChannelDataTable<Channel>
         data={displayData}
         gridTemplate={
-          isAdmin ? '1fr 1fr 100px 100px 120px 70px 110px' : '1fr 180px 130px 60px 110px'
+          isAdmin ? '1fr 40px 1fr 100px 100px 120px 70px 110px' : '1fr 40px 180px 130px 60px 110px'
         }
         ariaLabel={isAdmin ? 'Channels table' : 'My channels table'}
         emptyMessage={
