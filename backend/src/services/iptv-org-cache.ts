@@ -170,6 +170,194 @@ class IptvOrgCacheService {
     };
   }
 
+  // ─── Get Grouped Channels (grouped by channelId) ───────
+
+  async getGroupedChannels(filters: EnrichedChannelFilters = {}) {
+    const empty = await this.isCacheEmpty();
+    const stale = await this.isCacheStale();
+
+    if (empty) {
+      await this.refreshCache();
+    } else if (stale) {
+      this.refreshCache().catch((err) =>
+        console.error('Background cache refresh failed:', err.message),
+      );
+    }
+
+    // Build match stage
+    const matchStage: Record<string, any> = {};
+
+    if (filters.country) {
+      matchStage.country = filters.country.toUpperCase();
+    }
+
+    if (filters.languages?.length) {
+      matchStage.languageCodes = { $in: filters.languages.map((l) => l.toLowerCase()) };
+    } else if (filters.language) {
+      matchStage.languageCodes = filters.language.toLowerCase();
+    }
+
+    if (filters.category) {
+      const cats = filters.category
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const escaped = cats.map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      if (escaped.length === 1) {
+        matchStage.categories = { $regex: new RegExp(escaped[0], 'i') };
+      } else if (escaped.length > 1) {
+        matchStage.categories = { $regex: new RegExp(escaped.join('|'), 'i') };
+      }
+    }
+
+    if (filters.status) {
+      matchStage['liveness.status'] = filters.status;
+    }
+
+    if (filters.search) {
+      matchStage.$text = { $search: filters.search };
+    }
+
+    const skip = filters.skip || 0;
+    const limit = filters.limit || 50;
+
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Add ranking score
+    pipeline.push({
+      $addFields: {
+        rankScore: {
+          $add: [
+            // Liveness: alive=20000, unknown=10000, dead=0
+            {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$liveness.status', 'alive'] }, then: 20000 },
+                  { case: { $eq: ['$liveness.status', 'unknown'] }, then: 10000 },
+                ],
+                default: 0,
+              },
+            },
+            // Quality: 1080p=400, 720p=300, 480p=200, else=100
+            {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$streamQuality', '1080p'] }, then: 400 },
+                  { case: { $eq: ['$streamQuality', '720p'] }, then: 300 },
+                  { case: { $eq: ['$streamQuality', '480p'] }, then: 200 },
+                ],
+                default: 100,
+              },
+            },
+            // Speed: max(0, 100 - responseTimeMs/100)
+            {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    100,
+                    {
+                      $divide: [{ $ifNull: ['$liveness.responseTimeMs', 5000] }, 100],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    // Sort by rank before grouping so $first picks the best
+    pipeline.push({ $sort: { rankScore: -1, streamUrl: 1 } });
+
+    // Group by channelId
+    pipeline.push({
+      $group: {
+        _id: '$channelId',
+        channelName: { $first: '$channelName' },
+        tvgLogo: { $first: '$tvgLogo' },
+        country: { $first: '$country' },
+        categories: { $first: '$categories' },
+        languageCodes: { $first: '$languageCodes' },
+        languageNames: { $first: '$languageNames' },
+        channelNetwork: { $first: '$channelNetwork' },
+        channelWebsite: { $first: '$channelWebsite' },
+        channelIsNsfw: { $first: '$channelIsNsfw' },
+        channelGroup: { $first: '$channelGroup' },
+        streamCount: { $sum: 1 },
+        bestStream: {
+          $first: {
+            streamUrl: '$streamUrl',
+            quality: '$streamQuality',
+            liveness: '$liveness',
+            userAgent: '$streamUserAgent',
+            referrer: '$streamReferrer',
+            rankScore: '$rankScore',
+          },
+        },
+        streams: {
+          $push: {
+            streamUrl: '$streamUrl',
+            quality: '$streamQuality',
+            liveness: '$liveness',
+            userAgent: '$streamUserAgent',
+            referrer: '$streamReferrer',
+            rankScore: '$rankScore',
+          },
+        },
+      },
+    });
+
+    // Project to clean shape
+    pipeline.push({
+      $project: {
+        _id: 0,
+        channelId: '$_id',
+        channelName: 1,
+        tvgLogo: 1,
+        country: 1,
+        categories: 1,
+        languageCodes: 1,
+        languageNames: 1,
+        channelNetwork: 1,
+        channelWebsite: 1,
+        channelIsNsfw: 1,
+        channelGroup: 1,
+        streamCount: 1,
+        bestStream: 1,
+        streams: 1,
+      },
+    });
+
+    // Sort grouped results by channel name
+    pipeline.push({ $sort: { channelName: 1 } });
+
+    // Use $facet for total count + paginated data
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: 'total' }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    });
+
+    const [result] = await IptvOrgChannel.aggregate(pipeline);
+
+    const total = result?.metadata?.[0]?.total || 0;
+    const channels = result?.data || [];
+
+    return {
+      channels,
+      total,
+      stale,
+      fromCache: !empty,
+    };
+  }
+
   // ─── Refresh Cache (fetch + enrich + upsert) ───────────
 
   async refreshCache(): Promise<{ enrichedCount: number; durationMs: number }> {

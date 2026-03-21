@@ -1,0 +1,210 @@
+[
+  {
+    "source": "youtube-live",
+    "channelName": "Aaj Tak",
+    "ytChannelId": "@AajTak",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "NDTV India",
+    "ytChannelId": "@NDTVIndia",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "ABP News",
+    "ytChannelId": "@ABPNews",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "India TV",
+    "ytChannelId": "@IndiaTV",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Republic Bharat",
+    "ytChannelId": "@RepublicBharat",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Zee News",
+    "ytChannelId": "@ZeeNews",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "News18 India",
+    "ytChannelId": "@News18India",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "TV9 Bharatvarsh",
+    "ytChannelId": "@TV9Bharatvarsh",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "NDTV 24x7",
+    "ytChannelId": "@NDTV",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Republic TV",
+    "ytChannelId": "@RepublicWorld",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "WION",
+    "ytChannelId": "@WIONews",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Times Now",
+    "ytChannelId": "@TimesNow",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "CNN-News18",
+    "ytChannelId": "@CNNNews18",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Mirror Now",
+    "ytChannelId": "@MirrorNow",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Sun News",
+    "ytChannelId": "@SunNewsTV",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Tamil"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "TV9 Telugu",
+    "ytChannelId": "@TV9Telugu",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Telugu"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "ABP Ananda",
+    "ytChannelId": "@ABPAnandaTV",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Bengali"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "TV9 Kannada",
+    "ytChannelId": "@TV9Kannada",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Kannada"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "ABP Majha",
+    "ytChannelId": "@ABPMajha",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Marathi"
+  },
+  {
+    "source": "youtube-live",
+    "channelName": "Asianet News",
+    "ytChannelId": "@AsianetNews",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Malayalam"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "DD National",
+    "ytChannelId": "@ddnational1",
+    "tvgLogo": "",
+    "groupTitle": "Entertainment",
+    "language": "Hindi"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "DD News",
+    "ytChannelId": "@DDNews",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "Hindi"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "DD India",
+    "ytChannelId": "@DDIndia",
+    "tvgLogo": "",
+    "groupTitle": "News",
+    "language": "English"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "Sansad TV",
+    "ytChannelId": "@SansadTV",
+    "tvgLogo": "",
+    "groupTitle": "Government",
+    "language": "Hindi"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "DD Kisan",
+    "ytChannelId": "@DDKisan",
+    "tvgLogo": "",
+    "groupTitle": "Agriculture",
+    "language": "Hindi"
+  },
+  {
+    "source": "prasar-bharati",
+    "channelName": "DD Sports",
+    "ytChannelId": "@DDSportsOfficial",
+    "tvgLogo": "",
+    "groupTitle": "Sports",
+    "language": "Hindi"
+  }
+]

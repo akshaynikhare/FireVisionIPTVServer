@@ -1,6 +1,8 @@
 import { Types, Document } from 'mongoose';
 
-export type ExternalSourceType = 'pluto-tv' | 'samsung-tv-plus';
+export type ExternalSourceType = 'pluto-tv' | 'samsung-tv-plus' | 'youtube-live' | 'prasar-bharati';
+
+export type SeedSourceType = 'youtube-live' | 'prasar-bharati';
 
 export interface IExternalSourceCacheMeta {
   cacheKey: string;
@@ -46,6 +48,7 @@ export interface IExternalSourceChannel {
   channelId: string;
   channelName: string;
   streamUrl: string;
+  streamUrlExpiresAt: Date | null;
   tvgLogo: string | null;
   groupTitle: string;
   country: string | null;
@@ -56,6 +59,23 @@ export interface IExternalSourceChannel {
   votes: number | null;
   homepage: string | null;
   liveness: IExternalSourceChannelLiveness;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ISeedChannel {
+  ytChannelId?: string;
+  directUrl?: string;
+  channelName: string;
+  tvgLogo: string;
+  groupTitle: string;
+  language: string;
+  enabled: boolean;
+  source: SeedSourceType;
+}
+
+export interface ISeedChannelDocument extends ISeedChannel, Document {
+  _id: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

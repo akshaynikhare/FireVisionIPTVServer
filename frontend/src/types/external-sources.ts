@@ -35,7 +35,21 @@ export interface LivenessStats {
   unknown: number;
 }
 
-export type SourceTab = 'pluto-tv' | 'samsung-tv-plus';
+export type SourceTab = 'pluto-tv' | 'samsung-tv-plus' | 'youtube-live' | 'prasar-bharati';
+
+export interface SeedChannel {
+  _id: string;
+  ytChannelId?: string;
+  directUrl?: string;
+  channelName: string;
+  tvgLogo: string;
+  groupTitle: string;
+  language: string;
+  enabled: boolean;
+  source: 'youtube-live' | 'prasar-bharati';
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const COUNTRY_NAMES: Record<string, string> = {
   us: 'United States',

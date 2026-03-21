@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Tv, Monitor, Zap, Download } from 'lucide-react';
+import { Loader2, Tv, Monitor, Zap, Download, Youtube, Radio } from 'lucide-react';
 import api from '@/lib/api';
 import { proxyImageUrl } from '@/lib/image-proxy';
 import { useToast } from '@/hooks/use-toast';
@@ -18,9 +18,11 @@ import type {
   ChannelLiveness,
 } from '@/types/external-sources';
 
-const TABS: { id: SourceTab; label: string; icon: typeof Tv }[] = [
+const TABS: { id: SourceTab; label: string; icon: typeof Tv; defaultRegion?: string }[] = [
   { id: 'pluto-tv', label: 'Pluto TV', icon: Tv },
   { id: 'samsung-tv-plus', label: 'Samsung TV Plus', icon: Monitor },
+  { id: 'youtube-live', label: 'YouTube Live', icon: Youtube, defaultRegion: 'in' },
+  { id: 'prasar-bharati', label: 'Prasar Bharati', icon: Radio, defaultRegion: 'in' },
 ];
 
 interface SourcesPageShellProps {
@@ -119,11 +121,12 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
         })}
       </div>
 
-      <div role="tabpanel">
+      <div role="tabpanel" className="space-y-4">
         <ExternalSourceTab
           key={activeTab}
           sourceKey={activeTab}
           sourceLabel={TABS.find((t) => t.id === activeTab)!.label}
+          defaultRegion={TABS.find((t) => t.id === activeTab)?.defaultRegion}
           topSlot={
             statsData ? (
               <LivenessStatsBar stats={statsData.stats} inProgress={statsData.inProgress} />

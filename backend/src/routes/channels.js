@@ -30,6 +30,16 @@ setInterval(
   10 * 60 * 1000,
 ).unref();
 
+// Slim alternateStreams to only viable entries for client consumption
+function slimAlternates(channel) {
+  if (!channel.alternateStreams?.length) return channel;
+  channel.alternateStreams = channel.alternateStreams
+    .filter((alt) => alt.liveness?.status !== 'dead' && alt.flaggedBad?.isFlagged !== true)
+    .slice(0, 3)
+    .map((alt) => ({ streamUrl: alt.streamUrl, quality: alt.quality || null }));
+  return channel;
+}
+
 // Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
@@ -41,7 +51,7 @@ router.get('/', requireTvOrSessionAuth, async (req, res) => {
     res.json({
       success: true,
       count: channels.length,
-      data: channels,
+      data: channels.map(slimAlternates),
     });
   } catch (error) {
     console.error('Error fetching channels:', error);
@@ -130,7 +140,7 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
       .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
 
-    res.json({ success: true, count: channels.length, data: channels });
+    res.json({ success: true, count: channels.length, data: channels.map(slimAlternates) });
   } catch (error) {
     console.error('Error searching channels:', error);
     res.status(500).json({ success: false, error: 'Failed to search channels' });
@@ -226,7 +236,7 @@ router.get('/:id', requireTvOrSessionAuth, async (req, res) => {
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
-    res.json({ success: true, data: channel });
+    res.json({ success: true, data: slimAlternates(channel) });
   } catch (error) {
     console.error('Error fetching channel:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch channel' });
@@ -249,6 +259,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       order,
       isActive,
       metadata,
+      alternateStreams,
     } = req.body;
 
     if (channelId) {
@@ -273,6 +284,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       order,
       isActive,
       metadata,
+      alternateStreams,
     });
     await channel.save();
     audit({
@@ -307,6 +319,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       order,
       isActive,
       metadata,
+      alternateStreams,
+      flaggedBad,
     } = req.body;
 
     const allowedUpdates = {};
@@ -322,6 +336,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (order !== undefined) allowedUpdates.order = order;
     if (isActive !== undefined) allowedUpdates.isActive = isActive;
     if (metadata !== undefined) allowedUpdates.metadata = metadata;
+    if (alternateStreams !== undefined) allowedUpdates.alternateStreams = alternateStreams;
+    if (flaggedBad !== undefined) allowedUpdates.flaggedBad = flaggedBad;
 
     const channel = await Channel.findByIdAndUpdate(
       req.params.id,
@@ -366,6 +382,198 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error deleting channel:', error);
     res.status(500).json({ success: false, error: 'Failed to delete channel' });
+  }
+});
+
+// Get channel with filtered fallback streams (for Android app)
+router.get('/:id/with-fallbacks', requireAuth, async (req, res) => {
+  try {
+    const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    // Filter alternates: only alive + non-flagged, sorted by ranking
+    const viableAlternates = (channel.alternateStreams || [])
+      .filter((alt) => alt.liveness?.status !== 'dead' && alt.flaggedBad?.isFlagged !== true)
+      .sort((a, b) => {
+        const scoreA = getStreamScore(a);
+        const scoreB = getStreamScore(b);
+        return scoreB - scoreA;
+      });
+
+    channel.alternateStreams = viableAlternates;
+    res.json({ success: true, data: channel });
+  } catch (error) {
+    console.error('Error fetching channel with fallbacks:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch channel' });
+  }
+});
+
+// Flag primary stream as bad (any authenticated user)
+router.post('/:id/flag', requireAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
+    if (!reason || !validReasons.includes(reason)) {
+      return res
+        .status(400)
+        .json({ success: false, error: `Reason must be one of: ${validReasons.join(', ')}` });
+    }
+
+    const channel = await Channel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          'flaggedBad.isFlagged': true,
+          'flaggedBad.reason': reason,
+          'flaggedBad.flaggedBy': req.user.id,
+          'flaggedBad.flaggedAt': new Date(),
+        },
+      },
+      { new: true },
+    );
+
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    audit({
+      userId: req.user.id,
+      action: 'flag_channel',
+      resource: 'channel',
+      resourceId: req.params.id,
+      details: { reason },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Stream flagged as bad' });
+  } catch (error) {
+    console.error('Error flagging channel:', error);
+    res.status(500).json({ success: false, error: 'Failed to flag channel' });
+  }
+});
+
+// Unflag primary stream (admin only)
+router.post('/:id/unflag', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const channel = await Channel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          'flaggedBad.isFlagged': false,
+          'flaggedBad.reason': null,
+          'flaggedBad.flaggedBy': null,
+          'flaggedBad.flaggedAt': null,
+        },
+      },
+      { new: true },
+    );
+
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    audit({
+      userId: req.user.id,
+      action: 'unflag_channel',
+      resource: 'channel',
+      resourceId: req.params.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Stream flag cleared' });
+  } catch (error) {
+    console.error('Error unflagging channel:', error);
+    res.status(500).json({ success: false, error: 'Failed to unflag channel' });
+  }
+});
+
+// Flag an alternate stream as bad (any authenticated user)
+router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const index = parseInt(req.params.index, 10);
+    const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
+
+    if (!reason || !validReasons.includes(reason)) {
+      return res
+        .status(400)
+        .json({ success: false, error: `Reason must be one of: ${validReasons.join(', ')}` });
+    }
+
+    const channel = await Channel.findById(req.params.id);
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    if (!channel.alternateStreams || index < 0 || index >= channel.alternateStreams.length) {
+      return res.status(400).json({ success: false, error: 'Invalid alternate stream index' });
+    }
+
+    channel.alternateStreams[index].flaggedBad = {
+      isFlagged: true,
+      reason,
+      flaggedBy: req.user.id,
+      flaggedAt: new Date(),
+    };
+    await channel.save();
+
+    audit({
+      userId: req.user.id,
+      action: 'flag_alternate_stream',
+      resource: 'channel',
+      resourceId: req.params.id,
+      details: { index, reason },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Alternate stream flagged as bad' });
+  } catch (error) {
+    console.error('Error flagging alternate stream:', error);
+    res.status(500).json({ success: false, error: 'Failed to flag alternate stream' });
+  }
+});
+
+// Unflag an alternate stream (admin only)
+router.post('/:id/alternates/:index/unflag', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+
+    const channel = await Channel.findById(req.params.id);
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    if (!channel.alternateStreams || index < 0 || index >= channel.alternateStreams.length) {
+      return res.status(400).json({ success: false, error: 'Invalid alternate stream index' });
+    }
+
+    channel.alternateStreams[index].flaggedBad = {
+      isFlagged: false,
+      reason: null,
+      flaggedBy: null,
+      flaggedAt: null,
+    };
+    await channel.save();
+
+    audit({
+      userId: req.user.id,
+      action: 'unflag_alternate_stream',
+      resource: 'channel',
+      resourceId: req.params.id,
+      details: { index },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Alternate stream flag cleared' });
+  } catch (error) {
+    console.error('Error unflagging alternate stream:', error);
+    res.status(500).json({ success: false, error: 'Failed to unflag alternate stream' });
   }
 });
 
@@ -466,6 +674,19 @@ router.post('/:id/test', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Helpers ──────────────────────────────────────────────
+
+function getStreamScore(stream) {
+  const livenessScores = { alive: 20000, unknown: 10000, dead: 0 };
+  const qualityScores = { '1080p': 400, '720p': 300, '480p': 200 };
+
+  const liveness = livenessScores[stream.liveness?.status] ?? 10000;
+  const quality = qualityScores[stream.quality] ?? 100;
+  const speed = Math.max(0, 100 - (stream.liveness?.responseTimeMs || 5000) / 100);
+
+  return liveness + quality + speed;
+}
+
 // ============ STREAM METRICS REPORTING ============
 
 // Report stream status (dead/alive/unresponsive) — TV or session auth
@@ -532,7 +753,7 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per channel per device per 1 minute
 router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId, proxyPlay } = req.body;
+    const { deviceId, proxyPlay, streamUrl } = req.body;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({
@@ -567,6 +788,29 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
 
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    // Promote alternate if a different stream URL worked
+    if (streamUrl && streamUrl !== channel.channelUrl && channel.alternateStreams?.length) {
+      const altIndex = channel.alternateStreams.findIndex((alt) => alt.streamUrl === streamUrl);
+      if (altIndex !== -1) {
+        const now = new Date();
+        const winningAlt = channel.alternateStreams[altIndex];
+        const demotedPrimary = {
+          streamUrl: channel.channelUrl,
+          quality: null,
+          liveness: { status: 'dead', lastCheckedAt: now },
+          flaggedBad: { isFlagged: false },
+          demotedAt: now,
+        };
+        channel.alternateStreams.splice(altIndex, 1, demotedPrimary);
+        channel.channelUrl = winningAlt.streamUrl;
+        channel.flaggedBad = { isFlagged: false, reason: null, flaggedBy: null, flaggedAt: null };
+        channel.metadata = channel.metadata || {};
+        channel.metadata.isWorking = true;
+        channel.metadata.lastTested = now;
+        await channel.save();
+      }
     }
 
     reportPlayLimits.set(rateLimitKey, Date.now());

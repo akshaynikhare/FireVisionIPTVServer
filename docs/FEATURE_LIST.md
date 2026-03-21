@@ -320,6 +320,23 @@ Complete inventory of every feature in the application.
 - Import iptv-org channels directly to user's personal playlist
 - Reuses existing channels if stream URL already exists in system
 
+## Smart Stream Grouping & Auto-Fallback
+
+- IPTV-org channels grouped by channel ID in import UI (multiple streams per logical channel)
+- Stream ranking algorithm: liveness (alive > unknown > dead) > quality (1080p > 720p > 480p > SD) > response speed
+- Best stream auto-selected during import, admin can override via expandable row with radio buttons
+- Alternate streams stored on Channel model (`alternateStreams[]`) with quality, liveness, userAgent, referrer
+- Grouped import endpoint creates channels with primary + alternates in one operation
+- Channel detail modal shows alternate streams with promote button (swap alternate to primary)
+- Bad stream flagging system: users can report streams as looping, frozen, wrong-content, or other
+- Flag reasons recorded with user, timestamp; admins can clear flags
+- Flagging available for both primary and alternate streams
+- Fallback API endpoint (`/channels/:id/with-fallbacks`) returns only alive, non-flagged alternates
+- User playlist fallback endpoint (`/user-playlist/me/channels-with-fallbacks`) for Android app
+- M3U playlist generation auto-substitutes alive non-flagged alternate when primary is dead or flagged
+- Stream health scheduler task (default: 4 hours) probes primary streams, auto-promotes best alive non-flagged alternate
+- Flagged streams excluded from auto-promotion and export
+
 ## Stream Proxy
 
 - Proxy HLS/DASH streams through the server to avoid client CORS issues
@@ -338,9 +355,21 @@ Complete inventory of every feature in the application.
 - Mirrors full stream proxy behavior (HLS manifest rewriting, VLC user agent, SSRF protection) but authenticated via channel list code in URL path instead of session
 - HLS manifest URLs rewritten to route through the TV proxy endpoint
 - Android TV app uses this as fallback when direct stream playback fails
-- Proxy fallback strategy: 3 direct retries with exponential backoff, then 2 proxy retries
-- ErrorRecoveryManager switches ExoPlayer media source to proxy URL after exhausting direct attempts
 - Proxy URL constructed from server URL + TV code + encoded stream URL
+
+## Alternate Stream Fallback (Android TV)
+
+- Android TV app receives up to 3 alternate stream URLs per channel via `GET /channels` response
+- Alternates filtered server-side: dead and flagged streams excluded, capped at 3, slimmed to `{streamUrl, quality}`
+- ErrorRecoveryManager uses a StreamSlot queue for multi-URL retry with proxy fallback per URL
+- Retry strategy per channel: primary direct (2x) → primary proxy (1x) → alt1 direct (1x) → alt1 proxy (1x) → alt2 ... → dead
+- Maximum 9 recovery attempts with 3 alternates (3 + 2 + 2 + 2), fewer if no proxy available
+- Alternates cached in-memory in ChannelRepositoryImpl (not persisted to Room DB — no migration needed)
+- Cold start with empty cache degrades gracefully to primary-only retry
+- When an alternate stream plays successfully for 10 seconds, the app reports the working `streamUrl` via `POST /channels/:id/report-play`
+- Server auto-promotes the working alternate to primary: swaps `channelUrl`, demotes old primary to alternates with `liveness.status = dead`
+- Promotion is idempotent: multiple devices reporting the same alternate converge to the same state
+- `RecoveringOverlay` progress indicator reflects actual max attempts based on available slots
 
 ## Image Proxy
 

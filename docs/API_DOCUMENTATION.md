@@ -814,11 +814,17 @@ http://example.com/stream/hbo.m3u8
       "channelImg": "http://example.com/logos/hbo.png",
       "channelGroup": "Movies",
       "isActive": true,
-      "order": 1
+      "order": 1,
+      "alternateStreams": [
+        { "streamUrl": "http://example.com/alt1.m3u8", "quality": "720p" },
+        { "streamUrl": "http://example.com/alt2.m3u8", "quality": null }
+      ]
     }
   ]
 }
 ```
+
+**Note:** `alternateStreams` includes up to 3 alive, non-flagged alternate stream URLs with quality info. Dead or flagged alternates are excluded.
 
 ---
 
@@ -929,9 +935,15 @@ http://example.com/stream/hbo.m3u8
 
 ```json
 {
-  "deviceId": "device-abc-123"
+  "deviceId": "device-abc-123",
+  "proxyPlay": false,
+  "streamUrl": "http://example.com/alt-stream.m3u8"
 }
 ```
+
+- `deviceId` (required): Unique device identifier
+- `proxyPlay` (optional): Whether playback used the server proxy
+- `streamUrl` (optional): The actual stream URL that played. If this differs from the channel's primary `channelUrl` and matches an alternate stream, the server auto-promotes it: the alternate becomes the new primary and the old primary is demoted to alternates with `liveness.status = dead`
 
 **Rate Limit:** 1 report per channel per device per 1 minute
 
@@ -1610,5 +1622,91 @@ Rate limiting is enabled: 1000 requests per 15 minutes for general API endpoints
 
 ---
 
-**Version:** 2.0.0
-**Last Updated:** 2026-03-16
+## Smart Stream Grouping & Fallback Endpoints
+
+### 1. Get Grouped Channels (IPTV-org)
+
+`GET /api/v1/iptv-org/api/grouped`
+
+Returns IPTV-org channels grouped by channelId with ranked streams.
+
+**Query Parameters:** `country`, `language`, `languages`, `category`, `status`, `search`, `limit` (default 50), `skip` (default 0)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "count": 1234,
+  "data": [{
+    "channelId": "IndiaToday.in",
+    "channelName": "India Today",
+    "tvgLogo": "...",
+    "country": "IN",
+    "categories": ["news"],
+    "streamCount": 3,
+    "bestStream": { "streamUrl": "...", "quality": "1080p", "liveness": {...} },
+    "streams": [...]
+  }]
+}
+```
+
+### 2. Import Grouped Channels
+
+`POST /api/v1/iptv-org/import-grouped` (Admin)
+
+Import channels with primary stream + alternate streams.
+
+**Body:**
+
+```json
+{
+  "channels": [{
+    "channelId": "...",
+    "channelName": "...",
+    "selectedStreamUrl": "...",
+    "alternateStreams": [{ "streamUrl": "...", "quality": "720p", "liveness": {...} }],
+    "tvgLogo": "...",
+    "channelGroup": "...",
+    "metadata": {}
+  }],
+  "replaceExisting": false
+}
+```
+
+### 3. Get Channel with Fallbacks
+
+`GET /api/v1/channels/:id/with-fallbacks`
+
+Returns channel with only alive, non-flagged alternate streams sorted by ranking.
+
+### 4. Get User Channels with Fallbacks
+
+`GET /api/v1/user-playlist/me/channels-with-fallbacks`
+
+Same as `/me/channels` but includes filtered alternate streams for each channel.
+
+### 5. Flag Primary Stream
+
+`POST /api/v1/channels/:id/flag` (Any authenticated user)
+
+**Body:** `{ "reason": "looping" | "frozen" | "wrong-content" | "other" }`
+
+### 6. Unflag Primary Stream
+
+`POST /api/v1/channels/:id/unflag` (Admin only)
+
+### 7. Flag Alternate Stream
+
+`POST /api/v1/channels/:id/alternates/:index/flag` (Any authenticated user)
+
+**Body:** `{ "reason": "looping" | "frozen" | "wrong-content" | "other" }`
+
+### 8. Unflag Alternate Stream
+
+`POST /api/v1/channels/:id/alternates/:index/unflag` (Admin only)
+
+---
+
+**Version:** 2.2.0
+**Last Updated:** 2026-03-22

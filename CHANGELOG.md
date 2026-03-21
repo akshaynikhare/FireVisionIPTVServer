@@ -15,42 +15,57 @@ _No unreleased changes._
 ## [1.0.11] - 2026-03-18
 
 ### Added
+
 - feat(tv-auth): add dedicated TV code auth middleware, categories and favorites endpoints
 
 ### Fixed
+
 - fix(auth): allow TV apps to authenticate using channel list code as session ID
 - fix(deploy): fix env vars not reaching containers and admin credential migration
+
 ## [1.0.10] - 2026-03-18
 
 ### Fixed
+
 - fix(deploy): fix env vars not reaching containers and admin credential migration
+
 ## [1.0.9] - 2026-03-18
 
 ### Fixed
+
 - fix(deploy): use case-insensitive stack name lookup for Portainer
+
 ## [1.0.8] - 2026-03-18
 
 ### Added
+
 - enhance docker-publish.yml with production deployment to Portainer
 
 ### Fixed
+
 - fix(server): enable trust proxy in production for correct rate limiting
 - fix(deploy): remove compose healthchecks to unblock Portainer stack creation
 - fix(deploy): add external network check and improve stack deployment
 - deployment pipeline improvements for Portainer stack creation
 - fix(deploy): enhance production deployment configuration
 - ensure frontend public directory is created before build
+
 ## [1.0.7] - 2026-03-18
 
 ### Added
+
 - enhance Docker image build and deployment process with frontend support and health checks
+
 ## [1.0.6] - 2026-03-18
 
 ### Added
+
 - enhance Portainer stack management with creation and update logic
+
 ## [1.0.5] - 2026-03-18
 
 ### Added
+
 - update environment variables for GitHub OAuth and app configuration
 - add Privacy Policy and Terms of Service pages
 - enhance admin stats and session management
@@ -58,17 +73,23 @@ _No unreleased changes._
 - add charts, trends, and visualizations to Statistics page (#8)
 
 ### Changed
+
 - replace image proxy byte-caching with validate + 302 redirect
 
 ### Other
+
 - Unify admin and user pages into shared role-aware components (#7)
+
 ## [1.0.4] - 2026-03-17
 
 ### Added
+
 - Refactor user and channel tables to use reusable DataTable component
 
 ### Changed
+
 - update layout styles for authentication pages and improve overflow handling
+
 ## [1.0.3] - 2026-03-17
 
 ### Added

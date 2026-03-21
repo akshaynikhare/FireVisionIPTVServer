@@ -2,11 +2,13 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const Channel = require('../models/Channel');
+const { SeedChannel } = require('../models/SeedChannel');
 const { requireAuth, requireAdmin } = require('./auth');
 const { externalSourceCacheService } = require('../services/external-source-cache');
 const { audit } = require('../services/audit-log');
 
-const VALID_SOURCES = ['pluto-tv', 'samsung-tv-plus'];
+const VALID_SOURCES = ['pluto-tv', 'samsung-tv-plus', 'youtube-live', 'prasar-bharati'];
+const SEED_SOURCES = ['youtube-live', 'prasar-bharati'];
 const REGION_REGEX = /^[a-z]{2}$/;
 
 function validateSource(source) {
@@ -114,6 +116,206 @@ router.get('/samsung-tv-plus/channels', async (req, res) => {
       success: false,
       error: 'Failed to fetch Samsung TV Plus channels',
     });
+  }
+});
+
+// ─── YouTube Live ────────────────────────────────────────────
+
+router.get('/youtube-live/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getYouTubeLiveRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('YouTube Live regions error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch YouTube Live regions' });
+  }
+});
+
+router.get('/youtube-live/channels', async (req, res) => {
+  try {
+    const country = (req.query.country || 'in').toLowerCase();
+    if (!validateRegion(country)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
+    }
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels('youtube-live', country, {
+      status,
+    });
+    const data = channels.map((ch) => mapToFrontendShape(ch, 'youtube-live'));
+    res.json({ success: true, data, fromCache: true });
+  } catch (error) {
+    console.error('YouTube Live fetch error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch YouTube Live channels' });
+  }
+});
+
+// ─── Prasar Bharati ─────────────────────────────────────────
+
+router.get('/prasar-bharati/regions', async (req, res) => {
+  try {
+    const regions = await externalSourceCacheService.getPrasarBharatiRegions();
+    res.json({ success: true, data: regions });
+  } catch (error) {
+    console.error('Prasar Bharati regions error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch Prasar Bharati regions' });
+  }
+});
+
+router.get('/prasar-bharati/channels', async (req, res) => {
+  try {
+    const country = (req.query.country || 'in').toLowerCase();
+    if (!validateRegion(country)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
+    }
+    const status = req.query.status;
+    const channels = await externalSourceCacheService.getChannels('prasar-bharati', country, {
+      status,
+    });
+    const data = channels.map((ch) => mapToFrontendShape(ch, 'prasar-bharati'));
+    res.json({ success: true, data, fromCache: true });
+  } catch (error) {
+    console.error('Prasar Bharati fetch error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch Prasar Bharati channels' });
+  }
+});
+
+// ─── Seed Channels (admin CRUD) ─────────────────────────────
+
+router.get('/seed-channels', adminOnly, async (req, res) => {
+  try {
+    const query = {};
+    if (req.query.source) {
+      if (!SEED_SOURCES.includes(req.query.source)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid source. Must be one of: ' + SEED_SOURCES.join(', '),
+        });
+      }
+      query.source = req.query.source;
+    }
+    const seeds = await SeedChannel.find(query).sort({ channelName: 1 }).lean();
+    res.json({ success: true, data: seeds });
+  } catch (_error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch seed channels' });
+  }
+});
+
+router.post('/seed-channels', adminOnly, async (req, res) => {
+  try {
+    const { channelName, source, ytChannelId, directUrl, tvgLogo, groupTitle, language } = req.body;
+
+    if (!channelName || !source) {
+      return res.status(400).json({ success: false, error: 'channelName and source are required' });
+    }
+    if (!SEED_SOURCES.includes(source)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid source. Must be one of: ' + SEED_SOURCES.join(', '),
+      });
+    }
+    if (!ytChannelId && !directUrl) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Either ytChannelId or directUrl is required' });
+    }
+
+    const seed = await SeedChannel.create({
+      channelName,
+      source,
+      ytChannelId: ytChannelId || null,
+      directUrl: directUrl || null,
+      tvgLogo: tvgLogo || '',
+      groupTitle: groupTitle || 'Uncategorized',
+      language: language || '',
+      enabled: true,
+    });
+
+    audit({
+      userId: req.user.id,
+      action: 'create_seed_channel',
+      resource: 'seed_channel',
+      resourceId: seed._id.toString(),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.status(201).json({ success: true, data: seed });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, error: 'Seed channel already exists' });
+    }
+    console.error('Create seed channel error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to create seed channel' });
+  }
+});
+
+router.put('/seed-channels/:id', adminOnly, async (req, res) => {
+  try {
+    const allowed = [
+      'channelName',
+      'ytChannelId',
+      'directUrl',
+      'tvgLogo',
+      'groupTitle',
+      'language',
+      'enabled',
+    ];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    const seed = await SeedChannel.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true },
+    );
+    if (!seed) {
+      return res.status(404).json({ success: false, error: 'Seed channel not found' });
+    }
+
+    audit({
+      userId: req.user.id,
+      action: 'update_seed_channel',
+      resource: 'seed_channel',
+      resourceId: seed._id.toString(),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, data: seed });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, error: 'Duplicate seed channel' });
+    }
+    console.error('Update seed channel error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to update seed channel' });
+  }
+});
+
+router.delete('/seed-channels/:id', adminOnly, async (req, res) => {
+  try {
+    const seed = await SeedChannel.findByIdAndDelete(req.params.id);
+    if (!seed) {
+      return res.status(404).json({ success: false, error: 'Seed channel not found' });
+    }
+
+    audit({
+      userId: req.user.id,
+      action: 'delete_seed_channel',
+      resource: 'seed_channel',
+      resourceId: seed._id.toString(),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Seed channel deleted' });
+  } catch (_error) {
+    res.status(500).json({ success: false, error: 'Failed to delete seed channel' });
   }
 });
 

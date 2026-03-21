@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { ExternalSourceCacheMeta, ExternalSourceChannel } from '../models/ExternalSourceCache';
+import { SeedChannel } from '../models/SeedChannel';
 import { probeStream } from './stream-prober';
+import { ytDlpResolver } from './yt-dlp-resolver';
 import type { ExternalSourceType } from '@firevision/shared';
 
 const CACHE_TTL = parseInt(process.env.EXT_SOURCE_CACHE_TTL_MS || '3600000', 10); // 1 hour
@@ -150,6 +152,12 @@ class ExternalSourceCacheService {
         case 'samsung-tv-plus':
           channels = await this.fetchSamsungChannels(region);
           break;
+        case 'youtube-live':
+          channels = await this.fetchYouTubeLiveChannels(region);
+          break;
+        case 'prasar-bharati':
+          channels = await this.fetchPrasarBharatiChannels(region);
+          break;
       }
 
       // Upsert via bulkWrite (overlay — never delete)
@@ -164,6 +172,7 @@ class ExternalSourceCacheService {
                 $set: {
                   channelName: doc.channelName,
                   streamUrl: doc.streamUrl,
+                  streamUrlExpiresAt: doc.streamUrlExpiresAt || null,
                   tvgLogo: doc.tvgLogo,
                   groupTitle: doc.groupTitle,
                   country: doc.country,
@@ -494,6 +503,92 @@ class ExternalSourceCacheService {
     }));
   }
 
+  async getYouTubeLiveRegions() {
+    const count = await SeedChannel.countDocuments({ source: 'youtube-live', enabled: true });
+    return [{ code: 'in', name: 'India', channelCount: count }];
+  }
+
+  async getPrasarBharatiRegions() {
+    const count = await SeedChannel.countDocuments({ source: 'prasar-bharati', enabled: true });
+    return [{ code: 'in', name: 'India', channelCount: count }];
+  }
+
+  // ─── YouTube URL Refresh (for scheduler) ──────────────
+
+  async refreshYouTubeUrls(): Promise<{ refreshed: number; failed: number }> {
+    const now = new Date();
+    // Find all youtube-live and prasar-bharati channels with expired or missing stream URLs
+    const expiredChannels = await ExternalSourceChannel.find({
+      source: { $in: ['youtube-live', 'prasar-bharati'] },
+      $or: [{ streamUrlExpiresAt: { $lt: now } }, { streamUrlExpiresAt: null }, { streamUrl: '' }],
+    }).lean();
+
+    if (expiredChannels.length === 0) {
+      console.log('[ext-cache] No YouTube URLs need refreshing');
+      return { refreshed: 0, failed: 0 };
+    }
+
+    // Get the corresponding seed channels to find ytChannelIds
+    const seedChannels = await SeedChannel.find({
+      source: { $in: ['youtube-live', 'prasar-bharati'] },
+      enabled: true,
+      ytChannelId: { $ne: null },
+    }).lean();
+
+    // Map channelId -> ytChannelId from seed data
+    const ytIdMap = new Map<string, string>();
+    for (const seed of seedChannels) {
+      if (seed.ytChannelId) {
+        ytIdMap.set(seed.ytChannelId, seed.ytChannelId);
+      }
+    }
+
+    // Filter to channels that need yt-dlp resolution
+    const toResolve = expiredChannels.filter((ch) => ytIdMap.has(ch.channelId));
+    if (toResolve.length === 0) {
+      return { refreshed: 0, failed: 0 };
+    }
+
+    console.log(`[ext-cache] Refreshing ${toResolve.length} YouTube stream URLs...`);
+
+    const channelIds = toResolve.map((ch) => ch.channelId);
+    const results = await ytDlpResolver.resolveBatch(channelIds);
+
+    let refreshed = 0;
+    let failed = 0;
+    const bulkOps = [];
+
+    for (const ch of toResolve) {
+      const result = results.get(ch.channelId);
+      if (result) {
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: ch._id },
+            update: {
+              $set: {
+                streamUrl: result.url,
+                streamUrlExpiresAt: result.expiresAt,
+              },
+            },
+          },
+        });
+        refreshed++;
+      } else {
+        failed++;
+      }
+    }
+
+    if (bulkOps.length > 0) {
+      await ExternalSourceChannel.bulkWrite(bulkOps, { ordered: false });
+    }
+
+    console.log(
+      `[ext-cache] YouTube URL refresh complete: ${refreshed} refreshed, ${failed} failed`,
+    );
+
+    return { refreshed, failed };
+  }
+
   // ─── Private: Update liveness stats in meta ─────────────
 
   private async updateLivenessStats(source: ExternalSourceType, region: string) {
@@ -567,6 +662,84 @@ class ExternalSourceCacheService {
         country: region.toUpperCase(),
         summary: ch.description || '',
       }));
+  }
+
+  private async fetchYouTubeLiveChannels(_region: string): Promise<any[]> {
+    const seeds = await SeedChannel.find({
+      source: 'youtube-live',
+      enabled: true,
+    }).lean();
+
+    if (seeds.length === 0) return [];
+
+    const ytChannelIds = seeds.filter((s) => s.ytChannelId).map((s) => s.ytChannelId!);
+
+    const resolved = await ytDlpResolver.resolveBatch(ytChannelIds);
+
+    return seeds.map((seed) => {
+      const result = seed.ytChannelId ? resolved.get(seed.ytChannelId) : null;
+      return {
+        channelId: seed.ytChannelId || seed._id.toString(),
+        channelName: seed.channelName,
+        streamUrl: result?.url || '',
+        streamUrlExpiresAt: result?.expiresAt || null,
+        tvgLogo: seed.tvgLogo || '',
+        groupTitle: seed.groupTitle || 'Uncategorized',
+        country: 'IN',
+        language: seed.language || '',
+        summary: '',
+      };
+    });
+  }
+
+  private async fetchPrasarBharatiChannels(_region: string): Promise<any[]> {
+    const seeds = await SeedChannel.find({
+      source: 'prasar-bharati',
+      enabled: true,
+    }).lean();
+
+    if (seeds.length === 0) return [];
+
+    // Separate direct-URL channels from YouTube-based ones
+    const directChannels = seeds.filter((s) => s.directUrl);
+    const ytChannels = seeds.filter((s) => s.ytChannelId && !s.directUrl);
+
+    const ytChannelIds = ytChannels.map((s) => s.ytChannelId!);
+    const resolved =
+      ytChannelIds.length > 0 ? await ytDlpResolver.resolveBatch(ytChannelIds) : new Map();
+
+    const results: any[] = [];
+
+    for (const seed of directChannels) {
+      results.push({
+        channelId: seed._id.toString(),
+        channelName: seed.channelName,
+        streamUrl: seed.directUrl || '',
+        streamUrlExpiresAt: null,
+        tvgLogo: seed.tvgLogo || '',
+        groupTitle: seed.groupTitle || 'Uncategorized',
+        country: 'IN',
+        language: seed.language || '',
+        summary: '',
+      });
+    }
+
+    for (const seed of ytChannels) {
+      const result = resolved.get(seed.ytChannelId!);
+      results.push({
+        channelId: seed.ytChannelId!,
+        channelName: seed.channelName,
+        streamUrl: result?.url || '',
+        streamUrlExpiresAt: result?.expiresAt || null,
+        tvgLogo: seed.tvgLogo || '',
+        groupTitle: seed.groupTitle || 'Uncategorized',
+        country: 'IN',
+        language: seed.language || '',
+        summary: '',
+      });
+    }
+
+    return results;
   }
 
   // ─── Private: Parallel map with concurrency limit ───────

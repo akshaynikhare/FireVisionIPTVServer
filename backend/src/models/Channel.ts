@@ -63,6 +63,39 @@ const channelSchema = new Schema<IChannelDocument>(
       isWorking: Boolean,
       responseTime: Number,
     },
+    flaggedBad: {
+      isFlagged: { type: Boolean, default: false },
+      reason: { type: String, default: null },
+      flaggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+      flaggedAt: { type: Date, default: null },
+    },
+    alternateStreams: [
+      {
+        streamUrl: { type: String, required: true },
+        quality: { type: String, default: null },
+        liveness: {
+          status: {
+            type: String,
+            enum: ['alive', 'dead', 'unknown'],
+            default: 'unknown',
+          },
+          lastCheckedAt: { type: Date, default: null },
+          responseTimeMs: { type: Number, default: null },
+          error: { type: String, default: null },
+        },
+        flaggedBad: {
+          isFlagged: { type: Boolean, default: false },
+          reason: { type: String, default: null },
+          flaggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+          flaggedAt: { type: Date, default: null },
+        },
+        userAgent: { type: String, default: null },
+        referrer: { type: String, default: null },
+        source: { type: String, default: null },
+        promotedAt: { type: Date, default: null },
+        demotedAt: { type: Date, default: null },
+      },
+    ],
     metrics: {
       deadCount: { type: Number, default: 0 },
       aliveCount: { type: Number, default: 0 },
@@ -110,6 +143,21 @@ channelSchema.statics.generateM3UPlaylist = async function (): Promise<string> {
   let m3uContent = '#EXTM3U\n\n';
 
   channels.forEach((channel: IChannelDocument) => {
+    const primaryDead = channel.metadata?.isWorking === false;
+    const primaryFlagged = channel.flaggedBad?.isFlagged === true;
+
+    if ((primaryDead || primaryFlagged) && channel.alternateStreams?.length) {
+      const viableAlt = channel.alternateStreams.find(
+        (alt) => alt.liveness?.status === 'alive' && alt.flaggedBad?.isFlagged !== true,
+      );
+      if (viableAlt) {
+        const originalUrl = channel.channelUrl;
+        channel.channelUrl = viableAlt.streamUrl;
+        m3uContent += channel.toM3U() + '\n\n';
+        channel.channelUrl = originalUrl;
+        return;
+      }
+    }
     m3uContent += channel.toM3U() + '\n\n';
   });
 

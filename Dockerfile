@@ -31,8 +31,10 @@ ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 
-# Install dependencies for native modules and curl for health checks
-RUN apk add --no-cache python3 make g++ curl
+# Install dependencies for native modules, curl for health checks, and yt-dlp for YouTube stream resolution
+RUN apk add --no-cache python3 make g++ curl && \
+    wget -qO /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp
 
 # Copy workspace root and package files
 COPY package*.json ./
