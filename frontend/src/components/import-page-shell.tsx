@@ -120,8 +120,10 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   const [groupedChannels, setGroupedChannels] = useState<GroupedChannel[]>([]);
   const [groupedTotal, setGroupedTotal] = useState(0);
   const [groupedPage, setGroupedPage] = useState(1);
-  const [selectedStreams, setSelectedStreams] = useState<Record<string, string>>({});
   const [testingStreamUrl, setTestingStreamUrl] = useState<string | null>(null);
+  const [groupedSearch, setGroupedSearch] = useState('');
+  const [groupedStatus, setGroupedStatus] = useState<string>('');
+  const groupedSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Region selector
   const [regions, setRegions] = useState<{ code: string; channelCount: number }[]>([]);
@@ -236,6 +238,8 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     setSelectedCategories([]);
     setSelectedLanguages([]);
     setSelectedCountries([]);
+    setGroupedSearch('');
+    setGroupedStatus('');
   }
 
   async function handleSelectRegion(code: string) {
@@ -302,6 +306,33 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     }
   }
 
+  function buildGroupedParams(overrides?: { search?: string; status?: string }) {
+    const params = new URLSearchParams();
+    if (selectedRegion) params.set('country', selectedRegion);
+    if (selectedPlaylist) {
+      const pl = playlists.find((p) => p.id === selectedPlaylist);
+      if (pl) {
+        const f = pl.filter;
+        if (f) {
+          if (f.country) params.set('country', f.country);
+          if (f.languages?.length) params.set('languages', f.languages.join(','));
+          else if (f.language) params.set('language', f.language);
+          if (f.categories?.length) params.set('category', f.categories.join(','));
+          else if (f.category) params.set('category', f.category);
+        } else {
+          if (pl.country) params.set('country', pl.country);
+          if (pl.languages?.length) params.set('language', pl.languages.join(','));
+          if (pl.categories?.length) params.set('category', pl.categories.join(','));
+        }
+      }
+    }
+    const s = overrides?.search ?? groupedSearch;
+    if (s) params.set('search', s);
+    const st = overrides?.status ?? groupedStatus;
+    if (st) params.set('status', st);
+    return params;
+  }
+
   async function fetchGroupedChannels(params: URLSearchParams, pg: number) {
     params.set('limit', String(PAGE_SIZE));
     params.set('skip', String((pg - 1) * PAGE_SIZE));
@@ -316,13 +347,6 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     setGroupedChannels(data);
     setGroupedTotal(body.total || data.length);
     setGroupedPage(pg);
-    const autoSelected: Record<string, string> = {};
-    data.forEach((ch) => {
-      if (ch.bestStream?.streamUrl) {
-        autoSelected[ch.channelId] = ch.bestStream.streamUrl;
-      }
-    });
-    setSelectedStreams((prev) => ({ ...prev, ...autoSelected }));
   }
 
   // Compute unique filter options from loaded data
@@ -526,26 +550,34 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   async function handleGroupedPageChange(newPage: number) {
     setFetchingChannels(true);
     try {
-      const params = new URLSearchParams();
-      if (selectedRegion) params.set('country', selectedRegion);
-      if (selectedPlaylist) {
-        const pl = playlists.find((p) => p.id === selectedPlaylist);
-        if (pl) {
-          const f = pl.filter;
-          if (f) {
-            if (f.country) params.set('country', f.country);
-            if (f.languages?.length) params.set('languages', f.languages.join(','));
-            else if (f.language) params.set('language', f.language);
-            if (f.categories?.length) params.set('category', f.categories.join(','));
-            else if (f.category) params.set('category', f.category);
-          } else {
-            if (pl.country) params.set('country', pl.country);
-            if (pl.languages?.length) params.set('language', pl.languages.join(','));
-            if (pl.categories?.length) params.set('category', pl.categories.join(','));
-          }
-        }
+      await fetchGroupedChannels(buildGroupedParams(), newPage);
+    } catch {
+      toast('Failed to fetch channels', 'error');
+    } finally {
+      setFetchingChannels(false);
+    }
+  }
+
+  function handleGroupedSearchChange(value: string) {
+    setGroupedSearch(value);
+    if (groupedSearchTimer.current) clearTimeout(groupedSearchTimer.current);
+    groupedSearchTimer.current = setTimeout(async () => {
+      setFetchingChannels(true);
+      try {
+        await fetchGroupedChannels(buildGroupedParams({ search: value }), 1);
+      } catch {
+        toast('Failed to fetch channels', 'error');
+      } finally {
+        setFetchingChannels(false);
       }
-      await fetchGroupedChannels(params, newPage);
+    }, 300);
+  }
+
+  async function handleGroupedStatusChange(value: string) {
+    setGroupedStatus(value);
+    setFetchingChannels(true);
+    try {
+      await fetchGroupedChannels(buildGroupedParams({ status: value }), 1);
     } catch {
       toast('Failed to fetch channels', 'error');
     } finally {
@@ -560,7 +592,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     const toImport = groupedChannels
       .filter((ch) => isSelected(ch._uid))
       .map((ch) => {
-        const primaryUrl = selectedStreams[ch.channelId] || ch.bestStream?.streamUrl;
+        const primaryUrl = ch.bestStream?.streamUrl || ch.streams[0]?.streamUrl;
         const alternateStreams = ch.streams
           .filter((s) => s.streamUrl !== primaryUrl)
           .map((s) => ({
@@ -581,10 +613,9 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
         };
       });
     try {
-      const res = await api.post('/iptv-org/import-grouped', {
-        channels: toImport,
-        replaceExisting,
-      });
+      const endpoint = isAdmin ? '/iptv-org/import-grouped' : '/iptv-org/import-grouped-user';
+      const payload = isAdmin ? { channels: toImport, replaceExisting } : { channels: toImport };
+      const res = await api.post(endpoint, payload);
       setImportResult(res.data.message || `Imported ${toImport.length} channels with alternates`);
     } catch {
       setImportResult('Failed to import channels');
@@ -647,6 +678,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (groupedSearchTimer.current) clearTimeout(groupedSearchTimer.current);
     };
   }, []);
 
@@ -851,167 +883,197 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
       )}
 
       {/* Grouped Datatable */}
-      {!fetchingChannels && groupedMode && groupedChannels.length > 0 && (
-        <div className="space-y-4">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="text-sm text-muted-foreground">
-              {groupedTotal} channels with grouped streams
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {isAdmin && (
-                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={replaceExisting}
-                    onChange={(e) => setReplaceExisting(e.target.checked)}
-                    className="accent-primary"
-                  />
-                  Replace existing
-                </label>
-              )}
-              <button
-                onClick={handleGroupedImport}
-                disabled={importing || selectedCount === 0}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <Download className="h-4 w-4" />
-                {importing
-                  ? 'Importing...'
-                  : `Import ${selectedCount} to ${isAdmin ? 'System' : 'My List'}`}
-              </button>
-            </div>
-          </div>
-
-          {/* Selection bar */}
-          <SelectionToolbar
-            totalFiltered={groupedChannels.length}
-            totalUnfiltered={groupedTotal}
-            selectedCount={selectedCount}
-            onSelectPage={() => selectMany(groupedChannels.map((ch) => ch._uid))}
-            onUnselectPage={() => unselectMany(groupedChannels.map((ch) => ch._uid))}
-            onSelectAll={() => selectMany(groupedChannels.map((ch) => ch._uid))}
-            onUnselectAll={unselectAll}
-            isFiltered={false}
-          />
-
-          {importResult && (
-            <div
-              role="alert"
-              aria-live="polite"
-              className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary"
-            >
-              {importResult}
-            </div>
-          )}
-
-          {/* Grouped Table */}
-          <div className="border border-border bg-card">
-            {/* Header */}
-            <div
-              className="grid items-center px-3 py-2 border-b border-border bg-muted/30 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
-              style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
-            >
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => {
-                    const allIds = groupedChannels.map((ch) => ch._uid);
-                    const allSelected = groupedChannels.every((ch) => isSelected(ch._uid));
-                    if (allSelected) {
-                      unselectMany(allIds);
-                    } else {
-                      selectMany(allIds);
-                    }
-                  }}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Toggle page selection"
-                >
-                  {groupedChannels.every((ch) => isSelected(ch._uid)) ? (
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Square className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <span />
-              <span>Name</span>
-              <span>Category</span>
-              <span>Country</span>
-              <span>Streams</span>
-              <span>Best Status</span>
-            </div>
-
-            {/* Rows */}
-            {groupedChannels.map((ch) => (
-              <div key={ch._uid} className={isSelected(ch._uid) ? 'bg-primary/5' : ''}>
-                <div
-                  className="grid items-center px-3 py-2 border-b border-border/50"
-                  style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
-                >
-                  <div className="flex items-center justify-center">
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={isSelected(ch._uid)}
-                      onClick={() => toggleOne(ch._uid)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {isSelected(ch._uid) ? (
-                        <CheckSquare className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Square className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                  <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
-                  <div className="min-w-0">
-                    <span className="text-sm font-medium truncate block">{ch.channelName}</span>
-                    <span className="text-xs text-muted-foreground font-mono truncate block">
-                      {ch.channelId}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {ch.channelGroup || ch.categories?.[0] || '—'}
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {ch.country || '—'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{ch.streamCount}</span>
-                  <div className="flex items-center gap-1.5">
-                    <StatusDot status={ch.bestStream?.liveness?.status || 'unknown'} />
-                  </div>
-                </div>
-                <GroupedStreamRow
-                  streams={ch.streams}
-                  selectedStreamUrl={
-                    selectedStreams[ch.channelId] || ch.bestStream?.streamUrl || ''
-                  }
-                  onSelectStream={(url) =>
-                    setSelectedStreams((prev) => ({ ...prev, [ch.channelId]: url }))
-                  }
-                  onTestStream={
-                    isAdmin ? (stream) => handleTestGroupedStream(ch.channelId, stream) : undefined
-                  }
-                  testingStreamUrl={testingStreamUrl}
+      {!fetchingChannels &&
+        groupedMode &&
+        (groupedChannels.length > 0 || groupedSearch || groupedStatus) && (
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <SearchInput
+                  value={groupedSearch}
+                  onChange={handleGroupedSearchChange}
+                  placeholder="Search by name or ID..."
+                  ariaLabel="Search grouped channels"
+                  className="flex-1 max-w-md w-full"
                 />
+                <div className="flex items-center gap-2 flex-wrap">
+                  {isAdmin && (
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={replaceExisting}
+                        onChange={(e) => setReplaceExisting(e.target.checked)}
+                        className="accent-primary"
+                      />
+                      Replace existing
+                    </label>
+                  )}
+                  <button
+                    onClick={handleGroupedImport}
+                    disabled={importing || selectedCount === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    <Download className="h-4 w-4" />
+                    {importing
+                      ? 'Importing...'
+                      : `Import ${selectedCount} to ${isAdmin ? 'System' : 'My List'}`}
+                  </button>
+                </div>
               </div>
-            ))}
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">{groupedTotal} channels</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground">
+                  Status:
+                </span>
+                {['', 'alive', 'dead', 'unknown'].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleGroupedStatusChange(s)}
+                    className={`text-xs px-2 py-1 border transition-colors ${
+                      groupedStatus === s
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {s === ''
+                      ? `All`
+                      : s === 'alive'
+                        ? '● Alive'
+                        : s === 'dead'
+                          ? '● Dead'
+                          : '● Unknown'}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            {groupedChannels.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No channels found
+            {/* Selection bar */}
+            <SelectionToolbar
+              totalFiltered={groupedChannels.length}
+              totalUnfiltered={groupedTotal}
+              selectedCount={selectedCount}
+              onSelectPage={() => selectMany(groupedChannels.map((ch) => ch._uid))}
+              onUnselectPage={() => unselectMany(groupedChannels.map((ch) => ch._uid))}
+              onSelectAll={() => selectMany(groupedChannels.map((ch) => ch._uid))}
+              onUnselectAll={unselectAll}
+              isFiltered={false}
+            />
+
+            {importResult && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary"
+              >
+                {importResult}
               </div>
             )}
-          </div>
 
-          <Pagination
-            page={groupedPage}
-            pageSize={PAGE_SIZE}
-            totalCount={groupedTotal}
-            onPageChange={handleGroupedPageChange}
-          />
-        </div>
-      )}
+            {/* Grouped Table */}
+            <div className="border border-border bg-card">
+              {/* Header */}
+              <div
+                className="grid items-center px-3 py-2 border-b border-border bg-muted/30 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
+                style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
+              >
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={() => {
+                      const allIds = groupedChannels.map((ch) => ch._uid);
+                      const allSelected = groupedChannels.every((ch) => isSelected(ch._uid));
+                      if (allSelected) {
+                        unselectMany(allIds);
+                      } else {
+                        selectMany(allIds);
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle page selection"
+                  >
+                    {groupedChannels.every((ch) => isSelected(ch._uid)) ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <span />
+                <span>Name</span>
+                <span>Category</span>
+                <span>Country</span>
+                <span>Streams</span>
+                <span>Best Status</span>
+              </div>
+
+              {/* Rows */}
+              {groupedChannels.map((ch) => (
+                <div key={ch._uid} className={isSelected(ch._uid) ? 'bg-primary/5' : ''}>
+                  <div
+                    className="grid items-center px-3 py-2 border-b border-border/50"
+                    style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
+                  >
+                    <div className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected(ch._uid)}
+                        onClick={() => toggleOne(ch._uid)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {isSelected(ch._uid) ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium truncate block">{ch.channelName}</span>
+                      <span className="text-xs text-muted-foreground font-mono truncate block">
+                        {ch.channelId}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {ch.channelGroup || ch.categories?.[0] || '—'}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {ch.country || '—'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{ch.streamCount}</span>
+                    <div className="flex items-center gap-1.5">
+                      <StatusDot status={ch.bestStream?.liveness?.status || 'unknown'} />
+                    </div>
+                  </div>
+                  <GroupedStreamRow
+                    streams={ch.streams}
+                    onTestStream={
+                      isAdmin
+                        ? (stream) => handleTestGroupedStream(ch.channelId, stream)
+                        : undefined
+                    }
+                    testingStreamUrl={testingStreamUrl}
+                  />
+                </div>
+              ))}
+
+              {groupedChannels.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No channels found
+                </div>
+              )}
+            </div>
+
+            <Pagination
+              page={groupedPage}
+              pageSize={PAGE_SIZE}
+              totalCount={groupedTotal}
+              onPageChange={handleGroupedPageChange}
+            />
+          </div>
+        )}
 
       {/* Flat Datatable */}
       {!fetchingChannels && !groupedMode && channels.length > 0 && (

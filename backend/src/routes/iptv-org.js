@@ -648,6 +648,164 @@ router.post('/import-grouped', adminOnly, async (req, res) => {
   }
 });
 
+// Import grouped channels with alternate streams to user's playlist
+router.post('/import-grouped-user', async (req, res) => {
+  try {
+    const { channels } = req.body;
+    const userId = req.user.id;
+
+    if (!channels || !Array.isArray(channels)) {
+      return res.status(400).json({ success: false, error: 'Channels array is required' });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const existingChannelIds = new Set(user.channels.map((id) => id.toString()));
+    const channelIdsToAdd = [];
+    let updatedCount = 0;
+
+    for (const ch of channels) {
+      try {
+        const url = ch.selectedStreamUrl || ch.channelUrl;
+        const name = ch.channelName;
+        const logo = ch.tvgLogo || '';
+        const id = ch.channelId || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const group = ch.channelGroup || 'Imported';
+
+        let existingChannel = await Channel.findOne({ channelUrl: url });
+
+        if (existingChannel) {
+          // Merge incoming alternateStreams into the existing channel
+          const incomingAlts = (ch.alternateStreams || []).map((alt) => ({
+            streamUrl: alt.streamUrl,
+            quality: alt.quality || null,
+            liveness: alt.liveness || { status: 'unknown' },
+            flaggedBad: { isFlagged: false },
+            userAgent: alt.userAgent || null,
+            referrer: alt.referrer || null,
+            source: 'iptv-org',
+          }));
+
+          if (incomingAlts.length > 0) {
+            const existingUrls = new Set([
+              existingChannel.channelUrl,
+              ...(existingChannel.alternateStreams || []).map((a) => a.streamUrl),
+            ]);
+            const newAlts = incomingAlts.filter((a) => !existingUrls.has(a.streamUrl));
+            if (newAlts.length > 0) {
+              await Channel.updateOne(
+                { _id: existingChannel._id },
+                { $push: { alternateStreams: { $each: newAlts } } },
+              );
+              updatedCount++;
+            }
+          }
+
+          const channelIdStr = existingChannel._id.toString();
+          if (!existingChannelIds.has(channelIdStr)) {
+            channelIdsToAdd.push(existingChannel._id);
+            existingChannelIds.add(channelIdStr);
+          }
+        } else {
+          const newChannel = new Channel({
+            channelId: id,
+            channelName: name,
+            channelUrl: url,
+            channelImg: logo,
+            tvgLogo: logo,
+            channelGroup: group,
+            tvgName: name || '',
+            metadata: ch.metadata || {},
+            alternateStreams: (ch.alternateStreams || []).map((alt) => ({
+              streamUrl: alt.streamUrl,
+              quality: alt.quality || null,
+              liveness: alt.liveness || { status: 'unknown' },
+              flaggedBad: { isFlagged: false },
+              userAgent: alt.userAgent || null,
+              referrer: alt.referrer || null,
+              source: 'iptv-org',
+            })),
+          });
+
+          await newChannel.save();
+          channelIdsToAdd.push(newChannel._id);
+          existingChannelIds.add(newChannel._id.toString());
+        }
+      } catch (error) {
+        console.error('Error processing grouped channel:', ch.channelName, error.message);
+      }
+    }
+
+    // Collect all alternate stream URLs across all imported channels
+    // to remove duplicate standalone channels from the user's list
+    const allAlternateUrls = new Set();
+    for (const ch of channels) {
+      for (const alt of ch.alternateStreams || []) {
+        if (alt.streamUrl) allAlternateUrls.add(alt.streamUrl);
+      }
+    }
+
+    // Find channels in user's list whose primary URL is now an alternate
+    let deduplicatedCount = 0;
+    if (allAlternateUrls.size > 0) {
+      const redundantChannels = await Channel.find({
+        channelUrl: { $in: [...allAlternateUrls] },
+        _id: { $in: user.channels },
+      }).select('_id');
+      const redundantIds = redundantChannels.map((c) => c._id);
+      if (redundantIds.length > 0) {
+        await User.updateOne({ _id: userId }, { $pull: { channels: { $in: redundantIds } } });
+        deduplicatedCount = redundantIds.length;
+      }
+    }
+
+    if (channelIdsToAdd.length > 0) {
+      await User.updateOne(
+        { _id: userId },
+        { $addToSet: { channels: { $each: channelIdsToAdd } } },
+      );
+    }
+
+    audit({
+      userId: req.user.id,
+      action: 'import_iptv_org_grouped_user',
+      resource: 'channel',
+      resourceId: `${channelIdsToAdd.length} channels`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    const updatedUser = await User.findById(userId);
+    const parts = [];
+    if (channelIdsToAdd.length > 0)
+      parts.push(
+        `Added ${channelIdsToAdd.length} channel${channelIdsToAdd.length !== 1 ? 's' : ''}`,
+      );
+    if (updatedCount > 0)
+      parts.push(
+        `Updated ${updatedCount} channel${updatedCount !== 1 ? 's' : ''} with alternate streams`,
+      );
+    if (deduplicatedCount > 0)
+      parts.push(`Merged ${deduplicatedCount} duplicate${deduplicatedCount !== 1 ? 's' : ''}`);
+    const message = parts.length > 0 ? parts.join('. ') : 'Channels already in your list';
+
+    res.json({
+      success: true,
+      addedCount: channelIdsToAdd.length,
+      updatedCount,
+      totalChannels: updatedUser.channels.length,
+      message,
+    });
+  } catch (error) {
+    console.error('Error importing grouped channels for user:', error);
+    res.status(500).json({ success: false, error: 'Failed to import grouped channels' });
+  }
+});
+
 // Import selected channels from IPTV-org to user's playlist
 router.post('/import-user', async (req, res) => {
   try {

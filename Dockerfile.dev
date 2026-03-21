@@ -2,8 +2,10 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies for native modules
-RUN apk add --no-cache python3 make g++
+# Install dependencies for native modules and yt-dlp for YouTube stream resolution
+RUN apk add --no-cache python3 make g++ curl && \
+    wget -qO /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp
 
 # Copy workspace root and package files
 COPY package*.json ./

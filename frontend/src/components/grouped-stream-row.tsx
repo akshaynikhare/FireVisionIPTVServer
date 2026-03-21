@@ -20,16 +20,12 @@ export interface GroupedStream {
 
 interface GroupedStreamRowProps {
   streams: GroupedStream[];
-  selectedStreamUrl: string;
-  onSelectStream: (url: string) => void;
   onTestStream?: (stream: GroupedStream) => void;
   testingStreamUrl?: string | null;
 }
 
 export default function GroupedStreamRow({
   streams,
-  selectedStreamUrl,
-  onSelectStream,
   onTestStream,
   testingStreamUrl,
 }: GroupedStreamRowProps) {
@@ -51,27 +47,13 @@ export default function GroupedStreamRow({
       {expanded && (
         <div className="px-3 pb-2 space-y-1">
           {streams.map((stream, idx) => {
-            const isSelected = stream.streamUrl === selectedStreamUrl;
             const isTesting = testingStreamUrl === stream.streamUrl;
 
             return (
               <div
                 key={stream.streamUrl}
-                className={`flex items-center gap-2 px-2 py-1.5 text-xs border transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'border-primary/40 bg-primary/5'
-                    : 'border-transparent hover:border-border'
-                }`}
-                onClick={() => onSelectStream(stream.streamUrl)}
+                className="flex items-center gap-2 px-2 py-1.5 text-xs border border-transparent"
               >
-                <input
-                  type="radio"
-                  checked={isSelected}
-                  onChange={() => onSelectStream(stream.streamUrl)}
-                  className="accent-primary"
-                  aria-label={`Select stream ${idx + 1}`}
-                />
-
                 <span className="text-muted-foreground w-4 text-center font-mono">{idx + 1}</span>
 
                 {stream.quality ? (

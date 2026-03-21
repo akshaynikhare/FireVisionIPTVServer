@@ -201,6 +201,10 @@ mongoose
     const { initializeTestUser } = require('./utils/initTestUser');
     await initializeTestUser();
 
+    // Load seed channels from JSON (YouTube Live + Prasar Bharati)
+    const { initializeSeedChannels } = require('./utils/initSeedChannels');
+    await initializeSeedChannels();
+
     // Initialize IPTV-org cache (populate from DB or fetch if empty)
     const { iptvOrgCacheService } = require('./services/iptv-org-cache');
     iptvOrgCacheService.initializeOnStartup().catch((err) => {

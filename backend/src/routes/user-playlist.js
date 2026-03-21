@@ -12,7 +12,7 @@ router.get('/me/channels', requireAuth, async (req, res) => {
     console.log('🔵 GET /me/channels called for user:', req.user.id);
     const user = await User.findById(req.user.id).populate(
       'channels',
-      'channelName channelGroup channelUrl tvgLogo channelImg metadata metrics',
+      'channelName channelGroup channelUrl tvgLogo channelImg metadata metrics flaggedBad alternateStreams',
     );
     if (!user) {
       console.error('❌ User not found:', req.user.id);

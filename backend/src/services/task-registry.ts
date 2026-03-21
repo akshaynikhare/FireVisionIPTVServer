@@ -34,6 +34,10 @@ const STREAM_HEALTH_INTERVAL = parseInt(
   process.env.STREAM_HEALTH_CHECK_INTERVAL_MS || '14400000',
   10,
 );
+const YOUTUBE_REFRESH_INTERVAL = parseInt(
+  process.env.YOUTUBE_REFRESH_INTERVAL_MS || '14400000',
+  10,
+);
 
 async function livenessHandler(): Promise<TaskResult> {
   const subtasks: SubtaskResult[] = [];
@@ -175,6 +179,36 @@ async function streamHealthHandler(): Promise<TaskResult> {
   }
 }
 
+async function youtubeUrlRefreshHandler(): Promise<TaskResult> {
+  const start = Date.now();
+  try {
+    const result = await externalSourceCacheService.refreshYouTubeUrls();
+    return {
+      summary: result,
+      subtasks: [
+        {
+          name: 'youtube-url-refresh',
+          status: 'completed',
+          durationMs: Date.now() - start,
+          result,
+        },
+      ],
+    };
+  } catch (err: any) {
+    return {
+      summary: { error: err.message },
+      subtasks: [
+        {
+          name: 'youtube-url-refresh',
+          status: 'failed',
+          durationMs: Date.now() - start,
+          error: err.message,
+        },
+      ],
+    };
+  }
+}
+
 const tasks: TaskDefinition[] = [
   {
     name: 'liveness-check',
@@ -204,6 +238,14 @@ const tasks: TaskDefinition[] = [
       'Check primary streams with alternates, auto-promote alive alternates when primary is dead/flagged',
     intervalMs: STREAM_HEALTH_INTERVAL,
     handler: streamHealthHandler,
+  },
+  {
+    name: 'youtube-url-refresh',
+    displayName: 'YouTube Stream URL Refresh',
+    description:
+      'Resolve fresh HLS URLs for YouTube-based channels (YouTube Live + Prasar Bharati)',
+    intervalMs: YOUTUBE_REFRESH_INTERVAL,
+    handler: youtubeUrlRefreshHandler,
   },
 ];
 

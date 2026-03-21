@@ -105,6 +105,9 @@ export default function ChannelDetailModal({
             <div className="border border-border divide-y divide-border">
               {alternates.map((alt, idx) => (
                 <div key={alt.streamUrl} className="flex items-center gap-2 px-3 py-2 text-xs">
+                  <span className="text-[10px] font-mono text-muted-foreground/70 w-4 text-center shrink-0">
+                    #{idx + 1}
+                  </span>
                   <StatusDot
                     status={alt.liveness?.status || 'unknown'}
                     showLabel={false}
