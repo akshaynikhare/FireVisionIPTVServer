@@ -57,6 +57,7 @@ export interface Channel {
     aliveCount?: number;
     unresponsiveCount?: number;
     playCount?: number;
+    proxyPlayCount?: number;
     lastDeadAt?: string;
     lastAliveAt?: string;
     lastPlayedAt?: string;

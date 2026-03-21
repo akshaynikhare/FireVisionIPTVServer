@@ -68,6 +68,7 @@ const channelSchema = new Schema<IChannelDocument>(
       aliveCount: { type: Number, default: 0 },
       unresponsiveCount: { type: Number, default: 0 },
       playCount: { type: Number, default: 0 },
+      proxyPlayCount: { type: Number, default: 0 },
       lastDeadAt: Date,
       lastAliveAt: Date,
       lastPlayedAt: Date,

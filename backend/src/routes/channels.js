@@ -532,7 +532,7 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per channel per device per 1 minute
 router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId } = req.body;
+    const { deviceId, proxyPlay } = req.body;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({
@@ -551,10 +551,15 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
       });
     }
 
+    const updateInc = { 'metrics.playCount': 1 };
+    if (proxyPlay) {
+      updateInc['metrics.proxyPlayCount'] = 1;
+    }
+
     const channel = await Channel.findByIdAndUpdate(
       req.params.id,
       {
-        $inc: { 'metrics.playCount': 1 },
+        $inc: updateInc,
         $set: { 'metrics.lastPlayedAt': new Date() },
       },
       { new: true },

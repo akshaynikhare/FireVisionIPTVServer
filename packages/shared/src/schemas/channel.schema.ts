@@ -18,6 +18,7 @@ export const channelMetricsSchema = z
     aliveCount: z.number().int().default(0),
     unresponsiveCount: z.number().int().default(0),
     playCount: z.number().int().default(0),
+    proxyPlayCount: z.number().int().default(0),
     lastDeadAt: z.coerce.date().optional(),
     lastAliveAt: z.coerce.date().optional(),
     lastPlayedAt: z.coerce.date().optional(),

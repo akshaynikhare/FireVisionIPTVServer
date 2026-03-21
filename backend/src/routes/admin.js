@@ -672,6 +672,7 @@ router.get('/stats/stream-health', async (req, res) => {
           totalAliveCount: { $sum: { $ifNull: ['$metrics.aliveCount', 0] } },
           totalUnresponsiveCount: { $sum: { $ifNull: ['$metrics.unresponsiveCount', 0] } },
           totalPlayCount: { $sum: { $ifNull: ['$metrics.playCount', 0] } },
+          totalProxyPlayCount: { $sum: { $ifNull: ['$metrics.proxyPlayCount', 0] } },
         },
       },
     ]);
@@ -735,6 +736,7 @@ router.get('/stats/stream-health', async (req, res) => {
           totalAliveCount: 0,
           totalUnresponsiveCount: 0,
           totalPlayCount: 0,
+          totalProxyPlayCount: 0,
         },
         metrics: {
           mostFailing,

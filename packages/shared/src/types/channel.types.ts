@@ -29,6 +29,7 @@ export interface IChannel {
     aliveCount?: number;
     unresponsiveCount?: number;
     playCount?: number;
+    proxyPlayCount?: number;
     lastDeadAt?: Date;
     lastAliveAt?: Date;
     lastPlayedAt?: Date;

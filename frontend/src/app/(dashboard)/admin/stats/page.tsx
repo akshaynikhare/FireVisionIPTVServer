@@ -81,6 +81,7 @@ interface StreamHealthData {
     totalAliveCount?: number;
     totalUnresponsiveCount?: number;
     totalPlayCount?: number;
+    totalProxyPlayCount?: number;
   };
   metrics?: {
     mostFailing: StreamMetricChannel[];
@@ -784,6 +785,11 @@ export default function StatsPage() {
             <StatCard
               label="Total Plays"
               value={streamHealth.channels.totalPlayCount ?? 0}
+              icon={Radio}
+            />
+            <StatCard
+              label="Proxy Plays"
+              value={streamHealth.channels.totalProxyPlayCount ?? 0}
               icon={Radio}
             />
           </div>

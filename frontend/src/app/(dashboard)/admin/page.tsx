@@ -39,6 +39,7 @@ interface StreamHealthData {
     totalAliveCount: number;
     totalUnresponsiveCount: number;
     totalPlayCount: number;
+    totalProxyPlayCount: number;
   };
 }
 
@@ -266,6 +267,14 @@ export default function AdminDashboard() {
                 </p>
                 <p className="text-xl font-display font-bold tabular-nums text-primary">
                   {streamHealth.channels.totalPlayCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  Proxy Plays
+                </p>
+                <p className="text-xl font-display font-bold tabular-nums text-muted-foreground">
+                  {streamHealth.channels.totalProxyPlayCount ?? 0}
                 </p>
               </div>
             </div>

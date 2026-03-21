@@ -169,6 +169,11 @@ Complete inventory of every feature in the application.
 - Channel detail modal shows full metrics (admin: all counts + timestamps, user: counts)
 - User dashboard "My Channels" card shows working/failing breakdown with colored status dots
 - Web player reports play events via `POST /channels/:id/report-play` on first playback per channel per session
+- Proxy play tracking: `proxyPlayCount` metric records how many plays used the server proxy instead of direct stream
+- Web player sends `proxyPlay: true` when stream fell back to proxy playback
+- Android TV app sends `proxyPlay: true` when ExoPlayer switched to proxy after direct failures
+- Admin dashboard and stats page show "Proxy Plays" alongside "Total Plays"
+- Channel detail modal shows proxy play count for admin users
 
 ## Global M3U Playlist
 
@@ -325,6 +330,17 @@ Complete inventory of every feature in the application.
 - 30-second timeout with up to 5 redirects
 - CORS headers added to all proxied responses
 - Upstream timeout returns 504, other errors return 502
+- SSRF protection: validates URLs before fetching, blocks redirects to private/internal addresses
+
+## TV Stream Proxy
+
+- TV-code-authenticated stream proxy at `GET /api/v1/tv/stream/:code?url=<stream_url>`
+- Mirrors full stream proxy behavior (HLS manifest rewriting, VLC user agent, SSRF protection) but authenticated via channel list code in URL path instead of session
+- HLS manifest URLs rewritten to route through the TV proxy endpoint
+- Android TV app uses this as fallback when direct stream playback fails
+- Proxy fallback strategy: 3 direct retries with exponential backoff, then 2 proxy retries
+- ErrorRecoveryManager switches ExoPlayer media source to proxy URL after exhausting direct attempts
+- Proxy URL constructed from server URL + TV code + encoded stream URL
 
 ## Image Proxy
 

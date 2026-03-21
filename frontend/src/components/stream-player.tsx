@@ -70,10 +70,11 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
     const sessionId = typeof window !== 'undefined' ? useAuthStore.getState().sessionId : null;
     let destroyed = false;
+    let currentSource: 'direct' | 'proxy' = mode === 'proxy' ? 'proxy' : 'direct';
 
     setStatus('Loading...');
     setPlayerError('');
-    setActiveSource(mode === 'proxy' ? 'proxy' : 'direct');
+    setActiveSource(currentSource);
 
     // If player was already active (swapping streams), keep mini mode & position.
     // Only reset to full modal on fresh open.
@@ -97,7 +98,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
           const tryHlsSource = (src: string, isProxy: boolean) => {
             if (destroyed) return;
             hlsRef.current?.destroy();
-            setActiveSource(isProxy ? 'proxy' : 'direct');
+            currentSource = isProxy ? 'proxy' : 'direct';
+            setActiveSource(currentSource);
             if (isProxy && mode === 'direct-fallback') setStatus('Trying proxy...');
             setPlayerError('');
 
@@ -154,7 +156,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
           tryHlsSource(mode === 'proxy' ? proxyUrl : directUrl, mode === 'proxy');
         } else if (video!.canPlayType('application/vnd.apple.mpegurl')) {
           const startUrl = mode === 'proxy' ? proxyUrl : directUrl;
-          setActiveSource(mode === 'proxy' ? 'proxy' : 'direct');
+          currentSource = mode === 'proxy' ? 'proxy' : 'direct';
+          setActiveSource(currentSource);
           video!.src = startUrl;
           let nativeFallback = false;
           video!.addEventListener('loadedmetadata', () => {
@@ -167,7 +170,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             if (destroyed) return;
             if (!nativeFallback && mode === 'direct-fallback') {
               nativeFallback = true;
-              setActiveSource('proxy');
+              currentSource = 'proxy';
+              setActiveSource(currentSource);
               setStatus('Trying proxy...');
               video!.src = proxyUrl;
               video!.load();
@@ -191,7 +195,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
       api
         .post(
           `/channels/${channel.channelId}/report-play`,
-          { deviceId },
+          { deviceId, proxyPlay: currentSource === 'proxy' },
           {
             headers: { 'X-Skip-Auth-Redirect': '1' },
           },
