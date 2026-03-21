@@ -12,6 +12,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.12] - 2026-03-21
+
+### Added
+- enhance channel detail modal with alternate stream numbering
+- implement alternate stream fallback and promotion logic for channels
+- implement favorites syncing and display in channels page
+- add proxy play tracking and metrics across the application
+- enhance channel metrics tracking and update user dashboard with channel health stats
+- add stream metrics system with dead/alive/unresponsive/play counters
+- smart stream grouping, fallback, auto-promotion & bad stream flagging (#6)
+
+### Fixed
+- add proxy play count and last played/dead timestamps to channel metrics display
+- enhance channel testing and reporting with improved axios configuration and error handling
+- use atomic $inc for metrics in test endpoint and add metrics to Zod schema
+- add .unref() to rate-limit cleanup timer to allow graceful shutdown
+- resolve lint error in import-page-shell grouped mode toggle
 ## [1.0.11] - 2026-03-18
 
 ### Added
@@ -179,7 +196,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.11...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.12...HEAD
+[1.0.12]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.8...v1.0.9
