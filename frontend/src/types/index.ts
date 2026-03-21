@@ -52,6 +52,16 @@ export interface Channel {
     resolution?: string;
     tags?: string[];
   };
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    lastDeadAt?: string;
+    lastAliveAt?: string;
+    lastPlayedAt?: string;
+    lastUnresponsiveAt?: string;
+  };
 }
 
 export interface AppVersion {

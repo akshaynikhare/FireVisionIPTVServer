@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Minimize2, Maximize2 } from 'lucide-react';
+import { useAuthStore } from '@/store/auth-store';
+import api from '@/lib/api';
 
 interface StreamPlayerChannel {
   name: string;
   url: string;
   logo?: string;
+  channelId?: string;
 }
 
 interface StreamPlayerProps {
@@ -25,6 +28,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
   const [activeSource, setActiveSource] = useState<'direct' | 'proxy'>('direct');
   const [mini, setMini] = useState(false);
   const wasActiveRef = useRef(false); // tracks if player was already open (for swap vs fresh open)
+  const playReportedRef = useRef<string | null>(null);
 
   // Drag position for mini player
   const [position, setPosition] = useState({ right: 16, bottom: 16 });
@@ -64,7 +68,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     const url = channel.url;
     const directUrl = url;
     const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
-    const sessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
+    const sessionId = typeof window !== 'undefined' ? useAuthStore.getState().sessionId : null;
     let destroyed = false;
 
     setStatus('Loading...');
@@ -180,7 +184,17 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     }
 
     initPlayer();
-    const onPlaying = () => !destroyed && setStatus('Playing');
+    const reportPlay = () => {
+      if (!channel.channelId || playReportedRef.current === channel.channelId) return;
+      playReportedRef.current = channel.channelId;
+      const deviceId = `web-${sessionId || 'anonymous'}`;
+      api.post(`/channels/${channel.channelId}/report-play`, { deviceId }).catch(() => {});
+    };
+    const onPlaying = () => {
+      if (destroyed) return;
+      setStatus('Playing');
+      reportPlay();
+    };
     const onPause = () => !destroyed && setStatus('Paused');
     const onWaiting = () => !destroyed && setStatus('Buffering...');
     const onVidError = () => !destroyed && setPlayerError('Playback error');

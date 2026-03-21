@@ -58,6 +58,16 @@ interface Channel {
     network?: string;
     website?: string;
   };
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    lastDeadAt?: string;
+    lastAliveAt?: string;
+    lastPlayedAt?: string;
+    lastUnresponsiveAt?: string;
+  };
 }
 
 function getName(c: Channel) {
@@ -738,6 +748,40 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             ? new Date(detailChannel.metadata.lastTested).toLocaleString()
             : undefined,
         },
+        ...(isAdmin && detailChannel.metrics
+          ? [
+              { label: 'Play Count', value: String(detailChannel.metrics.playCount ?? 0) },
+              { label: 'Alive Count', value: String(detailChannel.metrics.aliveCount ?? 0) },
+              { label: 'Dead Count', value: String(detailChannel.metrics.deadCount ?? 0) },
+              {
+                label: 'Unresponsive Count',
+                value: String(detailChannel.metrics.unresponsiveCount ?? 0),
+              },
+              {
+                label: 'Last Played',
+                value: detailChannel.metrics.lastPlayedAt
+                  ? new Date(detailChannel.metrics.lastPlayedAt).toLocaleString()
+                  : undefined,
+              },
+              {
+                label: 'Last Dead',
+                value: detailChannel.metrics.lastDeadAt
+                  ? new Date(detailChannel.metrics.lastDeadAt).toLocaleString()
+                  : undefined,
+              },
+            ]
+          : []),
+        ...(!isAdmin && detailChannel.metrics
+          ? [
+              { label: 'Play Count', value: String(detailChannel.metrics.playCount ?? 0) },
+              { label: 'Alive Count', value: String(detailChannel.metrics.aliveCount ?? 0) },
+              { label: 'Dead Count', value: String(detailChannel.metrics.deadCount ?? 0) },
+              {
+                label: 'Unresponsive Count',
+                value: String(detailChannel.metrics.unresponsiveCount ?? 0),
+              },
+            ]
+          : []),
       ]
     : [];
 
@@ -830,6 +874,17 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             </div>
           ),
         },
+        {
+          key: 'plays',
+          header: (
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Plays
+            </span>
+          ),
+          cell: (c: Channel) => (
+            <span className="text-xs tabular-nums font-display">{c.metrics?.playCount || 0}</span>
+          ),
+        },
       ]
     : [
         {
@@ -892,6 +947,17 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                 <Zap className="h-3 w-3" />
               </button>
             </div>
+          ),
+        },
+        {
+          key: 'plays',
+          header: (
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Plays
+            </span>
+          ),
+          cell: (c: Channel) => (
+            <span className="text-xs tabular-nums font-display">{c.metrics?.playCount || 0}</span>
           ),
         },
       ];
@@ -1101,7 +1167,9 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       {/* Channel List */}
       <ChannelDataTable<Channel>
         data={displayData}
-        gridTemplate={isAdmin ? '1fr 1fr 100px 100px 120px 110px' : '1fr 180px 130px 110px'}
+        gridTemplate={
+          isAdmin ? '1fr 1fr 100px 100px 120px 70px 110px' : '1fr 180px 130px 60px 110px'
+        }
         ariaLabel={isAdmin ? 'Channels table' : 'My channels table'}
         emptyMessage={
           debouncedSearch
@@ -1136,7 +1204,11 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         columns={tableColumns}
         getActions={(c) => ({
           onDetail: () => setDetailChannel(c),
-          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onPlay: () =>
+            playStream(
+              { name: getName(c), url: getUrl(c), channelId: c._id },
+              { mode: 'direct-fallback' },
+            ),
           onEdit: isAdmin ? () => openEdit(c) : undefined,
           onDelete: () => handleDelete(c._id),
         })}
@@ -1398,7 +1470,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         onPlay={
           detailChannel
             ? () => {
-                playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
+                playStream(
+                  {
+                    name: getName(detailChannel),
+                    url: getUrl(detailChannel),
+                    channelId: detailChannel._id,
+                  },
+                  { mode: 'direct-fallback' },
+                );
                 setDetailChannel(null);
               }
             : undefined

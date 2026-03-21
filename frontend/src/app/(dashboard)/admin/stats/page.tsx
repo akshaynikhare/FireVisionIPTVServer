@@ -53,6 +53,23 @@ interface RecentPairing {
   createdAt: string;
 }
 
+interface StreamMetricChannel {
+  _id: string;
+  channelId?: string;
+  channelName?: string;
+  channelGroup?: string;
+  metrics: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    lastDeadAt?: string;
+    lastAliveAt?: string;
+    lastPlayedAt?: string;
+    lastUnresponsiveAt?: string;
+  };
+}
+
 interface StreamHealthData {
   channels: {
     total: number;
@@ -60,6 +77,16 @@ interface StreamHealthData {
     failing: number;
     untested: number;
     avgResponseTime: number | null;
+    totalDeadCount?: number;
+    totalAliveCount?: number;
+    totalUnresponsiveCount?: number;
+    totalPlayCount?: number;
+  };
+  metrics?: {
+    mostFailing: StreamMetricChannel[];
+    mostPopular: StreamMetricChannel[];
+    removalCandidates: StreamMetricChannel[];
+    unresponsiveStreams: StreamMetricChannel[];
   };
   external: Array<{
     _id: string;
@@ -724,6 +751,233 @@ export default function StatsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Stream Metrics Analytics */}
+      {streamHealth?.metrics && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Stream Metrics
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard
+              label="Total Alive"
+              value={streamHealth.channels.totalAliveCount ?? 0}
+              icon={Radio}
+            />
+            <StatCard
+              label="Total Dead"
+              value={streamHealth.channels.totalDeadCount ?? 0}
+              icon={Radio}
+            />
+            <StatCard
+              label="Total Unresponsive"
+              value={streamHealth.channels.totalUnresponsiveCount ?? 0}
+              icon={Radio}
+            />
+            <StatCard
+              label="Total Plays"
+              value={streamHealth.channels.totalPlayCount ?? 0}
+              icon={Radio}
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Most Failing */}
+            <ChartCard title="Most Failing Streams">
+              {streamHealth.metrics.mostFailing.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No failing streams</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Channel
+                        </th>
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Group
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Dead
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Last Dead
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {streamHealth.metrics.mostFailing.map((ch) => (
+                        <tr key={ch._id}>
+                          <td className="py-2 font-medium truncate max-w-[160px]">
+                            {ch.channelName || 'Unknown'}
+                          </td>
+                          <td className="py-2 text-muted-foreground truncate max-w-[100px] hidden sm:table-cell">
+                            {ch.channelGroup || '—'}
+                          </td>
+                          <td className="py-2 text-right font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                            {ch.metrics.deadCount ?? 0}
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground hidden sm:table-cell">
+                            {ch.metrics.lastDeadAt ? timeAgo(ch.metrics.lastDeadAt) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ChartCard>
+
+            {/* Most Popular */}
+            <ChartCard title="Most Popular Streams">
+              {streamHealth.metrics.mostPopular.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No play data</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Channel
+                        </th>
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Group
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Plays
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Last Played
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {streamHealth.metrics.mostPopular.map((ch) => (
+                        <tr key={ch._id}>
+                          <td className="py-2 font-medium truncate max-w-[160px]">
+                            {ch.channelName || 'Unknown'}
+                          </td>
+                          <td className="py-2 text-muted-foreground truncate max-w-[100px] hidden sm:table-cell">
+                            {ch.channelGroup || '—'}
+                          </td>
+                          <td className="py-2 text-right font-display font-bold tabular-nums text-primary">
+                            {ch.metrics.playCount ?? 0}
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground hidden sm:table-cell">
+                            {ch.metrics.lastPlayedAt ? timeAgo(ch.metrics.lastPlayedAt) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ChartCard>
+
+            {/* Removal Candidates */}
+            <ChartCard title="Removal Candidates">
+              {streamHealth.metrics.removalCandidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No removal candidates
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Channel
+                        </th>
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Group
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Dead
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Plays
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {streamHealth.metrics.removalCandidates.map((ch) => (
+                        <tr key={ch._id}>
+                          <td className="py-2 font-medium truncate max-w-[160px]">
+                            {ch.channelName || 'Unknown'}
+                          </td>
+                          <td className="py-2 text-muted-foreground truncate max-w-[100px] hidden sm:table-cell">
+                            {ch.channelGroup || '—'}
+                          </td>
+                          <td className="py-2 text-right font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                            {ch.metrics.deadCount ?? 0}
+                          </td>
+                          <td className="py-2 text-right font-display tabular-nums text-muted-foreground">
+                            {ch.metrics.playCount ?? 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ChartCard>
+
+            {/* Unresponsive Streams */}
+            <ChartCard title="Unresponsive Streams">
+              {streamHealth.metrics.unresponsiveStreams.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No unresponsive streams
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Channel
+                        </th>
+                        <th className="pb-2 text-left text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Group
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                          Count
+                        </th>
+                        <th className="pb-2 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hidden sm:table-cell">
+                          Last
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {streamHealth.metrics.unresponsiveStreams.map((ch) => (
+                        <tr key={ch._id}>
+                          <td className="py-2 font-medium truncate max-w-[160px]">
+                            {ch.channelName || 'Unknown'}
+                          </td>
+                          <td className="py-2 text-muted-foreground truncate max-w-[100px] hidden sm:table-cell">
+                            {ch.channelGroup || '—'}
+                          </td>
+                          <td className="py-2 text-right font-display font-bold tabular-nums">
+                            {ch.metrics.unresponsiveCount ?? 0}
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground hidden sm:table-cell">
+                            {ch.metrics.lastUnresponsiveAt
+                              ? timeAgo(ch.metrics.lastUnresponsiveAt)
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ChartCard>
           </div>
         </div>
       )}

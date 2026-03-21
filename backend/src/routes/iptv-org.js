@@ -510,7 +510,14 @@ router.post('/import-user', async (req, res) => {
 
     for (const ch of channels) {
       try {
-        let existingChannel = await Channel.findOne({ channelUrl: ch.url });
+        const url = ch.channelUrl || ch.url;
+        const name = ch.channelName || ch.name;
+        const logo = ch.tvgLogo || ch.logo || '';
+        const id =
+          ch.channelId || ch.id || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const group = ch.channelGroup || ch.category || 'IPTV-org';
+
+        let existingChannel = await Channel.findOne({ channelUrl: url });
 
         if (existingChannel) {
           const channelIdStr = existingChannel._id.toString();
@@ -520,13 +527,13 @@ router.post('/import-user', async (req, res) => {
           }
         } else {
           const newChannel = new Channel({
-            channelId: ch.id || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            channelName: ch.name,
-            channelUrl: ch.url,
-            channelImg: ch.logo || '',
-            tvgLogo: ch.logo || '',
-            channelGroup: ch.category || 'IPTV-org',
-            tvgName: ch.name || '',
+            channelId: id,
+            channelName: name,
+            channelUrl: url,
+            channelImg: logo,
+            tvgLogo: logo,
+            channelGroup: group,
+            tvgName: name || '',
             metadata: {
               country: ch.country || '',
               language: ch.language || '',
