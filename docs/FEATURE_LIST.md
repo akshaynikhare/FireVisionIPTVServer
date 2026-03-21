@@ -163,6 +163,12 @@ Complete inventory of every feature in the application.
 - Server-side probe results (channel test) automatically increment alive/dead counters
 - Enhanced admin stream health analytics: most failing streams, most popular streams, removal candidates (high failures + zero plays), unresponsive streams
 - Aggregate metrics in admin stats: total dead/alive/unresponsive/play counts across all channels
+- Admin dashboard Stream Health summary card with alive/dead/unresponsive/play totals and proportional health bar
+- Admin stats page shows detailed stream metric tables: Most Failing, Most Popular, Removal Candidates, Unresponsive streams
+- Play count column in admin and user channel tables
+- Channel detail modal shows full metrics (admin: all counts + timestamps, user: counts)
+- User dashboard "My Channels" card shows working/failing breakdown with colored status dots
+- Web player reports play events via `POST /channels/:id/report-play` on first playback per channel per session
 
 ## Global M3U Playlist
 

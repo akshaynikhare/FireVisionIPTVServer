@@ -188,7 +188,21 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
       if (!channel.channelId || playReportedRef.current === channel.channelId) return;
       playReportedRef.current = channel.channelId;
       const deviceId = `web-${sessionId || 'anonymous'}`;
-      api.post(`/channels/${channel.channelId}/report-play`, { deviceId }).catch(() => {});
+      api
+        .post(
+          `/channels/${channel.channelId}/report-play`,
+          { deviceId },
+          {
+            headers: { 'X-Skip-Auth-Redirect': '1' },
+          },
+        )
+        .catch((err) => {
+          console.warn(
+            '[StreamPlayer] report-play failed:',
+            err.response?.status,
+            err.response?.data || err.message,
+          );
+        });
     };
     const onPlaying = () => {
       if (destroyed) return;

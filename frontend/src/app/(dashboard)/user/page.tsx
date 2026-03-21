@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tv, Smartphone, Copy, Check, ChevronRight, Zap } from 'lucide-react';
+import { Tv, Smartphone, Copy, Check, ChevronRight, Zap, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -161,6 +161,15 @@ export default function UserDashboard() {
               <code className="flex-1 text-xs text-muted-foreground bg-muted px-3 py-2 truncate border border-border">
                 {playlistUrl}
               </code>
+              <a
+                href={playlistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors shrink-0 hover:bg-muted"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                Open M3U
+              </a>
               <button
                 onClick={handleCopy}
                 aria-label="Copy to clipboard"

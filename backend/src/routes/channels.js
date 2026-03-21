@@ -389,10 +389,17 @@ router.post('/:id/test', requireAuth, async (req, res) => {
     let error = null;
 
     try {
-      const response = await axios.head(channel.channelUrl, {
-        timeout: 10000,
+      const response = await axios.get(channel.channelUrl, {
+        timeout: 20000,
         maxRedirects: 5,
+        responseType: 'stream',
         validateStatus: (status) => status < 500,
+        headers: {
+          'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+          Accept: '*/*',
+          'Accept-Encoding': 'gzip, deflate',
+          Connection: 'keep-alive',
+        },
         beforeRedirect: (options) => {
           const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
           if (
@@ -403,6 +410,9 @@ router.post('/:id/test', requireAuth, async (req, res) => {
           }
         },
       });
+      if (response.data && typeof response.data.destroy === 'function') {
+        response.data.destroy();
+      }
       isWorking = response.status >= 200 && response.status < 400;
     } catch (err) {
       error = err.message;
