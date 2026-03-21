@@ -80,6 +80,17 @@ export interface Channel {
   };
   flaggedBad?: FlaggedBad;
   alternateStreams?: AlternateStream[];
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    proxyPlayCount?: number;
+    lastDeadAt?: string;
+    lastAliveAt?: string;
+    lastPlayedAt?: string;
+    lastUnresponsiveAt?: string;
+  };
 }
 
 export interface AppVersion {

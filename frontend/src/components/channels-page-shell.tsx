@@ -15,6 +15,7 @@ import {
   ArrowUp,
   ArrowDown,
   Flag,
+  Heart,
 } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -62,6 +63,17 @@ interface Channel {
   };
   flaggedBad?: FlaggedBad;
   alternateStreams?: AlternateStream[];
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    proxyPlayCount?: number;
+    lastDeadAt?: string;
+    lastAliveAt?: string;
+    lastPlayedAt?: string;
+    lastUnresponsiveAt?: string;
+  };
 }
 
 function getName(c: Channel) {
@@ -146,7 +158,10 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
   // Flag bad stream
   const [showFlagModal, setShowFlagModal] = useState(false);
-  const [flagTarget, setFlagTarget] = useState<{ channelId: string; alternateIndex?: number } | null>(null);
+  const [flagTarget, setFlagTarget] = useState<{
+    channelId: string;
+    alternateIndex?: number;
+  } | null>(null);
   const [flagReason, setFlagReason] = useState('looping');
 
   // Bulk delete
@@ -180,6 +195,51 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const { playStream } = useStreamPlayer();
+
+  // Favorites
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const favoriteIdsRef = useRef<Set<string>>(new Set());
+  const [favSyncing, setFavSyncing] = useState<Set<string>>(new Set());
+
+  function updateFavoriteIds(next: Set<string>) {
+    favoriteIdsRef.current = next;
+    setFavoriteIds(next);
+  }
+
+  async function fetchFavorites() {
+    try {
+      const res = await api.get('/favorites');
+      const ids: string[] = res.data.channel_ids || [];
+      updateFavoriteIds(new Set(ids));
+    } catch {
+      // silent — favorites are non-critical
+    }
+  }
+
+  async function toggleFavorite(channelId: string) {
+    setFavSyncing((prev) => new Set(prev).add(channelId));
+    const wasFav = favoriteIdsRef.current.has(channelId);
+    const next = new Set(favoriteIdsRef.current);
+    if (wasFav) next.delete(channelId);
+    else next.add(channelId);
+    updateFavoriteIds(next);
+    try {
+      await api.post('/favorites', { channel_ids: Array.from(favoriteIdsRef.current) });
+    } catch {
+      // revert just this channel
+      const reverted = new Set(favoriteIdsRef.current);
+      if (wasFav) reverted.add(channelId);
+      else reverted.delete(channelId);
+      updateFavoriteIds(reverted);
+      toast('Failed to update favorites', 'error');
+    } finally {
+      setFavSyncing((prev) => {
+        const s = new Set(prev);
+        s.delete(channelId);
+        return s;
+      });
+    }
+  }
 
   // --- Admin: Server-side data fetching ---
   const fetchChannels = useCallback(
@@ -274,6 +334,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   // Init
   useEffect(() => {
     setOrigin(window.location.origin);
+    fetchFavorites();
     if (isAdmin) {
       refreshFilterOptions();
     } else {
@@ -747,12 +808,86 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             ? new Date(detailChannel.metadata.lastTested).toLocaleString()
             : undefined,
         },
+        ...(isAdmin && detailChannel.metrics
+          ? [
+              { label: 'Play Count', value: String(detailChannel.metrics.playCount ?? 0) },
+              { label: 'Proxy Plays', value: String(detailChannel.metrics.proxyPlayCount ?? 0) },
+              { label: 'Alive Count', value: String(detailChannel.metrics.aliveCount ?? 0) },
+              { label: 'Dead Count', value: String(detailChannel.metrics.deadCount ?? 0) },
+              {
+                label: 'Unresponsive Count',
+                value: String(detailChannel.metrics.unresponsiveCount ?? 0),
+              },
+              {
+                label: 'Last Played',
+                value: detailChannel.metrics.lastPlayedAt
+                  ? new Date(detailChannel.metrics.lastPlayedAt).toLocaleString()
+                  : undefined,
+              },
+              {
+                label: 'Last Dead',
+                value: detailChannel.metrics.lastDeadAt
+                  ? new Date(detailChannel.metrics.lastDeadAt).toLocaleString()
+                  : undefined,
+              },
+            ]
+          : []),
+        ...(!isAdmin && detailChannel.metrics
+          ? [
+              { label: 'Play Count', value: String(detailChannel.metrics.playCount ?? 0) },
+              { label: 'Proxy Plays', value: String(detailChannel.metrics.proxyPlayCount ?? 0) },
+              { label: 'Alive Count', value: String(detailChannel.metrics.aliveCount ?? 0) },
+              { label: 'Dead Count', value: String(detailChannel.metrics.deadCount ?? 0) },
+              {
+                label: 'Unresponsive Count',
+                value: String(detailChannel.metrics.unresponsiveCount ?? 0),
+              },
+              {
+                label: 'Last Played',
+                value: detailChannel.metrics.lastPlayedAt
+                  ? new Date(detailChannel.metrics.lastPlayedAt).toLocaleString()
+                  : undefined,
+              },
+              {
+                label: 'Last Dead',
+                value: detailChannel.metrics.lastDeadAt
+                  ? new Date(detailChannel.metrics.lastDeadAt).toLocaleString()
+                  : undefined,
+              },
+            ]
+          : []),
       ]
     : [];
 
   // Table columns based on mode
+  const favColumn: DataTableColumn<Channel> = {
+    key: 'fav',
+    header: (
+      <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+        <Heart className="h-3.5 w-3.5 inline" />
+      </span>
+    ),
+    cell: (c) => {
+      const isFav = favoriteIds.has(c._id);
+      return (
+        <button
+          onClick={() => toggleFavorite(c._id)}
+          disabled={favSyncing.has(c._id)}
+          className="flex items-center justify-center h-7 w-7 transition-colors disabled:opacity-50"
+          title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart
+            className={`h-4 w-4 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`}
+          />
+        </button>
+      );
+    },
+  };
+
   const tableColumns: DataTableColumn<Channel>[] = isAdmin
     ? [
+        favColumn,
         {
           key: 'group',
           header: (
@@ -839,8 +974,20 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             </div>
           ),
         },
+        {
+          key: 'plays',
+          header: (
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Plays
+            </span>
+          ),
+          cell: (c: Channel) => (
+            <span className="text-xs tabular-nums font-display">{c.metrics?.playCount || 0}</span>
+          ),
+        },
       ]
     : [
+        favColumn,
         {
           key: 'group',
           ariaSort:
@@ -903,14 +1050,26 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
             </div>
           ),
         },
+        {
+          key: 'plays',
+          header: (
+            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+              Plays
+            </span>
+          ),
+          cell: (c: Channel) => (
+            <span className="text-xs tabular-nums font-display">{c.metrics?.playCount || 0}</span>
+          ),
+        },
       ];
 
   async function handleFlagSubmit() {
     if (!flagTarget) return;
     try {
-      const url = flagTarget.alternateIndex !== undefined
-        ? `/channels/${flagTarget.channelId}/alternates/${flagTarget.alternateIndex}/flag`
-        : `/channels/${flagTarget.channelId}/flag`;
+      const url =
+        flagTarget.alternateIndex !== undefined
+          ? `/channels/${flagTarget.channelId}/alternates/${flagTarget.alternateIndex}/flag`
+          : `/channels/${flagTarget.channelId}/flag`;
       await api.post(url, { reason: flagReason });
       toast('Stream flagged', 'success');
       setShowFlagModal(false);
@@ -948,7 +1107,11 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       const alt = channel.alternateStreams[index];
       const currentUrl = getUrl(channel);
       const newAlternates = [...channel.alternateStreams];
-      newAlternates[index] = { ...newAlternates[index], streamUrl: currentUrl, demotedAt: new Date().toISOString() };
+      newAlternates[index] = {
+        ...newAlternates[index],
+        streamUrl: currentUrl,
+        demotedAt: new Date().toISOString(),
+      };
       await api.put(`/admin/channels/${channelId}`, {
         channelUrl: alt.streamUrl,
         alternateStreams: newAlternates,
@@ -1165,7 +1328,9 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       {/* Channel List */}
       <ChannelDataTable<Channel>
         data={displayData}
-        gridTemplate={isAdmin ? '1fr 1fr 100px 100px 120px 110px' : '1fr 180px 130px 110px'}
+        gridTemplate={
+          isAdmin ? '1fr 40px 1fr 100px 100px 120px 70px 110px' : '1fr 40px 180px 130px 60px 110px'
+        }
         ariaLabel={isAdmin ? 'Channels table' : 'My channels table'}
         emptyMessage={
           debouncedSearch
@@ -1200,7 +1365,11 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         columns={tableColumns}
         getActions={(c) => ({
           onDetail: () => setDetailChannel(c),
-          onPlay: () => playStream({ name: getName(c), url: getUrl(c) }),
+          onPlay: () =>
+            playStream(
+              { name: getName(c), url: getUrl(c), channelId: c._id },
+              { mode: 'direct-fallback' },
+            ),
           onEdit: isAdmin ? () => openEdit(c) : undefined,
           onDelete: () => handleDelete(c._id),
         })}
@@ -1465,7 +1634,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         onPlay={
           detailChannel
             ? () => {
-                playStream({ name: getName(detailChannel), url: getUrl(detailChannel) });
+                playStream(
+                  {
+                    name: getName(detailChannel),
+                    url: getUrl(detailChannel),
+                    channelId: detailChannel._id,
+                  },
+                  { mode: 'direct-fallback' },
+                );
                 setDetailChannel(null);
               }
             : undefined
@@ -1479,11 +1655,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               }
             : undefined
         }
-        onUnflagPrimary={
-          detailChannel
-            ? () => handleUnflagPrimary(detailChannel._id)
-            : undefined
-        }
+        onUnflagPrimary={detailChannel ? () => handleUnflagPrimary(detailChannel._id) : undefined}
         onFlagAlternate={
           detailChannel
             ? (index: number) => {
@@ -1611,13 +1783,18 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       {/* Flag Bad Stream Modal */}
       <Modal
         open={showFlagModal}
-        onClose={() => { setShowFlagModal(false); setFlagTarget(null); }}
+        onClose={() => {
+          setShowFlagModal(false);
+          setFlagTarget(null);
+        }}
         title={mode === 'admin' ? 'Flag Bad Stream' : 'Report Bad Stream'}
         size="default"
       >
         <div className="p-5 space-y-4">
           <p className="text-sm text-muted-foreground">
-            {mode === 'admin' ? 'Report this stream as bad. Select the reason:' : "What's wrong with this stream?"}
+            {mode === 'admin'
+              ? 'Report this stream as bad. Select the reason:'
+              : "What's wrong with this stream?"}
           </p>
           <div className="space-y-2">
             {[
@@ -1627,17 +1804,33 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               { value: 'other', label: 'Other' },
             ].map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="radio" name="flagReason" value={opt.value} checked={flagReason === opt.value} onChange={() => setFlagReason(opt.value)} className="accent-primary" />
+                <input
+                  type="radio"
+                  name="flagReason"
+                  value={opt.value}
+                  checked={flagReason === opt.value}
+                  onChange={() => setFlagReason(opt.value)}
+                  className="accent-primary"
+                />
                 {opt.label}
               </label>
             ))}
           </div>
           <div className="flex items-center gap-3 pt-2">
-            <button onClick={handleFlagSubmit} className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-signal-red text-white uppercase tracking-[0.1em] transition-colors hover:bg-signal-red/90">
+            <button
+              onClick={handleFlagSubmit}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-signal-red text-white uppercase tracking-[0.1em] transition-colors hover:bg-signal-red/90"
+            >
               <Flag className="h-4 w-4" />
               {mode === 'admin' ? 'Flag Stream' : 'Report'}
             </button>
-            <button onClick={() => { setShowFlagModal(false); setFlagTarget(null); }} className="px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => {
+                setShowFlagModal(false);
+                setFlagTarget(null);
+              }}
+              className="px-5 py-2.5 text-sm font-medium border border-border uppercase tracking-[0.1em] text-muted-foreground hover:text-foreground transition-colors"
+            >
               Cancel
             </button>
           </div>

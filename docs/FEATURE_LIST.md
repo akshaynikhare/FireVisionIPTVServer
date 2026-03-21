@@ -152,6 +152,29 @@ Complete inventory of every feature in the application.
 - Descriptive error messages for timeout, DNS failure, connection refused, and HTTP errors
 - VLC user agent used for stream requests to maximize compatibility
 
+## Stream Metrics
+
+- Cumulative health counters per channel: deadCount, aliveCount, unresponsiveCount, playCount
+- Timestamps for last occurrence of each status: lastDeadAt, lastAliveAt, lastPlayedAt, lastUnresponsiveAt
+- Client-reported stream status via `POST /api/v1/channels/:id/report-status` (dead, alive, unresponsive)
+- Client-reported playback confirmation via `POST /api/v1/channels/:id/report-play`
+- Bulk health sync from scanner/client via `POST /api/v1/channels/health-sync` (up to 100 reports per call)
+- In-memory rate limiting: 1 status report per channel per device per 5 minutes, 1 play report per channel per device per 1 minute, 1 health sync per device per 5 minutes
+- Server-side probe results (channel test) automatically increment alive/dead counters
+- Enhanced admin stream health analytics: most failing streams, most popular streams, removal candidates (high failures + zero plays), unresponsive streams
+- Aggregate metrics in admin stats: total dead/alive/unresponsive/play counts across all channels
+- Admin dashboard Stream Health summary card with alive/dead/unresponsive/play totals and proportional health bar
+- Admin stats page shows detailed stream metric tables: Most Failing, Most Popular, Removal Candidates, Unresponsive streams
+- Play count column in admin and user channel tables
+- Channel detail modal shows full metrics (admin: all counts + timestamps, user: counts)
+- User dashboard "My Channels" card shows working/failing breakdown with colored status dots
+- Web player reports play events via `POST /channels/:id/report-play` on first playback per channel per session
+- Proxy play tracking: `proxyPlayCount` metric records how many plays used the server proxy instead of direct stream
+- Web player sends `proxyPlay: true` when stream fell back to proxy playback
+- Android TV app sends `proxyPlay: true` when ExoPlayer switched to proxy after direct failures
+- Admin dashboard and stats page show "Proxy Plays" alongside "Total Plays"
+- Channel detail modal shows proxy play count for admin users
+
 ## Global M3U Playlist
 
 - Generate M3U playlist of all channels in the system
@@ -324,6 +347,17 @@ Complete inventory of every feature in the application.
 - 30-second timeout with up to 5 redirects
 - CORS headers added to all proxied responses
 - Upstream timeout returns 504, other errors return 502
+- SSRF protection: validates URLs before fetching, blocks redirects to private/internal addresses
+
+## TV Stream Proxy
+
+- TV-code-authenticated stream proxy at `GET /api/v1/tv/stream/:code?url=<stream_url>`
+- Mirrors full stream proxy behavior (HLS manifest rewriting, VLC user agent, SSRF protection) but authenticated via channel list code in URL path instead of session
+- HLS manifest URLs rewritten to route through the TV proxy endpoint
+- Android TV app uses this as fallback when direct stream playback fails
+- Proxy fallback strategy: 3 direct retries with exponential backoff, then 2 proxy retries
+- ErrorRecoveryManager switches ExoPlayer media source to proxy URL after exhausting direct attempts
+- Proxy URL constructed from server URL + TV code + encoded stream URL
 
 ## Image Proxy
 

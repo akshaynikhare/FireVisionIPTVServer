@@ -2,12 +2,36 @@ const express = require('express');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
+const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
-// Get all channels (for Android app sync) — requires auth, excludes DRM keys
-router.get('/', requireAuth, async (req, res) => {
+// In-memory rate-limit maps for stream metrics reporting
+const reportStatusLimits = new Map();
+const reportPlayLimits = new Map();
+const healthSyncLimits = new Map();
+
+// Cleanup stale rate-limit entries every 10 minutes
+// .unref() ensures this timer doesn't prevent graceful process exit
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, ts] of reportStatusLimits) {
+      if (now - ts > 5 * 60 * 1000) reportStatusLimits.delete(key);
+    }
+    for (const [key, ts] of reportPlayLimits) {
+      if (now - ts > 60 * 1000) reportPlayLimits.delete(key);
+    }
+    for (const [key, ts] of healthSyncLimits) {
+      if (now - ts > 5 * 60 * 1000) healthSyncLimits.delete(key);
+    }
+  },
+  10 * 60 * 1000,
+).unref();
+
+// Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
+router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
@@ -29,7 +53,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // Get channels grouped by category
-router.get('/grouped', requireAuth, async (req, res) => {
+router.get('/grouped', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channels = await Channel.find({})
       .sort({ channelGroup: 1, order: 1 })
@@ -86,7 +110,7 @@ router.get('/playlist.m3u', async (req, res) => {
 });
 
 // Search channels (with regex escaping to prevent ReDoS)
-router.get('/search', requireAuth, async (req, res) => {
+router.get('/search', requireTvOrSessionAuth, async (req, res) => {
   try {
     const { q } = req.query;
 
@@ -113,6 +137,79 @@ router.get('/search', requireAuth, async (req, res) => {
   }
 });
 
+// Bulk health sync from scanner/client — TV or session auth (must be BEFORE /:id to avoid route shadowing)
+// Rate limit: 1 per device per 5 minutes
+router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { deviceId, reports } = req.body;
+
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({ success: false, error: 'deviceId is required' });
+    }
+    if (!Array.isArray(reports) || reports.length === 0) {
+      return res.status(400).json({ success: false, error: 'reports array is required' });
+    }
+    if (reports.length > 100) {
+      return res.status(400).json({ success: false, error: 'Maximum 100 reports per sync' });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `health-sync:${deviceId}`;
+    const lastSync = healthSyncLimits.get(rateLimitKey);
+    if (lastSync && Date.now() - lastSync < 5 * 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One health sync per device per 5 minutes.',
+      });
+    }
+
+    const validStatuses = ['dead', 'alive', 'unresponsive', 'played'];
+    const results = { updated: 0, failed: 0, skipped: 0 };
+
+    for (const report of reports) {
+      if (!report.channelId || !report.status || !validStatuses.includes(report.status)) {
+        results.skipped++;
+        continue;
+      }
+
+      const update = {};
+      const now = new Date();
+
+      if (report.status === 'dead') {
+        update.$inc = { 'metrics.deadCount': 1 };
+        update.$set = { 'metrics.lastDeadAt': now };
+      } else if (report.status === 'alive') {
+        update.$inc = { 'metrics.aliveCount': 1 };
+        update.$set = { 'metrics.lastAliveAt': now };
+      } else if (report.status === 'unresponsive') {
+        update.$inc = { 'metrics.unresponsiveCount': 1 };
+        update.$set = { 'metrics.lastUnresponsiveAt': now };
+      } else if (report.status === 'played') {
+        update.$inc = { 'metrics.playCount': 1 };
+        update.$set = { 'metrics.lastPlayedAt': now };
+      }
+
+      try {
+        const result = await Channel.findByIdAndUpdate(report.channelId, update);
+        if (result) {
+          results.updated++;
+        } else {
+          results.failed++;
+        }
+      } catch {
+        results.failed++;
+      }
+    }
+
+    healthSyncLimits.set(rateLimitKey, Date.now());
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error('Error processing health sync:', error);
+    res.status(500).json({ success: false, error: 'Failed to process health sync' });
+  }
+});
+
 // Get test status (must be BEFORE /:id to avoid route shadowing)
 router.get('/test-status', requireAuth, async (req, res) => {
   try {
@@ -123,7 +220,7 @@ router.get('/test-status', requireAuth, async (req, res) => {
 });
 
 // Get channel by ID
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireTvOrSessionAuth, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
     if (!channel) {
@@ -470,7 +567,7 @@ router.post('/:id/alternates/:index/unflag', requireAuth, requireAdmin, async (r
   }
 });
 
-// Test channel stream (admin only, with SSRF protection)
+// Test channel stream (session auth only, with SSRF protection)
 router.post('/:id/test', requireAuth, async (req, res) => {
   try {
     const channel = await Channel.findById(req.params.id);
@@ -490,10 +587,17 @@ router.post('/:id/test', requireAuth, async (req, res) => {
     let error = null;
 
     try {
-      const response = await axios.head(channel.channelUrl, {
-        timeout: 10000,
+      const response = await axios.get(channel.channelUrl, {
+        timeout: 20000,
         maxRedirects: 5,
+        responseType: 'stream',
         validateStatus: (status) => status < 500,
+        headers: {
+          'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+          Accept: '*/*',
+          'Accept-Encoding': 'gzip, deflate',
+          Connection: 'keep-alive',
+        },
         beforeRedirect: (options) => {
           const hostname = (options.hostname || '').replace(/^\[|\]$/g, '');
           if (
@@ -504,21 +608,37 @@ router.post('/:id/test', requireAuth, async (req, res) => {
           }
         },
       });
+      if (response.data && typeof response.data.destroy === 'function') {
+        response.data.destroy();
+      }
       isWorking = response.status >= 200 && response.status < 400;
     } catch (err) {
       error = err.message;
       isWorking = false;
     }
 
-    channel.metadata = channel.metadata || {};
-    channel.metadata.isWorking = isWorking;
-    channel.metadata.lastTested = new Date();
+    const now = new Date();
+    const metadataUpdate = {
+      'metadata.isWorking': isWorking,
+      'metadata.lastTested': now,
+    };
     if (error) {
-      channel.metadata.testError = error;
-    } else {
-      delete channel.metadata.testError;
+      metadataUpdate['metadata.testError'] = error;
     }
-    await channel.save();
+
+    // Atomic update: metadata fields + metrics counters
+    const metricsInc = isWorking ? { 'metrics.aliveCount': 1 } : { 'metrics.deadCount': 1 };
+    const metricsSet = isWorking ? { 'metrics.lastAliveAt': now } : { 'metrics.lastDeadAt': now };
+
+    const updateOp = {
+      $set: { ...metadataUpdate, ...metricsSet },
+      $inc: metricsInc,
+    };
+    if (!error) {
+      updateOp.$unset = { 'metadata.testError': '' };
+    }
+
+    await Channel.findByIdAndUpdate(req.params.id, updateOp);
     audit({
       userId: req.user.id,
       action: 'test_channel',
@@ -534,7 +654,7 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         channelId: channel._id,
         channelName: channel.channelName,
         isWorking,
-        testedAt: channel.metadata.lastTested,
+        testedAt: now,
         error: error || undefined,
       },
     });
@@ -556,5 +676,120 @@ function getStreamScore(stream) {
 
   return liveness + quality + speed;
 }
+
+// ============ STREAM METRICS REPORTING ============
+
+// Report stream status (dead/alive/unresponsive) — TV or session auth
+// Rate limit: 1 per channel per device per 5 minutes
+router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { status, deviceId } = req.body;
+
+    if (!status || !['dead', 'alive', 'unresponsive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'status must be one of: dead, alive, unresponsive',
+      });
+    }
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'deviceId is required',
+      });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const lastReport = reportStatusLimits.get(rateLimitKey);
+    if (lastReport && Date.now() - lastReport < 5 * 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One report per channel per device per 5 minutes.',
+      });
+    }
+
+    const update = {};
+    const now = new Date();
+
+    if (status === 'dead') {
+      update.$inc = { 'metrics.deadCount': 1 };
+      update.$set = { 'metrics.lastDeadAt': now };
+    } else if (status === 'alive') {
+      update.$inc = { 'metrics.aliveCount': 1 };
+      update.$set = { 'metrics.lastAliveAt': now };
+    } else if (status === 'unresponsive') {
+      update.$inc = { 'metrics.unresponsiveCount': 1 };
+      update.$set = { 'metrics.lastUnresponsiveAt': now };
+    }
+
+    const channel = await Channel.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    reportStatusLimits.set(rateLimitKey, Date.now());
+
+    res.json({
+      success: true,
+      data: { channelId: channel._id, status, metrics: channel.metrics },
+    });
+  } catch (error) {
+    console.error('Error reporting channel status:', error);
+    res.status(500).json({ success: false, error: 'Failed to report channel status' });
+  }
+});
+
+// Report successful playback — TV or session auth
+// Rate limit: 1 per channel per device per 1 minute
+router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
+  try {
+    const { deviceId, proxyPlay } = req.body;
+
+    if (!deviceId || typeof deviceId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'deviceId is required',
+      });
+    }
+
+    // Rate limiting
+    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const lastReport = reportPlayLimits.get(rateLimitKey);
+    if (lastReport && Date.now() - lastReport < 60 * 1000) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded. One play report per channel per device per minute.',
+      });
+    }
+
+    const updateInc = { 'metrics.playCount': 1 };
+    if (proxyPlay) {
+      updateInc['metrics.proxyPlayCount'] = 1;
+    }
+
+    const channel = await Channel.findByIdAndUpdate(
+      req.params.id,
+      {
+        $inc: updateInc,
+        $set: { 'metrics.lastPlayedAt': new Date() },
+      },
+      { new: true },
+    );
+
+    if (!channel) {
+      return res.status(404).json({ success: false, error: 'Channel not found' });
+    }
+
+    reportPlayLimits.set(rateLimitKey, Date.now());
+
+    res.json({
+      success: true,
+      data: { channelId: channel._id, metrics: channel.metrics },
+    });
+  } catch (error) {
+    console.error('Error reporting channel play:', error);
+    res.status(500).json({ success: false, error: 'Failed to report channel play' });
+  }
+});
 
 module.exports = router;

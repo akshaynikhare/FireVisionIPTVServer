@@ -96,6 +96,17 @@ const channelSchema = new Schema<IChannelDocument>(
         demotedAt: { type: Date, default: null },
       },
     ],
+    metrics: {
+      deadCount: { type: Number, default: 0 },
+      aliveCount: { type: Number, default: 0 },
+      unresponsiveCount: { type: Number, default: 0 },
+      playCount: { type: Number, default: 0 },
+      proxyPlayCount: { type: Number, default: 0 },
+      lastDeadAt: Date,
+      lastAliveAt: Date,
+      lastPlayedAt: Date,
+      lastUnresponsiveAt: Date,
+    },
   },
   {
     timestamps: true,

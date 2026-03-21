@@ -24,7 +24,7 @@ function signAccessToken(user: IUserDocument): string {
     {
       sub: user._id.toString(),
       role: user.role,
-      playlistCode: (user as any).playlistCode,
+      channelListCode: (user as any).channelListCode,
     },
     ACCESS_SECRET,
     { algorithm: 'HS256', expiresIn: ACCESS_TTL as any },

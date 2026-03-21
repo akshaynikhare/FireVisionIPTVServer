@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tv, Smartphone, Copy, Check, ChevronRight, Zap } from 'lucide-react';
+import { Tv, Smartphone, Copy, Check, ChevronRight, Zap, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -17,6 +17,10 @@ export default function UserDashboard() {
   const { user } = useAuthStore();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [channelCount, setChannelCount] = useState<number | null>(null);
+  const [channelHealth, setChannelHealth] = useState<{ working: number; failing: number }>({
+    working: 0,
+    failing: 0,
+  });
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState('');
 
@@ -38,8 +42,13 @@ export default function UserDashboard() {
         setProfile(data);
         if (channelsRes) {
           const body = channelsRes.data;
-          const list = Array.isArray(body) ? body : body.data || body.channels || [];
+          const list: Array<{ metadata?: { isWorking?: boolean } }> = Array.isArray(body)
+            ? body
+            : body.data || body.channels || [];
           setChannelCount(list.length);
+          const working = list.filter((ch) => ch.metadata?.isWorking === true).length;
+          const failing = list.filter((ch) => ch.metadata?.isWorking === false).length;
+          setChannelHealth({ working, failing });
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'CanceledError') return;
@@ -88,10 +97,21 @@ export default function UserDashboard() {
             <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">
               {channelCount !== null ? channelCount : '\u2014'}
             </p>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-xs text-muted-foreground">assigned</span>
-              <span className="sr-only">Channels are assigned</span>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
+                <span className="text-xs text-muted-foreground">
+                  {channelHealth.working} working
+                </span>
+              </div>
+              {channelHealth.failing > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal-red" aria-hidden="true" />
+                  <span className="text-xs text-muted-foreground">
+                    {channelHealth.failing} failing
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
@@ -141,6 +161,15 @@ export default function UserDashboard() {
               <code className="flex-1 text-xs text-muted-foreground bg-muted px-3 py-2 truncate border border-border">
                 {playlistUrl}
               </code>
+              <a
+                href={playlistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors shrink-0 hover:bg-muted"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                Open M3U
+              </a>
               <button
                 onClick={handleCopy}
                 aria-label="Copy to clipboard"

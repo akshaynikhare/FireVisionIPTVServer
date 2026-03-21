@@ -12,6 +12,7 @@ import {
   Check,
   Zap,
   ExternalLink,
+  Radio,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -26,6 +27,20 @@ interface DashboardStats {
 interface ConfigDefaults {
   defaultTvCode: string;
   defaultServerUrl: string;
+}
+
+interface StreamHealthData {
+  channels: {
+    total: number;
+    working: number;
+    failing: number;
+    untested: number;
+    totalDeadCount: number;
+    totalAliveCount: number;
+    totalUnresponsiveCount: number;
+    totalPlayCount: number;
+    totalProxyPlayCount: number;
+  };
 }
 
 const quickActions = [
@@ -53,6 +68,7 @@ function formatDate(timestamp: string) {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [config, setConfig] = useState<ConfigDefaults | null>(null);
+  const [streamHealth, setStreamHealth] = useState<StreamHealthData | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,14 +84,18 @@ export default function AdminDashboard() {
 
     async function fetchStats() {
       try {
-        const [statsRes, configRes] = await Promise.all([
+        const [statsRes, configRes, healthRes] = await Promise.all([
           api.get('/admin/stats/detailed', { signal: controller.signal }),
           api.get('/config/defaults', { signal: controller.signal }),
+          api.get('/admin/stats/stream-health', { signal: controller.signal }).catch(() => null),
         ]);
         if (controller.signal.aborted) return;
         const res = statsRes;
         if (configRes.data?.data) {
           setConfig(configRes.data.data);
+        }
+        if (healthRes?.data?.data) {
+          setStreamHealth(healthRes.data.data);
         }
         const data = res.data?.data || res.data;
 
@@ -204,6 +224,85 @@ export default function AdminDashboard() {
           ))}
         </div>
       </div>
+
+      {streamHealth && (
+        <Link
+          href="/admin/stats"
+          className="block border border-border hover:border-primary/30 transition-colors"
+        >
+          <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                Stream Health
+              </h2>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Alive</p>
+                <p className="text-xl font-display font-bold tabular-nums text-[hsl(var(--signal-green))]">
+                  {streamHealth.channels.totalAliveCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Dead</p>
+                <p className="text-xl font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                  {streamHealth.channels.totalDeadCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  Unresponsive
+                </p>
+                <p className="text-xl font-display font-bold tabular-nums text-muted-foreground">
+                  {streamHealth.channels.totalUnresponsiveCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  Total Plays
+                </p>
+                <p className="text-xl font-display font-bold tabular-nums text-primary">
+                  {streamHealth.channels.totalPlayCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  Proxy Plays
+                </p>
+                <p className="text-xl font-display font-bold tabular-nums text-muted-foreground">
+                  {streamHealth.channels.totalProxyPlayCount ?? 0}
+                </p>
+              </div>
+            </div>
+            {streamHealth.channels.total > 0 && (
+              <div className="h-2 flex mt-4 overflow-hidden">
+                <div
+                  className="bg-[hsl(var(--signal-green))]"
+                  style={{
+                    width: `${(streamHealth.channels.working / streamHealth.channels.total) * 100}%`,
+                  }}
+                />
+                <div
+                  className="bg-[hsl(var(--signal-red))]"
+                  style={{
+                    width: `${(streamHealth.channels.failing / streamHealth.channels.total) * 100}%`,
+                  }}
+                />
+                <div
+                  className="bg-muted"
+                  style={{
+                    width: `${(streamHealth.channels.untested / streamHealth.channels.total) * 100}%`,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </Link>
+      )}
 
       {config?.defaultTvCode && (
         <div className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between ">

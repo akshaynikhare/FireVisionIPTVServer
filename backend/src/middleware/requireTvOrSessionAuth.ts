@@ -1,22 +1,53 @@
 import { Request, Response, NextFunction } from 'express';
 import Session from '../models/Session';
+import User from '../models/User';
 
 /**
- * Middleware to check if user is authenticated
- * Validates session from database and attaches user info to request
+ * Middleware that authenticates via session OR TV channel list code.
+ * Used on endpoints the TV app needs (e.g. GET /channels).
+ *
+ * Auth order:
+ * 1. X-TV-Code header → look up user by channelListCode
+ * 2. X-Session-ID header → standard session auth
  */
-const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+const requireTvOrSessionAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sessionId = req.headers['x-session-id'] as string | undefined;
+    // 1. Try TV code auth first
+    const tvCode = req.headers['x-tv-code'] as string | undefined;
+    if (tvCode) {
+      const user = (await User.findOne({
+        channelListCode: tvCode.toUpperCase(),
+        isActive: true,
+      })) as any;
 
-    if (!sessionId) {
+      if (user) {
+        req.user = {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          channelListCode: user.channelListCode,
+          isActive: user.isActive,
+          emailVerified: user.emailVerified ?? false,
+        };
+        return next();
+      }
+
       return res.status(401).json({
         success: false,
-        error: 'No session ID provided',
+        error: 'Invalid TV code',
       });
     }
 
-    // Find session in database
+    // 2. Fall back to session auth
+    const sessionId = req.headers['x-session-id'] as string | undefined;
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        error: 'No authentication provided',
+      });
+    }
+
     const session = await Session.findOne({ sessionId }).populate('userId');
 
     if (!session) {
@@ -26,7 +57,6 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    // Check if session is expired
     if (!session.isValid()) {
       await Session.deleteOne({ sessionId });
       return res.status(401).json({
@@ -35,7 +65,6 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    // Check if user still exists and is active
     if (!session.userId || !(session.userId as any).isActive) {
       await Session.deleteOne({ sessionId });
       return res.status(401).json({
@@ -44,10 +73,8 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
-    // Update last activity
     await session.updateActivity();
 
-    // Attach user info to request
     const user = session.userId as any;
     req.user = {
       id: user._id,
@@ -58,12 +85,11 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       isActive: user.isActive,
       emailVerified: user.emailVerified,
     };
-
     req.sessionId = sessionId;
 
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('TV/Session auth middleware error:', error);
     return res.status(500).json({
       success: false,
       error: 'Authentication error',
@@ -71,5 +97,4 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-module.exports = { requireAuth };
-export { requireAuth };
+export { requireTvOrSessionAuth };

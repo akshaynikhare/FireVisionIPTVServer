@@ -52,6 +52,17 @@ export interface IChannel {
   };
   flaggedBad?: IFlaggedBad;
   alternateStreams?: IAlternateStream[];
+  metrics?: {
+    deadCount?: number;
+    aliveCount?: number;
+    unresponsiveCount?: number;
+    playCount?: number;
+    proxyPlayCount?: number;
+    lastDeadAt?: Date;
+    lastAliveAt?: Date;
+    lastPlayedAt?: Date;
+    lastUnresponsiveAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

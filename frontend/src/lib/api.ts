@@ -27,12 +27,17 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401 && !isRedirecting) {
+      // Skip redirect for fire-and-forget requests (e.g. report-play)
+      if (error.config?.headers?.['X-Skip-Auth-Redirect']) {
+        return Promise.reject(error);
+      }
       // Skip redirect if already on auth pages
       if (
         typeof window !== 'undefined' &&
         !window.location.pathname.startsWith('/login') &&
         !window.location.pathname.startsWith('/register') &&
-        !window.location.pathname.startsWith('/verify-email')
+        !window.location.pathname.startsWith('/verify-email') &&
+        !window.location.pathname.startsWith('/pair')
       ) {
         isRedirecting = true;
         // Clear both Zustand store and raw localStorage keys in one call
