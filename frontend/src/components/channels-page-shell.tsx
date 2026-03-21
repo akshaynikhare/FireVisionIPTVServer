@@ -776,11 +776,24 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         ...(!isAdmin && detailChannel.metrics
           ? [
               { label: 'Play Count', value: String(detailChannel.metrics.playCount ?? 0) },
+              { label: 'Proxy Plays', value: String(detailChannel.metrics.proxyPlayCount ?? 0) },
               { label: 'Alive Count', value: String(detailChannel.metrics.aliveCount ?? 0) },
               { label: 'Dead Count', value: String(detailChannel.metrics.deadCount ?? 0) },
               {
                 label: 'Unresponsive Count',
                 value: String(detailChannel.metrics.unresponsiveCount ?? 0),
+              },
+              {
+                label: 'Last Played',
+                value: detailChannel.metrics.lastPlayedAt
+                  ? new Date(detailChannel.metrics.lastPlayedAt).toLocaleString()
+                  : undefined,
+              },
+              {
+                label: 'Last Dead',
+                value: detailChannel.metrics.lastDeadAt
+                  ? new Date(detailChannel.metrics.lastDeadAt).toLocaleString()
+                  : undefined,
               },
             ]
           : []),
