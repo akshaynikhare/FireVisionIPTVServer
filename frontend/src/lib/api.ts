@@ -27,6 +27,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401 && !isRedirecting) {
+      // Skip redirect for fire-and-forget requests (e.g. report-play)
+      if (error.config?.headers?.['X-Skip-Auth-Redirect']) {
+        return Promise.reject(error);
+      }
       // Skip redirect if already on auth pages
       if (
         typeof window !== 'undefined' &&

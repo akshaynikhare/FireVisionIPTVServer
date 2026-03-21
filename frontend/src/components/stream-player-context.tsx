@@ -16,6 +16,7 @@ interface StreamChannel {
   name: string;
   url: string;
   logo?: string;
+  channelId?: string;
 }
 
 interface StreamPlayerState {
