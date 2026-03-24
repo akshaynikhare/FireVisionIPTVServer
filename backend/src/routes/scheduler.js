@@ -24,8 +24,8 @@ router.get('/runs', async (req, res) => {
   try {
     const { page, pageSize, taskName } = req.query;
     const result = await schedulerService.getRuns({
-      page: page ? parseInt(page) : 1,
-      pageSize: pageSize ? parseInt(pageSize) : 20,
+      page: page ? parseInt(page, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize, 10) : 20,
       taskName: taskName || undefined,
     });
     res.json({ success: true, ...result });

@@ -175,7 +175,7 @@ router.get('/api/streams', async (req, res) => {
     const { channels, total } = await iptvOrgCacheService.getEnrichedChannels({
       country,
       category,
-      limit: limit ? parseInt(limit) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
     res.json({ success: true, count: total, data: channels });
   } catch (error) {
@@ -193,7 +193,7 @@ router.get('/api/enriched', async (req, res) => {
       category,
       language,
       status,
-      limit: parseInt(limit),
+      limit: parseInt(limit, 10),
     });
 
     // Map to frontend-compatible shape
@@ -241,8 +241,8 @@ router.get('/api/grouped', async (req, res) => {
       category: category || undefined,
       status: status || undefined,
       search: search || undefined,
-      limit: parseInt(limit),
-      skip: parseInt(skip),
+      limit: parseInt(limit, 10),
+      skip: parseInt(skip, 10),
     });
 
     res.json({

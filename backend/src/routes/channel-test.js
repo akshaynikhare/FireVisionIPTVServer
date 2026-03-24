@@ -227,8 +227,8 @@ router.post('/test-all', async (req, res) => {
     }
 
     const channels = await Channel.find({})
-      .limit(Math.min(parseInt(limit) || 50, 200))
-      .skip(parseInt(skip) || 0);
+      .limit(Math.min(parseInt(limit, 10) || 50, 200))
+      .skip(parseInt(skip, 10) || 0);
 
     const results = [];
 
