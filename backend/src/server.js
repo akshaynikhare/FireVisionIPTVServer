@@ -97,7 +97,7 @@ const emailActionLimiter = rateLimit({
 app.use('/api/v1/auth/forgot-password', emailActionLimiter);
 app.use('/api/v1/auth/resend-verification', emailActionLimiter);
 
-// Strict rate limiting for TV pairing endpoints (prevent PIN brute-force)
+// Strict rate limiting for TV pairing mutation endpoints (prevent PIN brute-force)
 const pairingLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 10, // 10 attempts per 5 minutes per IP
@@ -106,9 +106,19 @@ const pairingLimiter = rateLimit({
   message: { success: false, error: 'Too many pairing attempts, please try again later' },
 });
 app.use('/api/v1/tv/pairing/confirm', pairingLimiter);
-app.use('/api/v1/tv/pairing/status', pairingLimiter);
 app.use('/api/v1/tv/pair', pairingLimiter);
 app.use('/api/v1/tv/verify', pairingLimiter);
+
+// Permissive rate limiting for pairing status polling (TV polls this endpoint repeatedly)
+// PIN expires in 10 minutes; allow up to 120 polls per 10-minute window (~1 every 5 seconds)
+const pairingStatusLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many status requests, please slow down' },
+});
+app.use('/api/v1/tv/pairing/status', pairingStatusLimiter);
 
 // Static files for uploads
 app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'uploads')));
