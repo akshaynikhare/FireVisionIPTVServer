@@ -1,0 +1,24 @@
+#!/bin/sh
+# Reject commit messages that reference internal AI tooling.
+# Keeps the open-source commit history clean of internal tool references.
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+FORBIDDEN='paperclip|claude|codex|generated with|ai agent|noreply@paperclip'
+
+MATCH=$(echo "$COMMIT_MSG" | grep -iE "$FORBIDDEN" || true)
+
+if [ -n "$MATCH" ]; then
+    echo ""
+    echo "error: commit message contains a reference to AI tooling."
+    echo ""
+    echo "The following content is not allowed:"
+    echo "$MATCH"
+    echo ""
+    echo "Do not reference: paperclip, claude, codex, 'generated with',"
+    echo "'ai agent', Co-Authored-By: Paperclip, or Co-Authored-By: Claude."
+    echo "See CONTRIBUTING.md for the full policy."
+    echo ""
+    exit 1
+fi
