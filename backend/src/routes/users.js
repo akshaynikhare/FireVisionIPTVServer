@@ -194,7 +194,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
     const user = await User.findById(id)
       .select('-password')
-      .populate('channels', 'channelName channelGroup channelUrl');
+      .populate('channels', 'channelName channelGroup channelUrl channelImg tvgLogo order channelId');
 
     if (!user) {
       return res.status(404).json({

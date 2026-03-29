@@ -16,7 +16,16 @@ interface UserDetail {
   channelListCode?: string;
   lastLogin?: string;
   createdAt?: string;
-  channels?: Array<{ _id: string; name: string; channelGroup?: string }>;
+  channels?: Array<{
+    _id: string;
+    channelName: string;
+    channelGroup?: string;
+    channelUrl?: string;
+    channelImg?: string;
+    tvgLogo?: string;
+    order?: number;
+    channelId?: string;
+  }>;
 }
 
 export default function UserDetailPage() {
@@ -332,23 +341,102 @@ export default function UserDetailPage() {
       </div>
 
       {/* Assigned Channels */}
-      {user.channels && user.channels.length > 0 && (
-        <div className="border border-border">
-          <div className="px-4 py-2 bg-muted/50 border-b border-border">
-            <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
-              Assigned Channels ({user.channels.length})
-            </h2>
+      {user.channels && user.channels.length > 0 && (() => {
+        const channels = user.channels!;
+        const groupCounts = channels.reduce<Record<string, number>>((acc, ch) => {
+          const g = ch.channelGroup || 'Uncategorized';
+          acc[g] = (acc[g] || 0) + 1;
+          return acc;
+        }, {});
+        const groupEntries = Object.entries(groupCounts).sort((a, b) => b[1] - a[1]);
+
+        return (
+          <div className="border border-border">
+            <div className="px-4 py-2 bg-muted/50 border-b border-border">
+              <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                Assigned Channels
+              </h2>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border border-b border-border">
+              <div className="px-4 py-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Total</p>
+                <p className="text-2xl font-bold mt-0.5">{channels.length}</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Groups</p>
+                <p className="text-2xl font-bold mt-0.5">{groupEntries.length}</p>
+              </div>
+              <div className="px-4 py-3 col-span-2 sm:col-span-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em] mb-1.5">By Group</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {groupEntries.slice(0, 8).map(([group, count]) => (
+                    <span key={group} className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 border border-border">
+                      <span className="font-medium">{group}</span>
+                      <span className="text-muted-foreground">{count}</span>
+                    </span>
+                  ))}
+                  {groupEntries.length > 8 && (
+                    <span className="text-xs text-muted-foreground px-1">+{groupEntries.length - 8} more</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Channel table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground w-10">#</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Channel</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden sm:table-cell">Group</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden md:table-cell">Stream URL</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {channels.map((ch, idx) => {
+                    const logo = ch.tvgLogo || ch.channelImg || null;
+                    return (
+                      <tr key={ch._id} className="hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs tabular-nums">
+                          {ch.order != null ? ch.order : idx + 1}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            {logo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={logo} alt="" className="w-6 h-6 object-contain flex-shrink-0 bg-muted" />
+                            ) : (
+                              <div className="w-6 h-6 bg-muted/60 flex-shrink-0 border border-border" />
+                            )}
+                            <span className="font-medium">{ch.channelName}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 hidden sm:table-cell">
+                          <span className="text-xs bg-muted px-1.5 py-0.5 border border-border text-muted-foreground">
+                            {ch.channelGroup || 'Uncategorized'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 hidden md:table-cell">
+                          {ch.channelUrl ? (
+                            <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px] block">
+                              {ch.channelUrl}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <ul className="divide-y divide-border">
-            {user.channels.map((ch) => (
-              <li key={ch._id} className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-medium">{ch.name}</span>
-                <span className="text-xs text-muted-foreground">{ch.channelGroup || '—'}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        );
+      })()}
 
       <ConfirmDialog
         open={showRegenerateConfirm}
