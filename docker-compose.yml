@@ -88,6 +88,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
       # Scheduler is handled by the dedicated scheduler container
       DISABLE_SCHEDULER: 'true'
+      SENTRY_DSN: ${SENTRY_DSN:-}
       # Email
       MAIL_PROVIDER: mailhog
       MAILHOG_HOST: mailhog
