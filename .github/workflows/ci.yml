@@ -40,7 +40,7 @@ jobs:
         env:
           REDIS_URL: redis://localhost:6379
       - name: Upload backend coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@13ce06bfc6bbe3ecf90edbbf1bc32fe5978ca1d1 # v4
         with:
           files: backend/coverage/lcov.info
           flags: backend
