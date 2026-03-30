@@ -12,6 +12,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 _No unreleased changes._
 
+## [1.0.13] - 2026-03-30
+
+### Added
+- add Sentry error tracking and Codecov coverage reporting
+- improve admin user assigned channels view with stats and richer table
+
+### Fixed
+- separate rate limiter for TV pairing status polling endpoint
+
+### Other
+- Apply suggestions from code review
+- Fix list-related bugs: broken search filter, wrong stats display, and missing parseInt radix
 ## [1.0.12] - 2026-03-21
 
 ### Added
@@ -196,7 +208,8 @@ _No unreleased changes._
 
 ---
 
-[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.12...HEAD
+[Unreleased]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.13...HEAD
+[1.0.13]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.12...v1.0.13
 [1.0.12]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/akshaynikhare/FireVisionIPTVServer/compare/v1.0.9...v1.0.10
