@@ -2,6 +2,7 @@
   "name": "@firevision/backend",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

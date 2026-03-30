@@ -2,6 +2,7 @@
   "name": "@firevision/frontend",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
