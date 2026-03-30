@@ -67,8 +67,8 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       filter.$or = [{ username: regex }, { email: regex }, { channelListCode: regex }];
     }
 
-    const p = parseInt(page) || 1;
-    const ps = Math.min(parseInt(pageSize) || 50, 200);
+    const p = parseInt(page, 10) || 1;
+    const ps = Math.min(parseInt(pageSize, 10) || 50, 200);
 
     const [users, totalCount] = await Promise.all([
       User.find(filter)

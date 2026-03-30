@@ -692,7 +692,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   }
 
   async function handleTestAllUser() {
-    const toTest = userPaginated.length > 0 ? userPaginated : channels.slice(0, PAGE_SIZE);
+    const toTest = filtered.length > 0 ? filtered : channels.slice(0, PAGE_SIZE);
     if (toTest.length === 0) return;
     setTestingAll(true);
     setTestResults(null);
@@ -1306,7 +1306,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
       {/* Stream health stats */}
       {(() => {
-        const list = isAdmin ? channels : channels;
+        const list = isAdmin ? channels : filtered;
         const working = list.filter((c) => c.metadata?.isWorking === true).length;
         const notWorking = list.filter((c) => c.metadata?.isWorking === false).length;
         const untested = list.length - working - notWorking;

@@ -358,11 +358,11 @@ router.get('/channels', async (req, res) => {
     // Text search across name and group
     if (search) {
       const regex = new RegExp(escapeRegex(search), 'i');
-      filter.$or = [{ channelName: regex }, { name: regex }, { channelGroup: regex }];
+      filter.$or = [{ channelName: regex }, { channelGroup: regex }];
     }
 
-    const p = parseInt(page) || 1;
-    const ps = Math.min(parseInt(pageSize) || 50, 200);
+    const p = parseInt(page, 10) || 1;
+    const ps = Math.min(parseInt(pageSize, 10) || 50, 200);
 
     const [channels, totalCount] = await Promise.all([
       Channel.find(filter)
