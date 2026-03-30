@@ -1,3 +1,4 @@
+const Sentry = require('@sentry/node');
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -7,6 +8,14 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [Sentry.httpIntegration()],
+  tracesSampleRate: 0.1,
+  environment: process.env.NODE_ENV ?? 'development',
+  enabled: !!process.env.SENTRY_DSN,
+});
 
 // Validate required environment variables
 {
@@ -156,6 +165,9 @@ app.get('/health', (req, res) => {
     redis: isRedisReady() ? 'connected' : 'disconnected',
   });
 });
+
+// Sentry error handler must come before the default error handler
+app.use(Sentry.expressErrorHandler());
 
 // Error handling middleware
 app.use((err, req, res, _next) => {
