@@ -1,0 +1,131 @@
+services:
+  api:
+    image: ${DOCKER_IMAGE}
+    container_name: firevision-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_VERSION: ${APP_VERSION}
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      GH_OAUTH_CLIENT_ID: ${GH_OAUTH_CLIENT_ID}
+      GH_OAUTH_CLIENT_SECRET: ${GH_OAUTH_CLIENT_SECRET}
+      GH_OAUTH_REDIRECT_URI: ${GH_OAUTH_REDIRECT_URI}
+      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_CHANNEL_LIST_CODE: ${SUPER_ADMIN_CHANNEL_LIST_CODE}
+      GH_APP_OWNER: ${GH_APP_OWNER}
+      GH_APP_REPO: ${GH_APP_REPO}
+      GH_APP_APK_PATTERN: ${GH_APP_APK_PATTERN}
+      GH_APP_TOKEN: ${GH_APP_TOKEN}
+      MAIL_PROVIDER: ${MAIL_PROVIDER}
+      BREVO_HOST: ${BREVO_HOST}
+      BREVO_PORT: ${BREVO_PORT}
+      BREVO_USER: ${BREVO_USER}
+      BREVO_PASSWORD: ${BREVO_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      APP_URL: ${APP_URL}
+      ALLOWED_ORIGINS: '*'
+      DISABLE_SCHEDULER: 'true'
+    networks:
+      - firevision-network
+    depends_on:
+      - mongodb
+      - redis
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  frontend:
+    image: ${DOCKER_FRONTEND_IMAGE}
+    container_name: firevision-frontend
+    restart: unless-stopped
+    ports:
+      - '3001:3000'
+    networks:
+      - firevision-network
+    depends_on:
+      - api
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  mongodb:
+    image: mongo:7
+    container_name: firevision-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - firevision-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  redis:
+    image: redis:7-alpine
+    container_name: firevision-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - firevision-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  scheduler:
+    image: ${DOCKER_IMAGE}
+    container_name: firevision-scheduler
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
+      REDIS_URL: redis://redis:6379
+      LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS}
+      EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS}
+      CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS}
+    command:
+      [
+        'sh',
+        '-c',
+        'echo "Waiting 5m for API to settle..." && sleep 300 && npx tsx backend/src/scheduler-entrypoint.ts',
+      ]
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - firevision-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  firevision-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local

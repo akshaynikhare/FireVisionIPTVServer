@@ -71,7 +71,7 @@ You should see something like `Docker version 24.x.x` or newer.
 
 ## Download the Server Files
 
-You only need two files from the project to get started: the production Docker Compose file and the environment template.
+You only need two files from the project to get started: the self-hosting Docker Compose file and the environment template.
 
 ### Option A: Download the files directly
 
@@ -80,7 +80,7 @@ You only need two files from the project to get started: the production Docker C
    - **Mac/Linux**: `~/firevision-iptv`
 
 2. Download these two files from the GitHub repository and save them into that folder:
-   - `docker-compose.production.yml` -- [direct link](https://raw.githubusercontent.com/akshaynikhare/FireVisionIPTVServer/main/docker-compose.production.yml)
+   - `docker-compose.selfhost.yml` -- [direct link](https://raw.githubusercontent.com/akshaynikhare/FireVisionIPTVServer/main/docker-compose.selfhost.yml)
    - `.env.example` -- [direct link](https://raw.githubusercontent.com/akshaynikhare/FireVisionIPTVServer/main/.env.example)
 
 3. Rename `.env.example` to `.env` (remove the `.example` part).
@@ -136,7 +136,7 @@ If you do not have Node.js installed, you can use any password generator to crea
 
 #### 3. Docker Images
 
-If you downloaded only the two files (Option A above), you need to set the Docker image names. Add these lines to your `.env` file:
+The `.env` file already includes default image names. Verify they are set:
 
 ```env
 DOCKER_IMAGE=ghcr.io/akshaynikhare/firevisioniptvserver:latest
@@ -152,9 +152,11 @@ These are fine to leave at their defaults for most setups:
 | Setting | Default | What it does |
 |---------|---------|-------------|
 | `PORT` | `3000` | The port the API server listens on inside Docker. You usually do not need to change this. |
-| `REDIS_URL` | `redis://redis:6379` | Connection to the Redis cache. The default works with Docker Compose. |
+| `REDIS_URL` | `redis://localhost:6379` | Connection to the Redis cache. The Docker Compose file overrides this internally to use the container hostname, so you do not need to change it. |
 | `MONGODB_URI` | `mongodb://mongodb:27017/firevision-iptv` | Connection to the database. The default works with Docker Compose. |
-| `ALLOWED_ORIGINS` | `*` | Which websites can talk to your server. `*` means any. |
+| `ALLOWED_ORIGINS` | `*` | Which websites can talk to your server. `*` means any. The Docker Compose file sets this to `*` by default. |
+
+> **Note about REDIS_URL**: The `.env.example` file defaults to `redis://localhost:6379`, which is correct for running outside Docker. When using Docker Compose, the compose file passes `redis://redis:6379` directly to the containers, so you do not need to change this value.
 
 Leave the OAuth (Google/GitHub login), email, and scheduler settings alone for now. You can configure them later once the basics are working.
 
@@ -177,7 +179,7 @@ cd C:\firevision-iptv
 Then start the server:
 
 ```bash
-docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.selfhost.yml up -d
 ```
 
 > If that command does not work, try `docker-compose` (with a hyphen) instead of `docker compose` (with a space). Older Docker versions use the hyphenated form.
@@ -195,7 +197,7 @@ This will:
 After a minute or two, check that the containers are running:
 
 ```bash
-docker compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.selfhost.yml ps
 ```
 
 You should see output like:
@@ -216,7 +218,7 @@ All containers should show `Up`. If any show `Restarting` or `Exit`, see the [Tr
 To see what the server is doing (useful for checking startup or debugging):
 
 ```bash
-docker compose -f docker-compose.production.yml logs -f api
+docker compose -f docker-compose.selfhost.yml logs -f api
 ```
 
 Press `Ctrl+C` to stop watching logs.
@@ -418,14 +420,20 @@ These settings let the server serve APK updates to the Android/Fire TV app.
 |----------|---------|----------|-------------|
 | `SENTRY_DSN` | — | No | Sentry DSN for error tracking. |
 
-### Docker Images
-
-These are used in `docker-compose.production.yml` and must be set if you downloaded the compose file standalone.
+### YouTube / Free Sources
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `DOCKER_IMAGE` | — | **Yes** | Docker image for the API server and scheduler. |
-| `DOCKER_FRONTEND_IMAGE` | — | **Yes** | Docker image for the frontend dashboard. |
+| `YT_DLP_CONCURRENCY` | `3` | No | Max concurrent yt-dlp processes for resolving YouTube live stream URLs. Increase if you have many YouTube sources. |
+
+### Docker Images
+
+These are used in `docker-compose.selfhost.yml` and must be set in your `.env` file.
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `DOCKER_IMAGE` | `ghcr.io/akshaynikhare/firevisioniptvserver:latest` | **Yes** | Docker image for the API server and scheduler. |
+| `DOCKER_FRONTEND_IMAGE` | `ghcr.io/akshaynikhare/firevisioniptvserver-frontend:latest` | **Yes** | Docker image for the frontend dashboard. |
 | `APP_VERSION` | — | No | Version tag passed to the API container. |
 
 ---
@@ -438,17 +446,17 @@ When a new version of the server is released:
 
 2. Pull the latest images:
    ```bash
-   docker compose -f docker-compose.production.yml pull
+   docker compose -f docker-compose.selfhost.yml pull
    ```
 
 3. Restart the server with the new images:
    ```bash
-   docker compose -f docker-compose.production.yml up -d
+   docker compose -f docker-compose.selfhost.yml up -d
    ```
 
 4. Verify everything is running:
    ```bash
-   docker compose -f docker-compose.production.yml ps
+   docker compose -f docker-compose.selfhost.yml ps
    ```
 
 Your data (channels, users, settings) is stored in Docker volumes and will not be lost during an update.
@@ -479,17 +487,17 @@ Your data (channels, users, settings) is stored in Docker volumes and will not b
 **Fixes**:
 1. Check that the MongoDB container is running:
    ```bash
-   docker compose -f docker-compose.production.yml ps
+   docker compose -f docker-compose.selfhost.yml ps
    ```
 2. If it shows `Exit` or `Restarting`, check its logs:
    ```bash
-   docker compose -f docker-compose.production.yml logs mongodb
+   docker compose -f docker-compose.selfhost.yml logs mongodb
    ```
 3. Make sure `MONGODB_URI` in your `.env` starts with `mongodb://mongodb:27017/` (not `localhost`) when using Docker Compose. The hostname `mongodb` refers to the Docker container name.
 4. Try restarting all services:
    ```bash
-   docker compose -f docker-compose.production.yml down
-   docker compose -f docker-compose.production.yml up -d
+   docker compose -f docker-compose.selfhost.yml down
+   docker compose -f docker-compose.selfhost.yml up -d
    ```
 
 ### Redis Connection Issues
@@ -500,7 +508,7 @@ Your data (channels, users, settings) is stored in Docker volumes and will not b
 1. Redis is optional -- the server works without it. If Redis keeps failing, you can remove the `redis` service from the compose file and remove the `REDIS_URL` line from your `.env`.
 2. If you want Redis running, check its container:
    ```bash
-   docker compose -f docker-compose.production.yml logs redis
+   docker compose -f docker-compose.selfhost.yml logs redis
    ```
 
 ### Cannot Log In
@@ -511,7 +519,7 @@ Your data (channels, users, settings) is stored in Docker volumes and will not b
 1. Double-check that `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD` in your `.env` match what you are typing.
 2. The admin account is only created on first startup. If you changed the password in `.env` after the first run, set `FORCE_UPDATE_ADMIN_PASSWORD=true` and restart:
    ```bash
-   docker compose -f docker-compose.production.yml restart api
+   docker compose -f docker-compose.selfhost.yml restart api
    ```
    Then remove `FORCE_UPDATE_ADMIN_PASSWORD` from `.env` afterward.
 3. Check that MongoDB is running and connected (see above).
@@ -546,16 +554,16 @@ To see full logs for a specific service:
 
 ```bash
 # API server logs
-docker compose -f docker-compose.production.yml logs -f api
+docker compose -f docker-compose.selfhost.yml logs -f api
 
 # Frontend logs
-docker compose -f docker-compose.production.yml logs -f frontend
+docker compose -f docker-compose.selfhost.yml logs -f frontend
 
 # Database logs
-docker compose -f docker-compose.production.yml logs -f mongodb
+docker compose -f docker-compose.selfhost.yml logs -f mongodb
 
 # All services
-docker compose -f docker-compose.production.yml logs -f
+docker compose -f docker-compose.selfhost.yml logs -f
 ```
 
 ### Starting Fresh
@@ -564,10 +572,10 @@ If you want to reset everything and start over:
 
 ```bash
 # Stop all services and delete all data (channels, users, everything)
-docker compose -f docker-compose.production.yml down -v
+docker compose -f docker-compose.selfhost.yml down -v
 
 # Start fresh
-docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.selfhost.yml up -d
 ```
 
 > **Warning**: The `-v` flag deletes all data volumes. Only do this if you truly want a clean slate.
