@@ -1585,7 +1585,20 @@ All error responses follow this format:
 
 ## Rate Limiting
 
-Rate limiting is enabled: 1000 requests per 15 minutes for general API endpoints, 20 requests per 15 minutes for auth endpoints (`/auth/login`, `/auth/register`, `/jwt/login`).
+Rate limiting protects the API from abuse. Limits are tracked per authenticated user (not per IP) when a valid session or JWT is present, preventing multiple devices on the same network from sharing a single rate-limit bucket.
+
+| Scope                                                                  | Limit                            | Key                          | Notes                           |
+| ---------------------------------------------------------------------- | -------------------------------- | ---------------------------- | ------------------------------- |
+| General API (`/api/*`)                                                 | 1000 req / 15 min                | Session ID, JWT `sub`, or IP | Admin sessions are fully exempt |
+| Auth endpoints (`/auth/login`, `/auth/register`, `/jwt/login`)         | 20 req / 15 min                  | IP                           | Pre-auth, always IP-based       |
+| Email actions (`/auth/forgot-password`, `/auth/resend-verification`)   | 5 req / 1 hour                   | IP                           | Prevents email abuse            |
+| TV pairing mutations (`/tv/pair`, `/tv/verify`, `/tv/pairing/confirm`) | 10 req / 5 min                   | IP                           | Prevents PIN brute-force        |
+| TV pairing status polling (`/tv/pairing/status`)                       | 120 req / 10 min                 | IP                           | ~1 poll every 5 seconds         |
+| Health sync (`/channels/health-sync`)                                  | 1 per device / 5 min             | Device ID                    | In-memory, per-device           |
+| Report status (`/channels/:id/report-status`)                          | 1 per channel per device / 5 min | Channel+Device               | In-memory                       |
+| Report play (`/channels/:id/report-play`)                              | 1 per channel per device / 1 min | Channel+Device               | In-memory                       |
+
+Standard rate limit headers (`RateLimit-*`) are included in all responses.
 
 ---
 

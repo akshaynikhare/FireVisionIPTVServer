@@ -76,11 +76,54 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(morgan('combined'));
 
 // Rate limiting
+const Session = require('./models/Session');
+const jwt = require('jsonwebtoken');
+
+// Resolve a per-user rate-limit key from session or JWT, falling back to IP.
+// This prevents all devices on the same IP from sharing one rate-limit bucket.
+function resolveRateLimitIdentity(req) {
+  // Session-based auth (frontend dashboard)
+  const sessionId = req.headers['x-session-id'];
+  if (sessionId) return { key: `sess:${sessionId}`, sessionId };
+
+  // JWT auth (TV app / API clients)
+  const auth = req.headers.authorization || '';
+  const [, token] = auth.split(' ');
+  if (token) {
+    try {
+      const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
+        algorithms: ['HS256'],
+      });
+      if (payload.sub) return { key: `jwt:${payload.sub}` };
+    } catch {
+      // Invalid/expired token — fall through to IP-based limiting
+    }
+  }
+
+  return null;
+}
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  // Key by user identity when authenticated, otherwise by IP
+  keyGenerator: (req) => {
+    const identity = resolveRateLimitIdentity(req);
+    return identity ? identity.key : req.ip;
+  },
+  // Skip rate limiting entirely for authenticated admin sessions
+  skip: async (req) => {
+    try {
+      const sessionId = req.headers['x-session-id'];
+      if (!sessionId) return false;
+      const session = await Session.findOne({ sessionId }, { role: 1, expiresAt: 1 }).lean();
+      return session && session.role === 'Admin' && session.expiresAt > new Date();
+    } catch {
+      return false;
+    }
+  },
 });
 app.use('/api/', apiLimiter);
 

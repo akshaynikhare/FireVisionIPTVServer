@@ -2,15 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, Moon, Sun, UserCircle } from 'lucide-react';
+import { LogOut, Menu, Moon, Sun, UserCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/store/auth-store';
+import { useUIStore } from '@/store/ui-store';
 import api from '@/lib/api';
 
 export function Header() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuthStore();
+  const { toggleMobileSidebar } = useUIStore();
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const prevUserIdRef = useRef<string | null>(null);
 
@@ -43,8 +45,15 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-11 items-center justify-end border-b border-border bg-background px-4">
-      <div className="relative inline-flex items-center gap-1.5">
+    <header className="flex h-11 items-center justify-between border-b border-border bg-background px-4">
+      <button
+        onClick={toggleMobileSidebar}
+        className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary md:hidden"
+        aria-label="Open navigation menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      <div className="relative inline-flex items-center gap-1.5 ml-auto">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="relative flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"

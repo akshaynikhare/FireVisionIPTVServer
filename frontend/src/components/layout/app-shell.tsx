@@ -21,7 +21,7 @@ export function AppShell({
       <Sidebar role={role} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main id="main-content" className="flex-1 overflow-y-auto p-5">
+        <main id="main-content" className="flex-1 overflow-y-auto p-3 md:p-5">
           {children}
         </main>
       </div>
