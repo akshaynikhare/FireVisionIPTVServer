@@ -174,13 +174,13 @@ export function WizardShell({ mode }: WizardShellProps) {
   }, [currentStep, handleBack]);
 
   return (
-    <main aria-label="Channel Quick Pick Wizard" className="space-y-6">
+    <main aria-label="Channel Quick Pick Wizard" className="space-y-4 sm:space-y-6 pb-20 sm:pb-0">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
+        <h1 className="text-base sm:text-lg font-display font-bold uppercase tracking-[0.1em]">
           Quick Channel Pick
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
           Answer a few questions and we&apos;ll find the best channels for you.
         </p>
       </div>
@@ -247,18 +247,18 @@ export function WizardShell({ mode }: WizardShellProps) {
         )}
       </div>
 
-      {/* Navigation Bar */}
-      <div className="flex items-center justify-between pt-4 border-t border-border">
+      {/* Navigation Bar — sticky on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between px-3 py-2.5 border-t border-border bg-background sm:static sm:z-auto sm:px-0 sm:pt-4 sm:pb-0">
         <button
           onClick={handleBack}
           disabled={currentStep === 0}
           aria-label="Go to previous step"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          className="inline-flex items-center gap-1.5 px-3 py-2 sm:gap-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-border bg-card hover:border-primary/40 uppercase tracking-[0.1em] transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
-          <ChevronLeft className="h-3.5 w-3.5" /> Back
+          <ChevronLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Back
         </button>
 
-        <span className="text-xs text-muted-foreground" aria-live="polite">
+        <span className="text-[10px] sm:text-xs text-muted-foreground" aria-live="polite">
           Step {currentStep + 1} of {TOTAL_STEPS}
         </span>
 
@@ -267,14 +267,14 @@ export function WizardShell({ mode }: WizardShellProps) {
             onClick={handleNext}
             disabled={!canProceed}
             aria-label={isLastBeforeConfirm ? 'Finish and import channels' : 'Go to next step'}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+            className="inline-flex items-center gap-1.5 px-3 py-2 sm:gap-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
             {isLastBeforeConfirm
               ? 'Review'
               : currentStep >= 1 && currentStep <= 3
                 ? 'Next / Skip'
                 : 'Next'}{' '}
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </button>
         ) : (
           <div />

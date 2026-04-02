@@ -53,6 +53,7 @@ export default function ChannelDataTable<T>({
     {
       key: 'name',
       ariaSort: nameAriaSort,
+      mobileStyle: 'flex:1;min-width:0',
       header: nameHeader || <span className={HEADER_TEXT}>Name</span>,
       cell: (item) => (
         <div
@@ -76,6 +77,7 @@ export default function ChannelDataTable<T>({
     {
       key: 'actions',
       headerClassName: `text-right`,
+      mobileStyle: 'margin-left:auto',
       header: <span className={HEADER_TEXT}>Actions</span>,
       cell: (item) => <ChannelRowActions {...getActions(item)} />,
     },

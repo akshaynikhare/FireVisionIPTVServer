@@ -355,8 +355,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 onClick={() => setMini(!mini)}
                 className={
                   mini
-                    ? 'flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
-                    : 'flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
+                    ? 'hidden md:flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
+                    : 'hidden md:flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
                 }
                 aria-label={mini ? 'Expand' : 'Mini player'}
                 title={mini ? 'Expand' : 'Mini player'}

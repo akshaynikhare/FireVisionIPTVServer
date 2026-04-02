@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Smartphone, Copy, Check, Wifi } from 'lucide-react';
+import { Loader2, Smartphone, Copy, Check, Wifi, Camera } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
+import QrScanner from '@/components/qr-scanner';
 
 interface PairedDevice {
   name: string;
@@ -21,6 +22,7 @@ export default function PairDevicePage() {
   const [origin, setOrigin] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -119,7 +121,7 @@ export default function PairDevicePage() {
             Open the FireVision app on your TV. A 6-digit PIN will appear on screen. Enter it below
             to link your account.
           </p>
-          <form onSubmit={handleConfirmPin} className="flex items-end gap-3">
+          <form onSubmit={handleConfirmPin} className="flex items-end gap-3 flex-wrap">
             <div className="space-y-1.5 flex-1 max-w-xs">
               <label
                 htmlFor="pairing-pin"
@@ -154,7 +156,53 @@ export default function PairDevicePage() {
                 </>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="inline-flex items-center gap-2 h-12 px-6 text-sm font-medium border border-border uppercase tracking-[0.1em] transition-colors hover:bg-muted"
+            >
+              <Camera className="h-4 w-4" /> Scan QR
+            </button>
           </form>
+
+          <QrScanner
+            open={scannerOpen}
+            onClose={() => setScannerOpen(false)}
+            onScan={(scannedPin) => {
+              setScannerOpen(false);
+              setPin(scannedPin);
+              // Auto-submit the pairing
+              setConfirming(true);
+              setResult(null);
+              api
+                .post('/tv/pairing/confirm', { pin: scannedPin })
+                .then((res) => {
+                  const body = res.data;
+                  setResult({
+                    success: true,
+                    message: body.message || 'Device paired successfully!',
+                  });
+                  if (body.device) {
+                    setPairedDevice({
+                      name: body.device.name,
+                      model: body.device.model,
+                      pairedAt: new Date().toISOString(),
+                    });
+                  }
+                  setPin('');
+                })
+                .catch((err: unknown) => {
+                  const axiosErr = err as { response?: { data?: { error?: string } } };
+                  setResult({
+                    success: false,
+                    message:
+                      axiosErr.response?.data?.error ||
+                      'Failed to confirm pairing. Check the PIN and try again.',
+                  });
+                })
+                .finally(() => setConfirming(false));
+            }}
+          />
 
           {result && (
             <div

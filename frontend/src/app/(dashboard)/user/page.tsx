@@ -82,49 +82,52 @@ export default function UserDashboard() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="">
-        <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-base sm:text-lg font-display font-bold uppercase tracking-[0.1em]">
+          My Dashboard
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
           Welcome back{user?.username ? `, ${user.username}` : ''}
         </p>
       </div>
 
-      <div className="border border-border ">
-        <div className="grid grid-cols-1 sm:grid-cols-3">
-          <div className="p-4">
-            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">My Channels</p>
-            <p className="text-2xl font-display font-bold mt-1.5 tabular-nums">
+      <div className="border border-border">
+        <div className="grid grid-cols-3 sm:grid-cols-3">
+          <div className="p-2.5 sm:p-4">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+              Channels
+            </p>
+            <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 tabular-nums">
               {channelCount !== null ? channelCount : '\u2014'}
             </p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-                <span className="text-xs text-muted-foreground">
-                  {channelHealth.working} working
-                </span>
-              </div>
+            <div className="flex items-center gap-1.5 mt-1 sm:mt-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
+              <span className="text-[10px] sm:text-xs text-muted-foreground">
+                {channelHealth.working} ok
+              </span>
               {channelHealth.failing > 0 && (
-                <div className="flex items-center gap-1.5">
+                <>
                   <span className="w-1.5 h-1.5 rounded-full bg-signal-red" aria-hidden="true" />
-                  <span className="text-xs text-muted-foreground">
-                    {channelHealth.failing} failing
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    {channelHealth.failing}
                   </span>
-                </div>
+                </>
               )}
             </div>
           </div>
-          <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
-            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Last Device</p>
-            <p className="text-2xl font-display font-bold mt-1.5 truncate">
+          <div className="p-2.5 sm:p-4 border-l border-border">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+              Device
+            </p>
+            <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 truncate">
               {profile?.metadata?.lastPairedDevice || '\u2014'}
             </p>
-            <div className="flex items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-1.5 mt-1 sm:mt-2">
               {profile?.metadata?.lastPairedDevice ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-                  <span className="text-xs text-muted-foreground">paired</span>
-                  <span className="sr-only">Device is paired</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">paired</span>
                 </>
               ) : (
                 <>
@@ -132,59 +135,63 @@ export default function UserDashboard() {
                     className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
                     aria-hidden="true"
                   />
-                  <span className="text-xs text-muted-foreground">not paired</span>
-                  <span className="sr-only">No device paired</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">none</span>
                 </>
               )}
             </div>
           </div>
-          <div className="p-4 border-t sm:border-t-0 sm:border-l border-border">
-            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Account</p>
-            <p className="text-2xl font-display font-bold mt-1.5">{user?.role || '\u2014'}</p>
-            <div className="flex items-center gap-1.5 mt-2">
+          <div className="p-2.5 sm:p-4 border-l border-border">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+              Account
+            </p>
+            <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 capitalize">
+              {user?.role || '\u2014'}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1 sm:mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-xs text-muted-foreground">active</span>
-              <span className="sr-only">Account is active</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">active</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Playlist Link */}
-      <div className="">
-        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div>
+        <h2 className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
           Playlist Link
         </h2>
-        <div className="border border-border p-4">
+        <div className="border border-border p-3 sm:p-4">
           {playlistUrl ? (
-            <div className="flex items-center gap-3">
-              <code className="flex-1 text-xs text-muted-foreground bg-muted px-3 py-2 truncate border border-border">
+            <div className="space-y-2 sm:space-y-3">
+              <code className="block text-[11px] sm:text-xs text-muted-foreground bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 truncate border border-border">
                 {playlistUrl}
               </code>
-              <a
-                href={playlistUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors shrink-0 hover:bg-muted"
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                Open M3U
-              </a>
-              <button
-                onClick={handleCopy}
-                aria-label="Copy to clipboard"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors shrink-0 hover:bg-muted"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-signal-green" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" /> Copy
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={playlistUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors hover:bg-muted"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  Open M3U
+                </a>
+                <button
+                  onClick={handleCopy}
+                  aria-label="Copy to clipboard"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] border border-border transition-colors hover:bg-muted"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-signal-green" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> Copy
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -195,18 +202,18 @@ export default function UserDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="">
-        <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
+      <div>
+        <h2 className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
           Quick Actions
         </h2>
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
               <button
                 key={action.href}
                 onClick={() => router.push(action.href)}
-                className="flex items-center gap-3 border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 group"
+                className="flex items-center gap-3 border border-border bg-card p-3 sm:p-4 text-left transition-colors hover:border-primary/40 group"
               >
                 <div className="flex items-center justify-center h-9 w-9 bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                   <Icon className="h-4 w-4" />
