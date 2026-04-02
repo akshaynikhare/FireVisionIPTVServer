@@ -19,29 +19,45 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   metadataBase: new URL('https://tv.cadnative.com'),
   title: {
-    default: 'FireVision IPTV',
+    default: 'FireVision IPTV — Self-Hosted Android TV IPTV Player & Management Console',
     template: '%s | FireVision IPTV',
   },
   description:
-    'FireVision IPTV — Channel Management & Administration. Self-hosted server for your Android TV IPTV player.',
+    'FireVision IPTV is a self-hosted IPTV management console for Android TV and Fire TV. Import M3U playlists, manage channels, pair devices, and monitor streams — all from one dashboard.',
   keywords: [
     'IPTV',
     'Android TV',
     'Fire TV',
+    'IPTV player',
+    'self-hosted IPTV',
+    'M3U player',
     'channel management',
-    'self-hosted',
-    'M3U',
+    'IPTV server',
     'streaming',
+    'Fire TV IPTV app',
+    'open source IPTV',
   ],
-  authors: [{ name: 'CAD Native', url: 'https://tv.cadnative.com' }],
+  authors: [{ name: 'Akshay Nikhare', url: 'https://github.com/akshaynikhare' }],
+  creator: 'Akshay Nikhare',
+  publisher: 'CAD Native',
+  alternates: {
+    canonical: 'https://tv.cadnative.com',
+  },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
   openGraph: {
-    title: 'FireVision IPTV',
+    title: 'FireVision IPTV — Self-Hosted IPTV for Android TV',
     description:
-      'Self-hosted IPTV management console — channel lists, device pairing & server management.',
+      'Import M3U playlists, pair Fire TV devices, manage channels, and monitor streams. Open-source and self-hosted.',
     url: 'https://tv.cadnative.com',
     siteName: 'FireVision IPTV',
     images: [
@@ -49,7 +65,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'FireVision IPTV Management Console',
+        alt: 'FireVision IPTV — Self-hosted IPTV management console with channel management, device pairing, and stream monitoring',
       },
     ],
     locale: 'en_US',
@@ -57,9 +73,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FireVision IPTV',
+    title: 'FireVision IPTV — Self-Hosted IPTV for Android TV',
     description:
-      'Self-hosted IPTV management console — channel lists, device pairing & server management.',
+      'Import M3U playlists, pair Fire TV devices, manage channels, and monitor streams. Open-source.',
     images: ['/og-image.png'],
   },
 };
@@ -71,6 +87,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="author" href="https://github.com/akshaynikhare" />
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM instructions" />
+      </head>
       <body className={`${spaceGrotesk.variable} ${manrope.variable} antialiased`}>
         <ThemeProvider
           attribute="class"

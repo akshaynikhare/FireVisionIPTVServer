@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { ExternalLink, Download } from 'lucide-react';
 
@@ -25,8 +26,110 @@ const capabilities = [
 ];
 
 export default function Home() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        name: 'FireVision IPTV',
+        description:
+          'Self-hosted IPTV management console for Android TV and Fire TV. Import M3U playlists, manage channels, pair devices, and monitor streams.',
+        applicationCategory: 'MultimediaApplication',
+        operatingSystem: 'Android TV, Fire OS',
+        url: 'https://tv.cadnative.com',
+        downloadUrl: 'https://github.com/akshaynikhare/FireVisionIPTV/releases/latest',
+        softwareVersion: '1.0.1',
+        author: {
+          '@type': 'Person',
+          name: 'Akshay Nikhare',
+          url: 'https://github.com/akshaynikhare',
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'CAD Native',
+          url: 'https://tv.cadnative.com',
+        },
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD',
+        },
+        featureList: [
+          'M3U playlist import',
+          'Channel management with DRM support',
+          'Fire TV device pairing',
+          'Multi-source import (IPTV-org, Pluto TV, Samsung TV Plus)',
+          'Role-based access control',
+          'Real-time analytics dashboard',
+          'Self-hosted deployment',
+        ],
+        screenshot: 'https://tv.cadnative.com/og-image.png',
+        license: 'https://github.com/akshaynikhare/FireVisionIPTV/blob/main/LICENSE',
+      },
+      {
+        '@type': 'WebSite',
+        name: 'FireVision IPTV',
+        url: 'https://tv.cadnative.com',
+        description: 'Self-hosted IPTV management console for Android TV and Fire TV.',
+        publisher: {
+          '@type': 'Organization',
+          name: 'CAD Native',
+        },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'What is FireVision IPTV?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'FireVision IPTV is a free, open-source, self-hosted IPTV management console. It provides an Android TV / Fire TV player app and a web-based admin dashboard for managing channels, devices, and users.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'What devices does FireVision IPTV support?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'FireVision IPTV supports Amazon Fire TV, Fire TV Stick, and Android TV devices. The management console runs as a self-hosted web application accessible from any browser.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I import M3U playlists into FireVision IPTV?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes. FireVision IPTV supports M3U playlist import, along with built-in sources like IPTV-org, Pluto TV, and Samsung TV Plus with region-based filtering.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Is FireVision IPTV free?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes, FireVision IPTV is completely free and open source. You can self-host the server using Docker and download the Android TV app from GitHub releases.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'How do I deploy FireVision IPTV?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'FireVision IPTV can be deployed using Docker Compose. The project includes production-ready Docker configurations. Visit the GitHub repository for the deployment guide.',
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   return (
     <main className="min-h-screen bg-background relative flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="absolute inset-0 grid-bg opacity-50 dark:opacity-40" />
 
       <div className="relative z-10 border-b border-border">
@@ -39,6 +142,14 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 lg:px-10 w-full py-20 lg:py-0">
           <div className="grid lg:grid-cols-[1fr,280px] gap-16 lg:gap-20 items-start">
             <div>
+              <Image
+                src="/flame.svg"
+                alt="FireVision logo"
+                width={260}
+                height={260}
+                className="mb-6 w-24 h-24 sm:w-36 sm:h-36 lg:w-[260px] lg:h-[260px]"
+                priority
+              />
               <h1 className="text-5xl sm:text-6xl lg:text-[5.5rem] font-display font-bold tracking-tight leading-none">
                 FIRE<span className="text-primary">VISION</span>
               </h1>
