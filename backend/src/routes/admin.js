@@ -88,6 +88,8 @@ router.put('/channels/:id', async (req, res) => {
       order,
       isActive,
       metadata,
+      alternateStreams,
+      flaggedBad,
     } = req.body;
     const allowedUpdates = {};
     if (channelId !== undefined) allowedUpdates.channelId = channelId;
@@ -101,6 +103,8 @@ router.put('/channels/:id', async (req, res) => {
     if (channelDrmKey !== undefined) allowedUpdates.channelDrmKey = channelDrmKey;
     if (order !== undefined) allowedUpdates.order = order;
     if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (alternateStreams !== undefined) allowedUpdates.alternateStreams = alternateStreams;
+    if (flaggedBad !== undefined) allowedUpdates.flaggedBad = flaggedBad;
     if (metadata !== undefined) {
       // Merge metadata fields individually to preserve existing values (e.g. isWorking, lastTested)
       for (const [key, value] of Object.entries(metadata)) {
@@ -278,6 +282,49 @@ router.post('/channels/import-m3u', async (req, res) => {
       success: false,
       error: 'Failed to import M3U',
     });
+  }
+});
+
+// Diagnostic: alternate streams stats
+router.get('/channels/alternates-stats', async (req, res) => {
+  try {
+    const [stats] = await Channel.aggregate([
+      {
+        $project: {
+          hasAlternates: {
+            $gt: [{ $size: { $ifNull: ['$alternateStreams', []] } }, 0],
+          },
+          alternateCount: { $size: { $ifNull: ['$alternateStreams', []] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          withAlternates: { $sum: { $cond: ['$hasAlternates', 1, 0] } },
+          totalAlternateStreams: { $sum: '$alternateCount' },
+        },
+      },
+    ]);
+    res.json({
+      success: true,
+      data: stats
+        ? {
+            totalChannels: stats.total,
+            channelsWithAlternates: stats.withAlternates,
+            channelsWithoutAlternates: stats.total - stats.withAlternates,
+            totalAlternateStreams: stats.totalAlternateStreams,
+          }
+        : {
+            totalChannels: 0,
+            channelsWithAlternates: 0,
+            channelsWithoutAlternates: 0,
+            totalAlternateStreams: 0,
+          },
+    });
+  } catch (error) {
+    console.error('Error fetching alternates stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch alternates stats' });
   }
 });
 
