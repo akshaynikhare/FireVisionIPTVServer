@@ -10,6 +10,7 @@ interface StreamPlayerChannel {
   url: string;
   logo?: string;
   channelId?: string;
+  alternateUrls?: string[];
 }
 
 interface StreamPlayerProps {
@@ -68,6 +69,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     const url = channel.url;
     const directUrl = url;
     const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
+    const alternateUrls = channel.alternateUrls || [];
+    let alternateIndex = 0;
     const sessionId = typeof window !== 'undefined' ? useAuthStore.getState().sessionId : null;
     let destroyed = false;
     let currentSource: 'direct' | 'proxy' = mode === 'proxy' ? 'proxy' : 'direct';
@@ -144,6 +147,12 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                   } else if (data.type === 'networkError' && mode === 'proxy') {
                     setStatus('Network error — retrying...');
                     hls.startLoad();
+                  } else if (alternateIndex < alternateUrls.length) {
+                    const altUrl = alternateUrls[alternateIndex++];
+                    const altProxy = `/api/v1/stream-proxy?url=${encodeURIComponent(altUrl)}`;
+                    setStatus(`Trying alternate ${alternateIndex}/${alternateUrls.length}...`);
+                    hls.destroy();
+                    tryHlsSource(altProxy, true);
                   } else {
                     setPlayerError(`Fatal error: ${data.details}`);
                     hls.destroy();
@@ -174,6 +183,13 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
               setActiveSource(currentSource);
               setStatus('Trying proxy...');
               video!.src = proxyUrl;
+              video!.load();
+            } else if (alternateIndex < alternateUrls.length) {
+              const altUrl = alternateUrls[alternateIndex++];
+              currentSource = 'proxy';
+              setActiveSource(currentSource);
+              setStatus(`Trying alternate ${alternateIndex}/${alternateUrls.length}...`);
+              video!.src = `/api/v1/stream-proxy?url=${encodeURIComponent(altUrl)}`;
               video!.load();
             } else {
               setPlayerError('Playback error');

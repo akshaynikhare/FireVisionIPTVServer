@@ -11,6 +11,7 @@ const { audit } = require('../services/audit-log');
 const reportStatusLimits = new Map();
 const reportPlayLimits = new Map();
 const healthSyncLimits = new Map();
+const flagLimits = new Map();
 
 // Cleanup stale rate-limit entries every 10 minutes
 // .unref() ensures this timer doesn't prevent graceful process exit
@@ -26,17 +27,20 @@ setInterval(
     for (const [key, ts] of healthSyncLimits) {
       if (now - ts > 5 * 60 * 1000) healthSyncLimits.delete(key);
     }
+    for (const [key, ts] of flagLimits) {
+      if (now - ts > 60 * 1000) flagLimits.delete(key);
+    }
   },
   10 * 60 * 1000,
 ).unref();
 
-// Slim alternateStreams to only viable entries for client consumption
+// Filter alternateStreams to viable entries for client consumption.
+// Keeps full objects (liveness, flaggedBad, etc.) so web frontend can display rich details.
 function slimAlternates(channel) {
   if (!channel.alternateStreams?.length) return channel;
   channel.alternateStreams = channel.alternateStreams
     .filter((alt) => alt.liveness?.status !== 'dead' && alt.flaggedBad?.isFlagged !== true)
-    .slice(0, 3)
-    .map((alt) => ({ streamUrl: alt.streamUrl, quality: alt.quality || null }));
+    .slice(0, 10);
   return channel;
 }
 
@@ -410,9 +414,15 @@ router.get('/:id/with-fallbacks', requireAuth, async (req, res) => {
   }
 });
 
-// Flag primary stream as bad (any authenticated user)
+// Flag primary stream as bad (any authenticated user, rate-limited: 1 per channel per user per minute)
 router.post('/:id/flag', requireAuth, async (req, res) => {
   try {
+    const flagKey = `${req.user.id}:${req.params.id}:primary`;
+    if (flagLimits.has(flagKey)) {
+      return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
+    }
+    flagLimits.set(flagKey, Date.now());
+
     const { reason } = req.body;
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
     if (!reason || !validReasons.includes(reason)) {
@@ -491,11 +501,17 @@ router.post('/:id/unflag', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Flag an alternate stream as bad (any authenticated user)
+// Flag an alternate stream as bad (any authenticated user, rate-limited)
 router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
   try {
     const { reason } = req.body;
     const index = parseInt(req.params.index, 10);
+    const flagKey = `${req.user.id}:${req.params.id}:alt${index}`;
+    if (flagLimits.has(flagKey)) {
+      return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
+    }
+    flagLimits.set(flagKey, Date.now());
+
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
 
     if (!reason || !validReasons.includes(reason)) {
@@ -790,28 +806,9 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
-    // Promote alternate if a different stream URL worked
-    if (streamUrl && streamUrl !== channel.channelUrl && channel.alternateStreams?.length) {
-      const altIndex = channel.alternateStreams.findIndex((alt) => alt.streamUrl === streamUrl);
-      if (altIndex !== -1) {
-        const now = new Date();
-        const winningAlt = channel.alternateStreams[altIndex];
-        const demotedPrimary = {
-          streamUrl: channel.channelUrl,
-          quality: null,
-          liveness: { status: 'dead', lastCheckedAt: now },
-          flaggedBad: { isFlagged: false },
-          demotedAt: now,
-        };
-        channel.alternateStreams.splice(altIndex, 1, demotedPrimary);
-        channel.channelUrl = winningAlt.streamUrl;
-        channel.flaggedBad = { isFlagged: false, reason: null, flaggedBy: null, flaggedAt: null };
-        channel.metadata = channel.metadata || {};
-        channel.metadata.isWorking = true;
-        channel.metadata.lastTested = now;
-        await channel.save();
-      }
-    }
+    // Note: auto-promotion from report-play was removed to avoid race conditions
+    // with the stream-health-service scheduler and to prevent untrusted clients
+    // from forcing promotions. The scheduler handles promotion based on health probes.
 
     reportPlayLimits.set(rateLimitKey, Date.now());
 

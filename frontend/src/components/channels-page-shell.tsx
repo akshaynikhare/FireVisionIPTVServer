@@ -149,6 +149,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     quality: '',
     network: '',
     website: '',
+    alternateUrls: '',
   });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
@@ -532,6 +533,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           network: editForm.network || '',
           website: editForm.website || '',
         },
+        alternateStreams: editForm.alternateUrls
+          .split('\n')
+          .map((u) => u.trim())
+          .filter(Boolean)
+          .map((url) => {
+            const existing = editChannel.alternateStreams?.find((a) => a.streamUrl === url);
+            return existing || { streamUrl: url };
+          }),
       });
       setEditChannel(null);
       fetchChannels();
@@ -558,6 +567,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       quality: ch.metadata?.quality || '',
       network: ch.metadata?.network || '',
       website: ch.metadata?.website || '',
+      alternateUrls: (ch.alternateStreams || []).map((a) => a.streamUrl).join('\n'),
     });
     setEditError('');
   }
@@ -989,6 +999,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               >
                 <Zap className="h-3 w-3" />
               </button>
+              {(c.alternateStreams?.length ?? 0) > 0 && (
+                <span
+                  className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
+                  title={`${c.alternateStreams!.length} alternate stream${c.alternateStreams!.length > 1 ? 's' : ''}`}
+                >
+                  +{c.alternateStreams!.length}
+                </span>
+              )}
             </div>
           ),
         },
@@ -1067,6 +1085,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               >
                 <Zap className="h-3 w-3" />
               </button>
+              {(c.alternateStreams?.length ?? 0) > 0 && (
+                <span
+                  className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
+                  title={`${c.alternateStreams!.length} alternate stream${c.alternateStreams!.length > 1 ? 's' : ''}`}
+                >
+                  +{c.alternateStreams!.length}
+                </span>
+              )}
             </div>
           ),
         },
@@ -1396,7 +1422,14 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           onDetail: () => setDetailChannel(c),
           onPlay: () =>
             playStream(
-              { name: getName(c), url: getUrl(c), channelId: c._id },
+              {
+                name: getName(c),
+                url: getUrl(c),
+                channelId: c._id,
+                alternateUrls: c.alternateStreams
+                  ?.filter((a) => !a.flaggedBad?.isFlagged)
+                  .map((a) => a.streamUrl),
+              },
               { mode: 'direct-fallback' },
             ),
           onEdit: isAdmin ? () => openEdit(c) : undefined,
@@ -1620,6 +1653,26 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                   Lower numbers appear first. Leave as 0 for automatic ordering.
                 </p>
               </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="edit-alternates"
+                  className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground"
+                >
+                  Alternate Stream URLs
+                </label>
+                <textarea
+                  id="edit-alternates"
+                  rows={4}
+                  value={editForm.alternateUrls}
+                  onChange={(e) => setEditForm((p) => ({ ...p, alternateUrls: e.target.value }))}
+                  placeholder="One URL per line"
+                  className="flex w-full border border-border bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary resize-y min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  One URL per line. Existing alternate data (liveness, flags) is preserved for
+                  matching URLs.
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3 pt-1">
               <button
@@ -1668,6 +1721,9 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                     name: getName(detailChannel),
                     url: getUrl(detailChannel),
                     channelId: detailChannel._id,
+                    alternateUrls: detailChannel.alternateStreams
+                      ?.filter((a) => !a.flaggedBad?.isFlagged)
+                      .map((a) => a.streamUrl),
                   },
                   { mode: 'direct-fallback' },
                 );
