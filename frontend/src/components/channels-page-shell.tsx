@@ -999,14 +999,17 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               >
                 <Zap className="h-3 w-3" />
               </button>
-              {(c.alternateStreams?.length ?? 0) > 0 && (
-                <span
-                  className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
-                  title={`${c.alternateStreams!.length} alternate stream${c.alternateStreams!.length > 1 ? 's' : ''}`}
-                >
-                  +{c.alternateStreams!.length}
-                </span>
-              )}
+              {(() => {
+                const viable = c.alternateStreams?.filter((a) => !a.flaggedBad?.isFlagged) ?? [];
+                return viable.length > 0 ? (
+                  <span
+                    className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
+                    title={`${viable.length} alternate stream${viable.length > 1 ? 's' : ''}`}
+                  >
+                    +{viable.length}
+                  </span>
+                ) : null;
+              })()}
             </div>
           ),
         },
@@ -1085,14 +1088,17 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               >
                 <Zap className="h-3 w-3" />
               </button>
-              {(c.alternateStreams?.length ?? 0) > 0 && (
-                <span
-                  className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
-                  title={`${c.alternateStreams!.length} alternate stream${c.alternateStreams!.length > 1 ? 's' : ''}`}
-                >
-                  +{c.alternateStreams!.length}
-                </span>
-              )}
+              {(() => {
+                const viable = c.alternateStreams?.filter((a) => !a.flaggedBad?.isFlagged) ?? [];
+                return viable.length > 0 ? (
+                  <span
+                    className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium bg-primary/10 text-primary border border-primary/20"
+                    title={`${viable.length} alternate stream${viable.length > 1 ? 's' : ''}`}
+                  >
+                    +{viable.length}
+                  </span>
+                ) : null;
+              })()}
             </div>
           ),
         },

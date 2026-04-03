@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import { Play, Flag, ArrowUpCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import Modal from '@/components/ui/modal';
 import ChannelLogo from '@/components/ui/channel-logo';
@@ -55,6 +55,11 @@ export default function ChannelDetailModal({
 }: ChannelDetailModalProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [confirmPromote, setConfirmPromote] = useState<number | null>(null);
+
+  useEffect(() => {
+    setPendingAction(null);
+    setConfirmPromote(null);
+  }, [channel?.channelId]);
 
   if (!channel) return null;
 
@@ -202,7 +207,7 @@ export default function ChannelDetailModal({
                         )
                       : onFlagAlternate && (
                           <button
-                            onClick={() => onFlagAlternate(idx)}
+                            onClick={() => withLoading(`flag-${idx}`, () => onFlagAlternate(idx))}
                             disabled={pendingAction === `flag-${idx}`}
                             className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-signal-red transition-colors disabled:opacity-50"
                             title="Flag as bad"
@@ -288,8 +293,9 @@ export default function ChannelDetailModal({
               )
             : onFlagPrimary && (
                 <button
-                  onClick={onFlagPrimary}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border text-muted-foreground uppercase tracking-[0.1em] hover:text-signal-red hover:border-signal-red/30 transition-colors"
+                  onClick={() => withLoading('flag-primary', onFlagPrimary)}
+                  disabled={pendingAction === 'flag-primary'}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border text-muted-foreground uppercase tracking-[0.1em] hover:text-signal-red hover:border-signal-red/30 transition-colors disabled:opacity-50"
                   aria-label="Flag primary stream as bad"
                 >
                   <Flag className="h-4 w-4" />

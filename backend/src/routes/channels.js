@@ -421,7 +421,6 @@ router.post('/:id/flag', requireAuth, async (req, res) => {
     if (flagLimits.has(flagKey)) {
       return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
     }
-    flagLimits.set(flagKey, Date.now());
 
     const { reason } = req.body;
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
@@ -447,6 +446,8 @@ router.post('/:id/flag', requireAuth, async (req, res) => {
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
+
+    flagLimits.set(flagKey, Date.now());
 
     audit({
       userId: req.user.id,
@@ -510,7 +511,6 @@ router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
     if (flagLimits.has(flagKey)) {
       return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
     }
-    flagLimits.set(flagKey, Date.now());
 
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
 
@@ -536,6 +536,8 @@ router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
       flaggedAt: new Date(),
     };
     await channel.save();
+
+    flagLimits.set(flagKey, Date.now());
 
     audit({
       userId: req.user.id,
