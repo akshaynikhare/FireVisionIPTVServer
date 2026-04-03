@@ -1,0 +1,39 @@
+# Standard crawlers
+User-agent: *
+Disallow: /admin/
+Disallow: /user/
+Disallow: /pair
+Disallow: /login
+Disallow: /register
+Allow: /
+
+# AI crawlers — allowed on public pages
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+
+Sitemap: https://tv.cadnative.com/sitemap.xml

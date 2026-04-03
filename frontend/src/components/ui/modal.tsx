@@ -100,16 +100,16 @@ export default function Modal({
         className={`${sizeClasses[size]} w-full bg-card border-2 border-primary/30 shadow-lg animate-fade-up max-h-[90vh] flex flex-col`}
       >
         {title && (
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-border">
             <h2
               id={titleId}
-              className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground"
+              className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground min-w-0 truncate"
             >
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-10 w-10 text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+              className="flex items-center justify-center h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-primary transition-colors"
               aria-label="Close dialog"
               title="Close (Esc)"
             >

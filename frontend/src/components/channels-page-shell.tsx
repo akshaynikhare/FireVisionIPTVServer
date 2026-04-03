@@ -931,11 +931,29 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
               searchable
             />
           ),
-          cell: (c) => (
-            <span className="text-xs text-muted-foreground truncate">
-              {c.metadata?.language || '—'}
-            </span>
-          ),
+          cell: (c) => {
+            const lang = c.metadata?.language || '';
+            const langs = lang
+              ? lang
+                  .split(',')
+                  .map((l: string) => l.trim())
+                  .filter(Boolean)
+              : [];
+            if (langs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+            return (
+              <span
+                className="text-xs text-muted-foreground flex items-center gap-1 whitespace-nowrap"
+                title={lang}
+              >
+                {langs[0]}
+                {langs.length > 1 && (
+                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                    +{langs.length - 1}
+                  </span>
+                )}
+              </span>
+            );
+          },
         },
         {
           key: 'status',
@@ -987,9 +1005,10 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         },
       ]
     : [
-        favColumn,
+        { ...favColumn, mobileHidden: true },
         {
           key: 'group',
+          mobileHidden: true,
           ariaSort:
             sortField === 'group' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
           header: (
@@ -1015,6 +1034,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         },
         {
           key: 'status',
+          mobileHidden: true,
           header: (
             <ColumnFilter
               label="Status"
@@ -1052,6 +1072,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         },
         {
           key: 'plays',
+          mobileHidden: true,
           header: (
             <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
               Plays
@@ -1134,49 +1155,57 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">My Channels</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin ? `${totalCount} total channels` : `${channels.length} channels`}
-          </p>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-display font-bold uppercase tracking-[0.1em]">
+              My Channels
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isAdmin ? `${totalCount} total channels` : `${channels.length} channels`}
+            </p>
+          </div>
+          {/* Primary actions */}
+          <div className="flex items-center gap-2">
+            <Link
+              href={isAdmin ? '/admin/quick-pick' : '/user/quick-pick'}
+              className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
+            >
+              <Zap className="h-4 w-4" /> Quick Pick
+            </Link>
+            <button
+              onClick={() => {
+                if (isAdmin) {
+                  setShowAdd(true);
+                  setAddError('');
+                } else {
+                  setShowAdd(!showAdd);
+                  if (!showAdd && allChannels.length === 0) fetchAllChannels();
+                }
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" /> Add Stream
+            </button>
+          </div>
         </div>
+        {/* Secondary actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={isAdmin ? '/admin/quick-pick' : '/user/quick-pick'}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-primary bg-primary/10 text-primary uppercase tracking-[0.1em] transition-colors hover:bg-primary/20"
-          >
-            <Zap className="h-4 w-4" /> Quick Pick
-          </Link>
-          <button
-            onClick={() => {
-              if (isAdmin) {
-                setShowAdd(true);
-                setAddError('');
-              } else {
-                setShowAdd(!showAdd);
-                if (!showAdd && allChannels.length === 0) fetchAllChannels();
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Add Stream
-          </button>
           <button
             onClick={() => setShowImport(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
           >
-            <Upload className="h-4 w-4" /> Import M3U
+            <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Import M3U
           </button>
           {channels.length > 0 && (
             <button
               onClick={handleCopyM3U}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em]"
             >
               {copied ? (
-                <Check className="h-4 w-4 text-signal-green" />
+                <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-signal-green" />
               ) : (
-                <Download className="h-4 w-4" />
+                <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               )}
               Export M3U
             </button>
@@ -1184,21 +1213,21 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           <button
             onClick={isAdmin ? handleTestAll : handleTestAllUser}
             disabled={testingAll}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-border bg-card shadow-sm transition-colors hover:border-primary/40 uppercase tracking-[0.1em] disabled:opacity-50"
           >
             {testingAll ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
             ) : (
-              <Zap className="h-4 w-4" />
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             )}
             Test All
           </button>
           {channels.length > 0 && (
             <button
               onClick={() => (isAdmin ? setShowBulkDelete(true) : handleBulkDelete())}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-destructive/30 bg-card shadow-sm transition-colors hover:border-destructive/60 text-destructive uppercase tracking-[0.1em]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium border-2 border-destructive/30 bg-card shadow-sm transition-colors hover:border-destructive/60 text-destructive uppercase tracking-[0.1em]"
             >
-              <Trash2 className="h-4 w-4" /> Delete All
+              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Delete All
             </button>
           )}
         </div>

@@ -243,40 +243,37 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
   }, []);
 
   // Drag handler for mini player header
-  const handleDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        right: position.right,
-        bottom: position.bottom,
-      };
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      right: position.right,
+      bottom: position.bottom,
+    };
 
-      const handleMove = (ev: MouseEvent) => {
-        if (!dragRef.current) return;
-        const dx = dragRef.current.mouseX - ev.clientX;
-        const dy = dragRef.current.mouseY - ev.clientY;
-        setPosition({
-          right: Math.max(0, dragRef.current.right + dx),
-          bottom: Math.max(0, dragRef.current.bottom + dy),
-        });
-      };
-      const cleanup = () => {
-        window.removeEventListener('mousemove', handleMove);
-        window.removeEventListener('mouseup', handleUp);
-        dragCleanupRef.current = null;
-      };
-      const handleUp = () => {
-        dragRef.current = null;
-        cleanup();
-      };
-      window.addEventListener('mousemove', handleMove);
-      window.addEventListener('mouseup', handleUp);
-      dragCleanupRef.current = cleanup;
-    },
-    [position],
-  );
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = dragRef.current.mouseX - ev.clientX;
+      const dy = dragRef.current.mouseY - ev.clientY;
+      setPosition({
+        right: Math.max(0, dragRef.current.right + dx),
+        bottom: Math.max(0, dragRef.current.bottom + dy),
+      });
+    };
+    const cleanup = () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      dragCleanupRef.current = null;
+    };
+    const handleUp = () => {
+      dragRef.current = null;
+      cleanup();
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    dragCleanupRef.current = cleanup;
+  }, []);
 
   if (!channel) return null;
 
@@ -355,8 +352,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 onClick={() => setMini(!mini)}
                 className={
                   mini
-                    ? 'flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
-                    : 'flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
+                    ? 'hidden md:flex items-center justify-center h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors'
+                    : 'hidden md:flex items-center gap-1.5 px-2 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors'
                 }
                 aria-label={mini ? 'Expand' : 'Mini player'}
                 title={mini ? 'Expand' : 'Mini player'}

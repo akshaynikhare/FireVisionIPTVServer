@@ -8,6 +8,10 @@ export interface DataTableColumn<T> {
   cell: (item: T) => ReactNode;
   headerClassName?: string;
   ariaSort?: 'ascending' | 'descending' | 'none';
+  /** Hide this column below the responsive breakpoint */
+  mobileHidden?: boolean;
+  /** Extra CSS rules applied to this column's cell below the responsive breakpoint */
+  mobileStyle?: string;
 }
 
 interface DataTableProps<T> {
@@ -46,6 +50,7 @@ export default function DataTable<T>({
   const headerRef = useRef<HTMLDivElement>(null);
   const styleRef = useRef<HTMLStyleElement>(null);
   const widthsRef = useRef<number[]>([]);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
 
   const buildRule = useCallback(
     (template: string) => {
@@ -56,6 +61,37 @@ export default function DataTable<T>({
   );
 
   const styleContent = buildRule(gridTemplate);
+
+  /* Hide mobileHidden columns below the breakpoint */
+  const bpMax = breakpoint === 'md' ? '767.98px' : '1023.98px';
+  const mobileHideRules = isAlways
+    ? ''
+    : columns
+        .map((col, i) =>
+          col.mobileHidden
+            ? `@media(max-width:${bpMax}){[data-table-id="${tableId}"] [data-col-index="${i}"]{display:none}}`
+            : '',
+        )
+        .filter(Boolean)
+        .join('');
+
+  /* Apply per-column mobileStyle below the breakpoint */
+  const sanitizeCss = (s: string) => s.replace(/[{}<>]/g, '');
+  const mobileStyleRules = isAlways
+    ? ''
+    : columns
+        .map((col, i) =>
+          col.mobileStyle
+            ? `@media(max-width:${bpMax}){[data-table-id="${tableId}"] [data-col-index="${i}"]{${sanitizeCss(col.mobileStyle)}}}`
+            : '',
+        )
+        .filter(Boolean)
+        .join('');
+
+  /* Below breakpoint: rows use flex-wrap so name+actions share a line */
+  const mobileRowRule = isAlways
+    ? ''
+    : `@media(max-width:${bpMax}){[data-table-id="${tableId}"] [data-table-row]{display:flex;flex-wrap:wrap;gap:0.5rem;padding-top:0.5rem;padding-bottom:0.5rem}}`;
 
   const headerVisibility = isAlways
     ? 'grid'
@@ -70,6 +106,13 @@ export default function DataTable<T>({
     const cells = headerRef.current.querySelectorAll('[role="columnheader"]');
     widthsRef.current = Array.from(cells).map((el) => (el as HTMLElement).offsetWidth);
   }, [resizable]);
+
+  // Clean up any active resize listeners on unmount
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+    };
+  }, []);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, colIndex: number) => {
@@ -93,12 +136,14 @@ export default function DataTable<T>({
         document.removeEventListener('mouseup', onMouseUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        resizeCleanupRef.current = null;
       };
 
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
+      resizeCleanupRef.current = onMouseUp;
     },
     [buildRule],
   );
@@ -134,8 +179,8 @@ export default function DataTable<T>({
           .filter(Boolean)
           .join(' ')}
       >
-        {columns.map((col) => (
-          <div key={col.key} role="cell" className="min-w-0">
+        {columns.map((col, i) => (
+          <div key={col.key} role="cell" className="min-w-0" data-col-index={i}>
             {col.cell(item)}
           </div>
         ))}
@@ -145,7 +190,12 @@ export default function DataTable<T>({
 
   return (
     <div className="overflow-x-auto">
-      <style ref={styleRef}>{styleContent}</style>
+      <style ref={styleRef}>
+        {styleContent}
+        {mobileHideRules}
+        {mobileStyleRules}
+        {mobileRowRule}
+      </style>
       <div
         data-table-id={tableId}
         role="table"

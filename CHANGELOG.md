@@ -8,25 +8,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 ---
 
-## [Unreleased]
-
-_No unreleased changes._
-
 ## [1.0.13] - 2026-03-30
 
 ### Added
+
 - add Sentry error tracking and Codecov coverage reporting
 - improve admin user assigned channels view with stats and richer table
 
 ### Fixed
+
 - separate rate limiter for TV pairing status polling endpoint
 
 ### Other
+
 - Apply suggestions from code review
 - Fix list-related bugs: broken search filter, wrong stats display, and missing parseInt radix
+
 ## [1.0.12] - 2026-03-21
 
 ### Added
+
 - enhance channel detail modal with alternate stream numbering
 - implement alternate stream fallback and promotion logic for channels
 - implement favorites syncing and display in channels page
@@ -36,11 +37,13 @@ _No unreleased changes._
 - smart stream grouping, fallback, auto-promotion & bad stream flagging (#6)
 
 ### Fixed
+
 - add proxy play count and last played/dead timestamps to channel metrics display
 - enhance channel testing and reporting with improved axios configuration and error handling
 - use atomic $inc for metrics in test endpoint and add metrics to Zod schema
 - add .unref() to rate-limit cleanup timer to allow graceful shutdown
 - resolve lint error in import-page-shell grouped mode toggle
+
 ## [1.0.11] - 2026-03-18
 
 ### Added

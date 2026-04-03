@@ -297,7 +297,7 @@ Complete inventory of every feature in the application.
 - Trend line/area charts for user signups, sessions, and device pairings over time
 - Selectable time ranges for trend charts (7 days, 30 days, 90 days)
 - Backend aggregation endpoints (`GET /api/v1/admin/stats/trends/:type`) for daily time-series data
-- Responsive layout working across desktop and tablet
+- Responsive layout working across desktop, tablet, and mobile
 - Light and dark theme support via CSS variable-based chart colors
 
 ## IPTV-Org Integration
@@ -391,6 +391,19 @@ Complete inventory of every feature in the application.
 - Credentials support in CORS
 - Frame embedding blocked via CSP
 
+## Security — Rate Limiting
+
+- Global API rate limit: 1000 requests per 15 minutes per authenticated user (session or JWT)
+- Unauthenticated requests rate-limited by IP address
+- Admin sessions fully exempt from API rate limits
+- Auth endpoints (login, register): 20 requests per 15 minutes per IP
+- Email actions (forgot-password, resend-verification): 5 per hour per IP
+- TV pairing mutations: 10 per 5 minutes per IP (prevents PIN brute-force)
+- TV pairing status polling: 120 per 10 minutes per IP
+- In-memory per-device rate limits for health sync and stream reporting
+- Standard `RateLimit-*` headers in all API responses
+- Login page shows specific rate-limit error message when 429 is returned
+
 ## Security — Request Handling
 
 - Gzip compression on responses
@@ -468,6 +481,11 @@ Complete inventory of every feature in the application.
 - Dark mode support via next-themes
 - Separate Dockerfiles for production (standalone output) and development (hot reload)
 - API proxy: all `/api/v1/*` requests proxied through Next.js to backend
+- Mobile-responsive sidebar: hidden off-screen on small screens, opens as overlay drawer with backdrop
+- Hamburger menu button in header on mobile to toggle sidebar
+- Sidebar auto-closes on navigation link tap (mobile)
+- Desktop sidebar retains collapsible behavior with expand/collapse toggle
+- Reduced content padding on mobile for better space utilization
 
 ## Quick Pick Wizard
 
@@ -545,3 +563,24 @@ Complete inventory of every feature in the application.
 - CORS allowed origins
 - Server info endpoint reporting name, version, status, and enabled features
 - Config defaults endpoint for client applications
+
+## Error Monitoring (Sentry)
+
+- Sentry SDK integrated into the backend for production error tracking
+- Automatic capture of unhandled exceptions and rejected promises
+- Sentry source maps uploaded in CI for readable stack traces
+- Codecov integration for test coverage reporting in CI pipeline
+- Sentry DSN and Codecov token configured via environment variables
+
+## Admin User Assigned Channels
+
+- Admin user detail view shows all channels personally assigned to a user
+- Displays per-channel stats: alive/dead status, play count, last played timestamp
+- Richer table layout with logo, channel name, category, and health indicators
+- Admin can manage (add/remove) a user's assigned channels directly from the user detail page
+
+## TV Pairing Rate Limiting
+
+- Dedicated lower-threshold rate limiter on the pairing status polling endpoint
+- Prevents TV devices from hammering the status endpoint during pairing flow
+- Rate limit is separate from the global API rate limiter to avoid blocking other traffic

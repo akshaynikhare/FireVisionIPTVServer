@@ -94,7 +94,7 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
         </p>
       </div>
 
-      <div role="tablist" className="flex gap-1 border-b border-border">
+      <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-border">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -108,13 +108,13 @@ export default function SourcesPageShell({ mode }: SourcesPageShellProps) {
                 selection.unselectAll();
                 setStatsData(null);
               }}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium uppercase tracking-[0.1em] transition-colors border-b-2 -mb-px ${
+              className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 text-xs sm:text-sm font-medium uppercase tracking-[0.1em] transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 isActive
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {tab.label}
             </button>
           );

@@ -4,72 +4,78 @@
 
 @layer base {
   :root {
-    --background: 40 10% 97%;
-    --foreground: 240 10% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 38 75% 38%;
-    --primary-foreground: 40 10% 98%;
-    --secondary: 40 8% 93%;
-    --secondary-foreground: 240 10% 10%;
-    --muted: 40 8% 93%;
-    --muted-foreground: 240 5% 42%;
-    --accent: 38 75% 38%;
-    --accent-foreground: 40 10% 98%;
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 40 8% 82%;
-    --input: 40 8% 90%;
-    --ring: 38 75% 38%;
-    --radius: 2px;
-    --signal-green: 142 60% 34%;
-    --signal-red: 0 55% 48%;
-    --signal-blue: 217 65% 48%;
-    --signal-amber: 38 92% 50%;
-    --sidebar-background: 40 8% 94%;
-    --sidebar-foreground: 240 10% 15%;
-    --sidebar-primary: 38 75% 38%;
-    --sidebar-primary-foreground: 40 10% 98%;
-    --sidebar-accent: 40 8% 89%;
-    --sidebar-accent-foreground: 240 10% 10%;
-    --sidebar-border: 40 8% 84%;
-    --sidebar-ring: 38 75% 38%;
+    /* ── Light Mode — Parchment + Flame500 ───────────────────────────── */
+    /* Parchment-50  #FAF8F4 */ --background: 40 33% 97%;
+    /* Parchment-200 #EDE8DE */ --card: 38 22% 89%;
+    /* Parchment-200 #EDE8DE */ --popover: 38 22% 89%;
+    /* text-primary  #1C1A24 */ --foreground: 252 15% 12%;
+    /* text-primary  #1C1A24 */ --card-foreground: 252 15% 12%;
+    /* text-primary  #1C1A24 */ --popover-foreground: 252 15% 12%;
+    /* Flame-500     #B85E10 */ --primary: 30 84% 38%;
+    /* Parchment-50  #FAF8F4 */ --primary-foreground: 40 33% 97%;
+    /* Parchment-100 #F4F0E8 */ --secondary: 40 29% 93%;
+    /* text-primary  #1C1A24 */ --secondary-foreground: 252 15% 12%;
+    /* Parchment-100 #F4F0E8 */ --muted: 40 29% 93%;
+    /* text-secondary #5A5470*/ --muted-foreground: 260 13% 39%;
+    /* Flame-100     #FFD080 */ --accent: 38 100% 75%;
+    /* Flame-700     #7A3A06 */ --accent-foreground: 26 90% 25%;
+    /* Error light   #C02020 */ --destructive: 0 71% 44%;
+    /* Parchment-50  #FAF8F4 */ --destructive-foreground: 40 33% 97%;
+    /* Parchment-300 #E2DCD0 */ --border: 36 18% 85%;
+    /* Parchment-200 #EDE8DE */ --input: 38 22% 89%;
+    /* Flame-500     #B85E10 */ --ring: 30 84% 38%;
+                                --radius: 2px;
+    /* Signal — light mode */
+    /* #1A8A40 */ --signal-green: 142 67% 32%;
+    /* #C02020 */ --signal-red: 0 71% 44%;
+    /* #1A60D0 */ --signal-blue: 217 78% 45%;
+    /* #D07808 */ --signal-amber: 35 90% 42%;
+    /* Sidebar */
+    /* Parchment-100 #F4F0E8 */ --sidebar-background: 40 29% 93%;
+    /* text-primary  #1C1A24 */ --sidebar-foreground: 252 15% 12%;
+    /* Flame-500     #B85E10 */ --sidebar-primary: 30 84% 38%;
+    /* Parchment-50  #FAF8F4 */ --sidebar-primary-foreground: 40 33% 97%;
+    /* Parchment-200 #EDE8DE */ --sidebar-accent: 38 22% 89%;
+    /* text-primary  #1C1A24 */ --sidebar-accent-foreground: 252 15% 12%;
+    /* Parchment-300 #E2DCD0 */ --sidebar-border: 36 18% 85%;
+    /* Flame-500     #B85E10 */ --sidebar-ring: 30 84% 38%;
   }
 
   .dark {
-    --background: 240 6% 7%;
-    --foreground: 40 6% 90%;
-    --card: 240 6% 10%;
-    --card-foreground: 40 6% 90%;
-    --popover: 240 6% 10%;
-    --popover-foreground: 40 6% 90%;
-    --primary: 40 65% 55%;
-    --primary-foreground: 240 10% 6%;
-    --secondary: 240 5% 14%;
-    --secondary-foreground: 40 6% 85%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 4% 65%;
-    --accent: 40 65% 55%;
-    --accent-foreground: 240 10% 6%;
-    --destructive: 0 55% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 18%;
-    --input: 240 5% 15%;
-    --ring: 40 65% 55%;
-    --signal-green: 142 60% 50%;
-    --signal-red: 0 55% 55%;
-    --signal-blue: 217 70% 60%;
-    --signal-amber: 38 92% 60%;
-    --sidebar-background: 240 6% 8%;
-    --sidebar-foreground: 40 6% 85%;
-    --sidebar-primary: 40 65% 55%;
-    --sidebar-primary-foreground: 240 10% 6%;
-    --sidebar-accent: 240 5% 14%;
-    --sidebar-accent-foreground: 40 6% 90%;
-    --sidebar-border: 240 5% 15%;
-    --sidebar-ring: 40 65% 55%;
+    /* ── Dark Mode — Void + Flame300 ─────────────────────────────────── */
+    /* Void-950   #0A0A12 */ --background: 240 30% 6%;
+    /* Void-800   #191921 */ --card: 240 15% 11%;
+    /* Void-800   #191921 */ --popover: 240 15% 11%;
+    /* text-primary #F2EDE3*/ --foreground: 38 29% 92%;
+    /* text-primary #F2EDE3*/ --card-foreground: 38 29% 92%;
+    /* text-primary #F2EDE3*/ --popover-foreground: 38 29% 92%;
+    /* Flame-300  #F7A93A  */ --primary: 38 92% 60%;
+    /* Flame-700  #7A3A06  */ --primary-foreground: 26 90% 25%;
+    /* Void-700   #21212C  */ --secondary: 240 14% 16%;
+    /* text-secondary #A8A0B2 */ --secondary-foreground: 270 8% 66%;
+    /* Void-700   #21212C  */ --muted: 240 14% 16%;
+    /* text-secondary #A8A0B2 */ --muted-foreground: 270 8% 66%;
+    /* Flame-300  #F7A93A  */ --accent: 38 92% 60%;
+    /* Flame-700  #7A3A06  */ --accent-foreground: 26 90% 25%;
+    /* Error dark  #E83838 */ --destructive: 0 78% 56%;
+    /* Parchment-50 #FAF8F4*/ --destructive-foreground: 40 33% 97%;
+    /* Void-600   #2A2B37  */ --border: 236 13% 19%;
+    /* Void-700   #21212C  */ --input: 240 14% 16%;
+    /* Flame-300  #F7A93A  */ --ring: 38 92% 60%;
+    /* Signal — dark mode */
+    /* #28B560 */ --signal-green: 142 62% 43%;
+    /* #E83838 */ --signal-red: 0 78% 56%;
+    /* #3D88F5 */ --signal-blue: 217 89% 60%;
+    /* #F5A624 */ --signal-amber: 38 91% 55%;
+    /* Sidebar */
+    /* Void-900   #11111A  */ --sidebar-background: 240 22% 8%;
+    /* text-primary #F2EDE3*/ --sidebar-foreground: 38 29% 92%;
+    /* Flame-300  #F7A93A  */ --sidebar-primary: 38 92% 60%;
+    /* Flame-700  #7A3A06  */ --sidebar-primary-foreground: 26 90% 25%;
+    /* Void-700   #21212C  */ --sidebar-accent: 240 14% 16%;
+    /* text-primary #F2EDE3*/ --sidebar-accent-foreground: 38 29% 92%;
+    /* Void-600   #2A2B37  */ --sidebar-border: 236 13% 19%;
+    /* Flame-300  #F7A93A  */ --sidebar-ring: 38 92% 60%;
   }
 }
 

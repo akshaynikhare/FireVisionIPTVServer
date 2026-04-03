@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from 'mongoose';
-import { IChannelDocument, IChannelModel } from '@firevision/shared';
+import { IAlternateStream, IChannelDocument, IChannelModel } from '@firevision/shared';
 
 const channelSchema = new Schema<IChannelDocument>(
   {
@@ -148,7 +148,8 @@ channelSchema.statics.generateM3UPlaylist = async function (): Promise<string> {
 
     if ((primaryDead || primaryFlagged) && channel.alternateStreams?.length) {
       const viableAlt = channel.alternateStreams.find(
-        (alt) => alt.liveness?.status === 'alive' && alt.flaggedBad?.isFlagged !== true,
+        (alt: IAlternateStream) =>
+          alt.liveness?.status === 'alive' && alt.flaggedBad?.isFlagged !== true,
       );
       if (viableAlt) {
         const originalUrl = channel.channelUrl;

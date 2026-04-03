@@ -1,0 +1,41 @@
+# FireVision IPTV
+
+> Self-hosted IPTV management console for Android TV and Fire TV
+
+FireVision IPTV is a free, open-source platform for managing IPTV channels on Android TV and Amazon Fire TV devices. It includes a Next.js web dashboard and a Kotlin Android TV player app.
+
+## Core Features
+
+- M3U playlist import with DRM support
+- Multi-source import: IPTV-org, Pluto TV, Samsung TV Plus
+- Fire TV / Android TV device pairing via codes
+- Role-based user access control
+- Real-time analytics dashboard
+- Self-hosted with Docker Compose
+
+## Links
+
+- Website: https://tv.cadnative.com
+- Android TV App: https://github.com/akshaynikhare/FireVisionIPTV/releases/latest
+- Server Source: https://github.com/akshaynikhare/FireVisionIPTVServer
+- App Source: https://github.com/akshaynikhare/FireVisionIPTV
+- API Documentation: https://tv.cadnative.com/api/v1/
+
+## Tech Stack
+
+- **Server**: Node.js, Express, TypeScript, MongoDB
+- **Frontend**: Next.js 14, React, Tailwind CSS, shadcn/ui
+- **Android App**: Kotlin, Jetpack Compose, ExoPlayer
+- **Deployment**: Docker, Docker Compose
+
+## Who Is This For?
+
+- Users who want to self-host their own IPTV server
+- Android TV / Fire TV owners looking for a free IPTV player
+- Developers building custom IPTV solutions
+- Cord-cutters managing free-to-air and legal IPTV streams
+
+## Author
+
+Built by Akshay Nikhare (https://github.com/akshaynikhare)
+Published by CADNative

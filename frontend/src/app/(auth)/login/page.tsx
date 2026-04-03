@@ -47,8 +47,15 @@ function LoginContent() {
             router.push(user.role === 'Admin' ? '/admin' : '/user');
           }
         })
-        .catch(() => {
-          setError('OAuth login failed. The code may have expired — please try again.');
+        .catch((err: unknown) => {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (status === 429) {
+            setError(
+              'Too many requests — you have been rate-limited. Please wait a few minutes and try again.',
+            );
+          } else {
+            setError('OAuth login failed. The code may have expired — please try again.');
+          }
           setLoading(false);
         });
     }
@@ -73,8 +80,15 @@ function LoginContent() {
       } else {
         router.push('/user');
       }
-    } catch {
-      setError('Invalid username or password');
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) {
+        setError(
+          'Too many requests — you have been rate-limited. Please wait a few minutes and try again.',
+        );
+      } else {
+        setError('Invalid username or password');
+      }
     } finally {
       setLoading(false);
     }

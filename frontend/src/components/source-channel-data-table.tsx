@@ -188,11 +188,11 @@ export default function SourceChannelDataTable({
   }
 
   const headerGridCls = showLiveness
-    ? 'hidden lg:grid grid-cols-[40px,44px,1fr,180px,120px,100px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border'
-    : 'hidden lg:grid grid-cols-[40px,44px,1fr,180px,120px,100px] gap-2 px-4 py-2 bg-muted/50 border-b border-border';
+    ? 'hidden lg:grid grid-cols-[40px,44px,1fr,140px,100px,80px,80px] gap-2 px-4 py-2 bg-muted/50 border-b border-border'
+    : 'hidden lg:grid grid-cols-[40px,44px,1fr,140px,100px,80px] gap-2 px-4 py-2 bg-muted/50 border-b border-border';
   const rowGridCls = showLiveness
-    ? 'grid lg:grid-cols-[40px,44px,1fr,180px,120px,100px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50'
-    : 'grid lg:grid-cols-[40px,44px,1fr,180px,120px,100px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-muted/50';
+    ? 'grid lg:grid-cols-[40px,44px,1fr,140px,100px,80px,80px] gap-2 items-center px-4 py-2 transition-colors hover:bg-muted/50'
+    : 'grid lg:grid-cols-[40px,44px,1fr,140px,100px,80px] gap-2 items-center px-4 py-2 transition-colors hover:bg-muted/50';
 
   return (
     <div className="space-y-4">
