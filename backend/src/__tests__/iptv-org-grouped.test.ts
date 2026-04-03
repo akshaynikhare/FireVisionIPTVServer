@@ -42,6 +42,10 @@ beforeEach(() => {
   mockGetGroupedChannels.mockReset();
 });
 
+afterEach(async () => {
+  await Channel.deleteMany({});
+});
+
 // ─── GET /iptv-org/api/grouped ───────────────────────────────────────────────
 
 describe('GET /iptv-org/api/grouped', () => {

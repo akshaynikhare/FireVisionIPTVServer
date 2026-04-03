@@ -50,6 +50,7 @@ export default function DataTable<T>({
   const headerRef = useRef<HTMLDivElement>(null);
   const styleRef = useRef<HTMLStyleElement>(null);
   const widthsRef = useRef<number[]>([]);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
 
   const buildRule = useCallback(
     (template: string) => {
@@ -75,12 +76,13 @@ export default function DataTable<T>({
         .join('');
 
   /* Apply per-column mobileStyle below the breakpoint */
+  const sanitizeCss = (s: string) => s.replace(/[{}<>]/g, '');
   const mobileStyleRules = isAlways
     ? ''
     : columns
         .map((col, i) =>
           col.mobileStyle
-            ? `@media(max-width:${bpMax}){[data-table-id="${tableId}"] [data-col-index="${i}"]{${col.mobileStyle}}}`
+            ? `@media(max-width:${bpMax}){[data-table-id="${tableId}"] [data-col-index="${i}"]{${sanitizeCss(col.mobileStyle)}}}`
             : '',
         )
         .filter(Boolean)
@@ -105,6 +107,13 @@ export default function DataTable<T>({
     widthsRef.current = Array.from(cells).map((el) => (el as HTMLElement).offsetWidth);
   }, [resizable]);
 
+  // Clean up any active resize listeners on unmount
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+    };
+  }, []);
+
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, colIndex: number) => {
       e.preventDefault();
@@ -127,12 +136,14 @@ export default function DataTable<T>({
         document.removeEventListener('mouseup', onMouseUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        resizeCleanupRef.current = null;
       };
 
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
+      resizeCleanupRef.current = onMouseUp;
     },
     [buildRule],
   );

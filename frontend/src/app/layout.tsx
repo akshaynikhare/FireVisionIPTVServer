@@ -42,6 +42,9 @@ export const metadata: Metadata = {
   publisher: 'CAD Native',
   alternates: {
     canonical: 'https://tv.cadnative.com',
+    types: {
+      'text/plain': '/llms.txt',
+    },
   },
   robots: {
     index: true,
@@ -87,10 +90,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="author" href="https://github.com/akshaynikhare" />
-        <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM instructions" />
-      </head>
       <body className={`${spaceGrotesk.variable} ${manrope.variable} antialiased`}>
         <ThemeProvider
           attribute="class"

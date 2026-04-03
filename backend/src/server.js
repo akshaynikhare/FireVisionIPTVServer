@@ -79,12 +79,40 @@ app.use(morgan('combined'));
 const Session = require('./models/Session');
 const jwt = require('jsonwebtoken');
 
+// In-memory TTL cache for admin-session lookups to avoid hitting MongoDB
+// on every single API request. Entries expire after 60 seconds.
+const adminSessionCache = new Map(); // key: sessionId, value: { isAdmin, expiresAt }
+const ADMIN_CACHE_TTL_MS = 60_000;
+const ADMIN_CACHE_MAX_SIZE = 5_000;
+
+function getCachedAdminSession(sessionId) {
+  const entry = adminSessionCache.get(sessionId);
+  if (!entry) return null;
+  if (Date.now() > entry.cachedUntil) {
+    adminSessionCache.delete(sessionId);
+    return null;
+  }
+  return entry;
+}
+
+function setCachedAdminSession(sessionId, isAdmin, expiresAt) {
+  if (adminSessionCache.size >= ADMIN_CACHE_MAX_SIZE) {
+    adminSessionCache.clear();
+  }
+  adminSessionCache.set(sessionId, {
+    isAdmin,
+    expiresAt,
+    cachedUntil: Date.now() + ADMIN_CACHE_TTL_MS,
+  });
+}
+
 // Resolve a per-user rate-limit key from session or JWT, falling back to IP.
-// This prevents all devices on the same IP from sharing one rate-limit bucket.
+// Keys are always anchored to the client IP so that an attacker cannot bypass
+// the rate limit by cycling fake session IDs or JWTs.
 function resolveRateLimitIdentity(req) {
   // Session-based auth (frontend dashboard)
   const sessionId = req.headers['x-session-id'];
-  if (sessionId) return { key: `sess:${sessionId}`, sessionId };
+  if (sessionId) return { key: `sess:${sessionId}:${req.ip}`, sessionId };
 
   // JWT auth (TV app / API clients)
   const auth = req.headers.authorization || '';
@@ -94,7 +122,7 @@ function resolveRateLimitIdentity(req) {
       const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
         algorithms: ['HS256'],
       });
-      if (payload.sub) return { key: `jwt:${payload.sub}` };
+      if (payload.sub) return { key: `jwt:${payload.sub}:${req.ip}` };
     } catch {
       // Invalid/expired token — fall through to IP-based limiting
     }
@@ -108,18 +136,28 @@ const apiLimiter = rateLimit({
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  // Key by user identity when authenticated, otherwise by IP
+  // Key by user identity + IP when authenticated, otherwise by IP alone
   keyGenerator: (req) => {
     const identity = resolveRateLimitIdentity(req);
     return identity ? identity.key : req.ip;
   },
-  // Skip rate limiting entirely for authenticated admin sessions
+  // Skip rate limiting entirely for authenticated admin sessions (cached)
   skip: async (req) => {
     try {
       const sessionId = req.headers['x-session-id'];
       if (!sessionId) return false;
+
+      // Check in-memory cache first
+      const cached = getCachedAdminSession(sessionId);
+      if (cached) {
+        return cached.isAdmin && cached.expiresAt > new Date();
+      }
+
+      // Cache miss — query MongoDB and cache the result
       const session = await Session.findOne({ sessionId }, { role: 1, expiresAt: 1 }).lean();
-      return session && session.role === 'Admin' && session.expiresAt > new Date();
+      const isAdmin = !!(session && session.role === 'Admin' && session.expiresAt > new Date());
+      setCachedAdminSession(sessionId, isAdmin, session?.expiresAt);
+      return isAdmin;
     } catch {
       return false;
     }

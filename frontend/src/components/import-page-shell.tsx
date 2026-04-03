@@ -895,7 +895,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                   onChange={handleGroupedSearchChange}
                   placeholder="Search by name or ID..."
                   ariaLabel="Search grouped channels"
-                  className="flex-1 max-w-md w-full"
+                  className="flex-1 max-w-full sm:max-w-md w-full"
                 />
                 <div className="flex items-center gap-2 flex-wrap">
                   {isAdmin && (
@@ -912,9 +912,9 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                   <button
                     onClick={handleGroupedImport}
                     disabled={importing || selectedCount === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+                    className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4 shrink-0" />
                     {importing
                       ? 'Importing...'
                       : `Import ${selectedCount} to ${isAdmin ? 'System' : 'My List'}`}
@@ -975,7 +975,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
             <div className="border border-border bg-card">
               {/* Header */}
               <div
-                className="grid items-center px-3 py-2 border-b border-border bg-muted/30 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
+                className="hidden lg:grid items-center px-3 py-2 border-b border-border bg-muted/30 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium"
                 style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
               >
                 <div className="flex items-center justify-center">
@@ -1011,10 +1011,10 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
               {groupedChannels.map((ch) => (
                 <div key={ch._uid} className={isSelected(ch._uid) ? 'bg-primary/5' : ''}>
                   <div
-                    className="grid items-center px-3 py-2 border-b border-border/50"
+                    className="flex items-center gap-2 px-3 py-2 border-b border-border/50 lg:grid"
                     style={{ gridTemplateColumns: '40px 44px 1fr 140px 100px 80px 100px' }}
                   >
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center shrink-0">
                       <button
                         type="button"
                         role="checkbox"
@@ -1030,20 +1030,22 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
                       </button>
                     </div>
                     <ChannelLogo src={ch.tvgLogo} alt={`${ch.channelName} logo`} />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <span className="text-sm font-medium truncate block">{ch.channelName}</span>
                       <span className="text-xs text-muted-foreground font-mono truncate block">
                         {ch.channelId}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground truncate">
+                    <span className="hidden lg:block text-xs text-muted-foreground truncate">
                       {ch.channelGroup || ch.categories?.[0] || '—'}
                     </span>
-                    <span className="text-xs text-muted-foreground truncate">
+                    <span className="hidden lg:block text-xs text-muted-foreground truncate">
                       {ch.country || '—'}
                     </span>
-                    <span className="text-xs text-muted-foreground">{ch.streamCount}</span>
-                    <div className="flex items-center gap-1.5">
+                    <span className="hidden lg:block text-xs text-muted-foreground">
+                      {ch.streamCount}
+                    </span>
+                    <div className="hidden lg:flex items-center gap-1.5">
                       <StatusDot status={ch.bestStream?.liveness?.status || 'unknown'} />
                     </div>
                   </div>

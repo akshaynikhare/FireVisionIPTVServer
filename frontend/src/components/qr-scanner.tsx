@@ -17,16 +17,24 @@ export default function QrScanner({ open, onClose, onScan }: QrScannerProps) {
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
   const scannedRef = useRef(false);
+  const stoppingRef = useRef(false);
 
   const stopScanner = useCallback(async () => {
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
     try {
       const scanner = html5QrRef.current;
-      if (scanner?.isScanning) {
-        await scanner.stop();
+      if (scanner) {
+        if (scanner.isScanning) {
+          await scanner.stop();
+        }
+        scanner.clear();
       }
-      html5QrRef.current = null;
     } catch {
       // ignore cleanup errors
+    } finally {
+      html5QrRef.current = null;
+      stoppingRef.current = false;
     }
   }, []);
 
@@ -46,6 +54,13 @@ export default function QrScanner({ open, onClose, onScan }: QrScannerProps) {
 
         const scannerId = 'qr-scanner-region';
         const scanner = new Html5Qrcode(scannerId);
+
+        if (cancelled) {
+          // Scanner was created but effect cancelled before .start() — clean up
+          scanner.clear();
+          return;
+        }
+
         html5QrRef.current = scanner;
 
         await scanner.start(
@@ -57,13 +72,10 @@ export default function QrScanner({ open, onClose, onScan }: QrScannerProps) {
             const match = decodedText.match(/[?&]pin=(\d{6})/);
             if (match) {
               scannedRef.current = true;
-              // Stop scanner before notifying parent to prevent repeat fires
-              scanner
-                .stop()
-                .catch(() => {})
-                .finally(() => {
-                  onScanRef.current(match[1]);
-                });
+              // Stop scanner before notifying parent — uses stoppingRef guard
+              stopScanner().then(() => {
+                onScanRef.current(match[1]);
+              });
             }
           },
           () => {

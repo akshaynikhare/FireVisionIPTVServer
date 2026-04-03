@@ -174,7 +174,7 @@ export default function ChannelDetailModal({
             <summary className="text-xs uppercase tracking-[0.15em] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
               Raw Data
             </summary>
-            <pre className="mt-2 text-xs font-mono bg-muted border border-border p-3 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">
+            <pre className="mt-2 text-xs font-mono bg-muted border border-border p-2 sm:p-3 max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">
               {JSON.stringify(rawData, null, 2)}
             </pre>
           </details>

@@ -70,12 +70,12 @@ export default function ExternalSourceTab({
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {regions.map((r) => (
             <button
               key={r.code}
               onClick={() => fetchChannels(r.code)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-2 transition-colors ${
+              className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm font-medium border-2 transition-colors ${
                 selectedRegion === r.code && channels.length > 0
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-card shadow-sm hover:border-primary/40'
