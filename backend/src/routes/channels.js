@@ -49,10 +49,15 @@ function slimAlternates(channel) {
   return channel;
 }
 
-// Get all channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
+// Get channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const channels = await Channel.find({})
+    const query =
+      req.user.role === 'Admin'
+        ? {}
+        : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
+
+    const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
       .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
@@ -74,7 +79,12 @@ router.get('/', requireTvOrSessionAuth, async (req, res) => {
 // Get channels grouped by category
 router.get('/grouped', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const channels = await Channel.find({})
+    const query =
+      req.user.role === 'Admin'
+        ? {}
+        : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
+
+    const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
       .select('-channelDrmKey')
       .lean();
@@ -143,13 +153,20 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
     }
 
     const escaped = escapeRegex(q);
-    const channels = await Channel.find({
+    const searchFilter = {
       $or: [
         { channelName: { $regex: escaped, $options: 'i' } },
         { channelGroup: { $regex: escaped, $options: 'i' } },
         { channelId: { $regex: escaped, $options: 'i' } },
       ],
-    })
+    };
+
+    if (req.user.role !== 'Admin') {
+      searchFilter._id = { $in: (req.user.channels || []).filter(Boolean) };
+      searchFilter.isActive = { $ne: false };
+    }
+
+    const channels = await Channel.find(searchFilter)
       .sort({ channelGroup: 1, order: 1 })
       .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
@@ -260,6 +277,13 @@ router.get('/test-status', requireAuth, async (req, res) => {
 // Get channel by ID
 router.get('/:id', requireTvOrSessionAuth, async (req, res) => {
   try {
+    if (req.user.role !== 'Admin') {
+      const userChannelIds = (req.user.channels || []).map((id) => id.toString());
+      if (!userChannelIds.includes(req.params.id)) {
+        return res.status(404).json({ success: false, error: 'Channel not found' });
+      }
+    }
+
     const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
@@ -416,6 +440,13 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 // Get channel with filtered fallback streams (for Android app)
 router.get('/:id/with-fallbacks', requireAuth, async (req, res) => {
   try {
+    if (req.user.role !== 'Admin') {
+      const userChannelIds = (req.user.channels || []).map((id) => id.toString());
+      if (!userChannelIds.includes(req.params.id)) {
+        return res.status(404).json({ success: false, error: 'Channel not found' });
+      }
+    }
+
     const channel = await Channel.findById(req.params.id).select('-channelDrmKey').lean();
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
