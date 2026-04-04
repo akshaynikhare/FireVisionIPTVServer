@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Copy, Check, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -27,13 +27,19 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<CacheEntry[]>([]);
   const [cacheLoading, setCacheLoading] = useState(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
+    return () => clearTimeout(copyTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
     async function fetchData() {
       try {
         const [infoRes, configRes] = await Promise.all([
-          api.get('/config/info').catch(() => null),
-          api.get('/config/defaults').catch(() => null),
+          api.get('/config/info', { signal: controller.signal }).catch(() => null),
+          api.get('/config/defaults', { signal: controller.signal }).catch(() => null),
         ]);
         if (infoRes) setInfo(infoRes.data.data || infoRes.data);
         const config = configRes?.data?.data || configRes?.data;
@@ -42,14 +48,16 @@ export default function SettingsPage() {
             `${window.location.origin}/api/v1/channels/playlist.m3u?code=${config.defaultTvCode}`,
           );
         }
-      } catch (err) {
-        console.error('Failed to load settings data:', err);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== 'CanceledError')
+          console.error('Failed to load settings data:', err);
       } finally {
         setLoading(false);
       }
     }
     fetchData();
     fetchCacheStatus();
+    return () => controller.abort();
   }, []);
 
   async function fetchCacheStatus() {
@@ -88,7 +96,8 @@ export default function SettingsPage() {
   function handleCopy() {
     navigator.clipboard.writeText(playlistUrl);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
   }
 
   function formatAge(ms?: number) {

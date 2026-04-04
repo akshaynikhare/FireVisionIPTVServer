@@ -4,7 +4,7 @@ const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
 const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
 // In-memory rate-limit maps for stream metrics reporting
@@ -30,6 +30,11 @@ setInterval(
     for (const [key, ts] of flagLimits) {
       if (now - ts > 60 * 1000) flagLimits.delete(key);
     }
+    // Cap map sizes to prevent unbounded growth between cleanups
+    if (reportStatusLimits.size > 50000) reportStatusLimits.clear();
+    if (reportPlayLimits.size > 50000) reportPlayLimits.clear();
+    if (healthSyncLimits.size > 50000) healthSyncLimits.clear();
+    if (flagLimits.size > 50000) flagLimits.clear();
   },
   10 * 60 * 1000,
 ).unref();
@@ -131,6 +136,11 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
     if (!q || q.trim().length === 0) {
       return res.status(400).json({ success: false, error: 'Search query is required' });
     }
+    if (q.length > 500) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Search query too long (max 500 characters)' });
+    }
 
     const escaped = escapeRegex(q);
     const channels = await Channel.find({
@@ -155,7 +165,9 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per device per 5 minutes
 router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId, reports } = req.body;
+    const { deviceId, reports: reportsRaw, results: resultsRaw } = req.body;
+    // Android app sends "results", web may send "reports" — accept both
+    const reports = reportsRaw || resultsRaw;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({ success: false, error: 'deviceId is required' });
@@ -167,8 +179,9 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Maximum 100 reports per sync' });
     }
 
-    // Rate limiting
-    const rateLimitKey = `health-sync:${deviceId}`;
+    // Rate limiting — key by authenticated user + device to prevent spoofing
+    const userId = req.user?.id?.toString() || 'anon';
+    const rateLimitKey = `health-sync:${userId}:${deviceId}`;
     const lastSync = healthSyncLimits.get(rateLimitKey);
     if (lastSync && Date.now() - lastSync < 5 * 60 * 1000) {
       return res.status(429).json({
@@ -177,11 +190,22 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
       });
     }
 
+    // Pre-validate that reported channel IDs exist in the database
+    const reportedIds = [
+      ...new Set(reports.map((r) => r.channelId).filter((id) => id && typeof id === 'string')),
+    ];
+    const existingChannels = await Channel.find({ _id: { $in: reportedIds } }, { _id: 1 }).lean();
+    const validChannelIds = new Set(existingChannels.map((c) => c._id.toString()));
+
     const validStatuses = ['dead', 'alive', 'unresponsive', 'played'];
     const results = { updated: 0, failed: 0, skipped: 0 };
 
     for (const report of reports) {
       if (!report.channelId || !report.status || !validStatuses.includes(report.status)) {
+        results.skipped++;
+        continue;
+      }
+      if (!validChannelIds.has(report.channelId.toString())) {
         results.skipped++;
         continue;
       }
@@ -228,7 +252,7 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
 router.get('/test-status', requireAuth, async (req, res) => {
   try {
     res.json({ success: true, isLocked: false });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Failed to check test status' });
   }
 });
@@ -610,6 +634,12 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         .json({ success: false, error: 'Stream URL blocked by security policy' });
     }
 
+    const http = require('http');
+    const https = require('https');
+    const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+    const httpAgent = new http.Agent({ lookup: pinnedLookup });
+    const httpsAgent = new https.Agent({ lookup: pinnedLookup });
+
     const axios = require('axios');
     let isWorking = false;
     let error = null;
@@ -620,6 +650,8 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         maxRedirects: 5,
         responseType: 'stream',
         validateStatus: (status) => status < 500,
+        httpAgent,
+        httpsAgent,
         headers: {
           'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
           Accept: '*/*',
@@ -771,7 +803,7 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per channel per device per 1 minute
 router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId, proxyPlay, streamUrl } = req.body;
+    const { deviceId, proxyPlay } = req.body;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({

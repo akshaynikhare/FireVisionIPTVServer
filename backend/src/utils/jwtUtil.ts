@@ -40,11 +40,11 @@ function signRefreshToken(user: IUserDocument): string {
 }
 
 function hashToken(token: string): string {
-  return crypto.createHash('sha256').update(token).digest('hex');
+  return crypto.createHmac('sha256', REFRESH_SECRET).update(token).digest('hex');
 }
 
 async function persistRefreshToken(token: string, user: IUserDocument, req: Request) {
-  const decoded = jwt.decode(token) as jwt.JwtPayload;
+  const decoded = jwt.verify(token, REFRESH_SECRET, { algorithms: ['HS256'] }) as jwt.JwtPayload;
   const tokenHash = hashToken(token);
   const expiresAt = new Date(decoded.exp! * 1000);
   const doc = new RefreshToken({
@@ -58,5 +58,23 @@ async function persistRefreshToken(token: string, user: IUserDocument, req: Requ
   return doc;
 }
 
-module.exports = { signAccessToken, signRefreshToken, persistRefreshToken, hashToken };
-export { signAccessToken, signRefreshToken, persistRefreshToken, hashToken };
+async function rotateRefreshToken(oldToken: string, user: IUserDocument, req: Request) {
+  const oldHash = hashToken(oldToken);
+  const oldDoc = await RefreshToken.findOne({ tokenHash: oldHash });
+  if (oldDoc && !oldDoc.revokedAt) {
+    oldDoc.revokedAt = new Date();
+    await oldDoc.save();
+  }
+  const newToken = signRefreshToken(user);
+  await persistRefreshToken(newToken, user, req);
+  return newToken;
+}
+
+module.exports = {
+  signAccessToken,
+  signRefreshToken,
+  persistRefreshToken,
+  hashToken,
+  rotateRefreshToken,
+};
+export { signAccessToken, signRefreshToken, persistRefreshToken, hashToken, rotateRefreshToken };

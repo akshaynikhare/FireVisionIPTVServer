@@ -41,9 +41,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   // Clear all pending timers on unmount
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach((entry) => clearTimeout(entry.timerId));
-      timersRef.current.clear();
+      timers.forEach((entry) => clearTimeout(entry.timerId));
+      timers.clear();
     };
   }, []);
 
@@ -101,7 +102,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <span className="flex-1">{t.message}</span>
               <button
                 onClick={() => removeToast(t.id)}
-                className="shrink-0 p-2.5 hover:opacity-70 transition-opacity"
+                className="shrink-0 p-1.5 hover:opacity-70 transition-opacity"
                 aria-label="Dismiss"
               >
                 <X className="h-3.5 w-3.5" />

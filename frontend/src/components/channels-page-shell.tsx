@@ -595,7 +595,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     if (isAdmin) {
       setBulkDeleteLoading(true);
       try {
-        await api.delete('/admin/channels');
+        await api.delete('/admin/channels', { data: { confirmed: true } });
         setChannels([]);
         setTotalCount(0);
         setShowBulkDelete(false);

@@ -199,30 +199,36 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchInitial() {
       try {
         const [playlistRes, regionRes] = await Promise.all([
-          api.get('/iptv-org/playlists'),
-          api.get('/iptv-org/countries'),
+          api.get('/iptv-org/playlists', { signal: controller.signal }),
+          api.get('/iptv-org/countries', { signal: controller.signal }),
         ]);
-        setPlaylists(playlistRes.data.data || []);
-        setRegions(regionRes.data.data || []);
+        if (!controller.signal.aborted) {
+          setPlaylists(playlistRes.data.data || []);
+          setRegions(regionRes.data.data || []);
+        }
       } catch {
         // ignore
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     fetchInitial();
-    if (isAdmin) fetchLivenessStats();
+    if (isAdmin) fetchLivenessStats(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  async function fetchLivenessStats() {
+  async function fetchLivenessStats(signal?: AbortSignal) {
     try {
-      const res = await api.get('/iptv-org/liveness-status');
-      setLivenessStats(res.data.data?.livenessStats || null);
-      setBatchTesting(res.data.data?.livenessCheckInProgress || false);
+      const res = await api.get('/iptv-org/liveness-status', { signal });
+      if (!signal?.aborted) {
+        setLivenessStats(res.data.data?.livenessStats || null);
+        setBatchTesting(res.data.data?.livenessCheckInProgress || false);
+      }
     } catch {
       // ignore
     }

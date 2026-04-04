@@ -50,7 +50,22 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  }),
+);
 app.use(compression());
 app.use(
   cors({
@@ -75,6 +90,10 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(morgan('combined'));
 
+// CSRF protection: validate Origin/Referer on state-changing requests
+const { csrfProtection } = require('./middleware/csrfProtection');
+app.use(csrfProtection);
+
 // Rate limiting
 const Session = require('./models/Session');
 const jwt = require('jsonwebtoken');
@@ -97,7 +116,9 @@ function getCachedAdminSession(sessionId) {
 
 function setCachedAdminSession(sessionId, isAdmin, expiresAt) {
   if (adminSessionCache.size >= ADMIN_CACHE_MAX_SIZE) {
-    adminSessionCache.clear();
+    // Evict oldest entry instead of clearing all — prevents thundering herd
+    const oldestKey = adminSessionCache.keys().next().value;
+    if (oldestKey) adminSessionCache.delete(oldestKey);
   }
   adminSessionCache.set(sessionId, {
     isAdmin,
@@ -178,14 +199,36 @@ app.use('/api/v1/auth/reset-password', authLimiter);
 app.use('/api/v1/jwt/login', authLimiter);
 
 // Stricter rate limit for forgot-password and resend-verification
+// Per-IP limit: 3 requests per hour
 const emailActionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/v1/auth/forgot-password', emailActionLimiter);
-app.use('/api/v1/auth/resend-verification', emailActionLimiter);
+// Per-account limit: key by email in request body (prevents abuse of a single account)
+const emailAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = (req.body && req.body.email) || '';
+    return `email-action:${email.toLowerCase().trim()}:${req.ip}`;
+  },
+});
+app.use('/api/v1/auth/forgot-password', emailActionLimiter, emailAccountLimiter);
+app.use('/api/v1/auth/resend-verification', emailActionLimiter, emailAccountLimiter);
+
+// OAuth rate limiting — prevent abuse of OAuth initiation endpoints
+const oauthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/v1/oauth/google/start', oauthLimiter);
+app.use('/api/v1/oauth/github/start', oauthLimiter);
 
 // Strict rate limiting for TV pairing mutation endpoints (prevent PIN brute-force)
 const pairingLimiter = rateLimit({
@@ -251,6 +294,7 @@ app.get('/health', (req, res) => {
   const healthy = mongoose.connection.readyState === 1;
   res.status(healthy ? 200 : 503).json({
     status: healthy ? 'ok' : 'degraded',
+    uptime: process.uptime(),
     version: process.env.APP_VERSION || '0.0.0',
     mongodb: healthy ? 'connected' : 'disconnected',
     redis: isRedisReady() ? 'connected' : 'disconnected',
@@ -285,6 +329,7 @@ app.use((req, res) => {
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
 const PORT = process.env.PORT || 3000;
+let httpServer = null;
 
 mongoose
   .connect(MONGODB_URI, {
@@ -332,7 +377,7 @@ mongoose
     }
 
     // Start server
-    app.listen(PORT, '0.0.0.0', () => {
+    httpServer = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📺 FireVision IPTV Server v1.0.0`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -345,8 +390,8 @@ mongoose
   });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+async function gracefulShutdown(signal) {
+  console.log(`${signal} received: shutting down gracefully`);
   try {
     const { epgService } = require('./services/epg-service');
     epgService.stopBackgroundUpdates();
@@ -359,8 +404,21 @@ process.on('SIGTERM', async () => {
   } catch {
     /* ignore if not loaded */
   }
+  if (httpServer) {
+    await new Promise((resolve) => httpServer.close(resolve));
+    console.log('HTTP server closed — no longer accepting connections');
+  }
   await closeRedis();
   await mongoose.connection.close();
   console.log('MongoDB and Redis connections closed');
   process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
 });

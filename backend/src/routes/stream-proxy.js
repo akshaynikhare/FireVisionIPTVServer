@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const http = require('http');
+const https = require('https');
 const axios = require('axios');
 const { requireAuth } = require('./auth');
-const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 
 // Apply authentication
 router.use(requireAuth);
@@ -12,6 +14,8 @@ router.use(requireAuth);
  * GET /api/v1/stream-proxy?url=<stream_url>
  */
 router.get('/', async (req, res) => {
+  let httpAgent;
+  let httpsAgent;
   try {
     const { url } = req.query;
 
@@ -22,7 +26,7 @@ router.get('/', async (req, res) => {
     // Validate URL
     try {
       new URL(url);
-    } catch (_error) {
+    } catch {
       return res.status(400).send('Invalid URL format');
     }
 
@@ -31,10 +35,17 @@ router.get('/', async (req, res) => {
       return res.status(403).send(ssrfCheck.reason);
     }
 
+    // Pin DNS to the resolved addresses to prevent DNS rebinding
+    const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+    httpAgent = new http.Agent({ lookup: pinnedLookup });
+    httpsAgent = new https.Agent({ lookup: pinnedLookup });
+
     // Fetch the stream with SSRF-safe redirect handling
     const response = await axios.get(url, {
       responseType: 'stream',
       timeout: 30000,
+      httpAgent,
+      httpsAgent,
       headers: {
         'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
         Accept: '*/*',
@@ -52,6 +63,14 @@ router.get('/', async (req, res) => {
           throw new Error('Redirect to private/internal address blocked');
         }
       },
+    });
+
+    let responseDone = false;
+
+    req.on('close', () => {
+      if (response.data && typeof response.data.destroy === 'function') {
+        response.data.destroy();
+      }
     });
 
     // Determine if response is an HLS manifest by checking:
@@ -82,24 +101,26 @@ router.get('/', async (req, res) => {
     // If it's a playlist (.m3u8), we need to rewrite URLs in it
     if (isManifest) {
       const MAX_MANIFEST_SIZE = 10 * 1024 * 1024; // 10 MB
-      let data = '';
+      const chunks = [];
       let dataSize = 0;
 
       response.data.on('data', (chunk) => {
         dataSize += chunk.length;
         if (dataSize > MAX_MANIFEST_SIZE) {
           response.data.destroy();
-          if (!res.headersSent) {
+          if (!responseDone && !res.headersSent) {
+            responseDone = true;
             res.status(413).send('Manifest too large');
           }
           return;
         }
-        data += chunk.toString();
+        chunks.push(chunk);
       });
 
       response.data.on('end', () => {
         // If the stream was destroyed due to size limit, don't process
         if (res.headersSent) return;
+        const data = Buffer.concat(chunks).toString('utf-8');
 
         // Use the final URL (after redirects) as the base for resolving relative URLs
         const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
@@ -148,12 +169,14 @@ router.get('/', async (req, res) => {
           return resolveAndProxy(trimmedLine);
         });
 
+        responseDone = true;
         res.send(rewrittenLines.join('\n'));
       });
 
       response.data.on('error', (error) => {
         console.error('Stream error:', error);
-        if (!res.headersSent) {
+        if (!responseDone && !res.headersSent) {
+          responseDone = true;
           res.status(500).send('Stream error');
         }
       });
@@ -163,7 +186,8 @@ router.get('/', async (req, res) => {
 
       response.data.on('error', (error) => {
         console.error('Stream error:', error);
-        if (!res.headersSent) {
+        if (!responseDone && !res.headersSent) {
+          responseDone = true;
           res.status(500).send('Stream error');
         }
       });
@@ -180,6 +204,9 @@ router.get('/', async (req, res) => {
     } else {
       res.status(502).send('Bad Gateway');
     }
+  } finally {
+    httpAgent?.destroy();
+    httpsAgent?.destroy();
   }
 });
 

@@ -51,6 +51,23 @@ function mapToFrontendShape(ch, source) {
   };
 }
 
+// ─── Helper: validate cached channel has expected structure ─
+function isValidCachedChannel(ch) {
+  return (
+    ch &&
+    typeof ch === 'object' &&
+    typeof ch.channelId === 'string' &&
+    ch.channelId.length > 0 &&
+    typeof ch.channelName === 'string' &&
+    ch.channelName.length > 0
+  );
+}
+
+function filterValidChannels(channels) {
+  if (!Array.isArray(channels)) return [];
+  return channels.filter(isValidCachedChannel);
+}
+
 // ─── Pluto TV ──────────────────────────────────────────────
 
 router.get('/pluto-tv/regions', async (req, res) => {
@@ -72,7 +89,10 @@ router.get('/pluto-tv/channels', async (req, res) => {
         .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
     }
     const status = req.query.status;
-    const channels = await externalSourceCacheService.getChannels('pluto-tv', country, { status });
+    const rawChannels = await externalSourceCacheService.getChannels('pluto-tv', country, {
+      status,
+    });
+    const channels = filterValidChannels(rawChannels);
     const data = channels.map((ch) => mapToFrontendShape(ch, 'pluto-tv'));
     res.json({ success: true, data, fromCache: true });
   } catch (error) {
@@ -105,9 +125,10 @@ router.get('/samsung-tv-plus/channels', async (req, res) => {
         .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
     }
     const status = req.query.status;
-    const channels = await externalSourceCacheService.getChannels('samsung-tv-plus', country, {
+    const rawChannels = await externalSourceCacheService.getChannels('samsung-tv-plus', country, {
       status,
     });
+    const channels = filterValidChannels(rawChannels);
     const data = channels.map((ch) => mapToFrontendShape(ch, 'samsung-tv-plus'));
     res.json({ success: true, data, fromCache: true });
   } catch (error) {
@@ -140,9 +161,10 @@ router.get('/youtube-live/channels', async (req, res) => {
         .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
     }
     const status = req.query.status;
-    const channels = await externalSourceCacheService.getChannels('youtube-live', country, {
+    const rawChannels = await externalSourceCacheService.getChannels('youtube-live', country, {
       status,
     });
+    const channels = filterValidChannels(rawChannels);
     const data = channels.map((ch) => mapToFrontendShape(ch, 'youtube-live'));
     res.json({ success: true, data, fromCache: true });
   } catch (error) {
@@ -172,9 +194,10 @@ router.get('/prasar-bharati/channels', async (req, res) => {
         .json({ success: false, error: 'Invalid country code. Must be a 2-letter code' });
     }
     const status = req.query.status;
-    const channels = await externalSourceCacheService.getChannels('prasar-bharati', country, {
+    const rawChannels = await externalSourceCacheService.getChannels('prasar-bharati', country, {
       status,
     });
+    const channels = filterValidChannels(rawChannels);
     const data = channels.map((ch) => mapToFrontendShape(ch, 'prasar-bharati'));
     res.json({ success: true, data, fromCache: true });
   } catch (error) {
@@ -199,7 +222,7 @@ router.get('/seed-channels', adminOnly, async (req, res) => {
     }
     const seeds = await SeedChannel.find(query).sort({ channelName: 1 }).lean();
     res.json({ success: true, data: seeds });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Failed to fetch seed channels' });
   }
 });
@@ -314,7 +337,7 @@ router.delete('/seed-channels/:id', adminOnly, async (req, res) => {
     });
 
     res.json({ success: true, message: 'Seed channel deleted' });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Failed to delete seed channel' });
   }
 });
@@ -357,7 +380,7 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
       success: true,
       message: `Batch liveness check started for ${source}:${region}`,
     });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -375,7 +398,7 @@ router.post('/check-liveness/:docId', async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
     res.json({ success: true, data: result });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -406,7 +429,7 @@ router.get('/liveness-status', async (req, res) => {
         lastLivenessCheckAt: meta?.lastLivenessCheckAt || null,
       },
     });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -438,7 +461,7 @@ router.post('/refresh-cache', adminOnly, async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
     res.json({ success: true, data: result });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -622,7 +645,7 @@ router.post('/clear-cache', adminOnly, async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
     res.json({ success: true, message: 'Cache cleared' });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

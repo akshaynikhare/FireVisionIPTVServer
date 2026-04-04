@@ -79,6 +79,11 @@ router.post('/me/channels/add', requireAuth, async (req, res) => {
     if (!Array.isArray(channelIds))
       return res.status(400).json({ success: false, error: 'channelIds must be an array' });
 
+    const invalidIds = channelIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
@@ -116,6 +121,11 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
     const { channelIds } = req.body;
     if (!Array.isArray(channelIds))
       return res.status(400).json({ success: false, error: 'channelIds must be an array' });
+
+    const invalidIds = channelIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
+    }
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });

@@ -31,6 +31,9 @@ api.interceptors.response.use(
       if (error.config?.headers?.['X-Skip-Auth-Redirect']) {
         return Promise.reject(error);
       }
+      // Claim the redirect immediately — before any async work or checks —
+      // so concurrent 401s see the flag and bail out.
+      isRedirecting = true;
       // Skip redirect if already on auth pages
       if (
         typeof window !== 'undefined' &&
@@ -39,14 +42,10 @@ api.interceptors.response.use(
         !window.location.pathname.startsWith('/verify-email') &&
         !window.location.pathname.startsWith('/pair')
       ) {
-        isRedirecting = true;
         // Clear both Zustand store and raw localStorage keys in one call
         useAuthStore.getState().logout();
         window.location.href = '/login';
-        // Reset flag after a short delay so re-login 401s still work
-        setTimeout(() => {
-          isRedirecting = false;
-        }, 2000);
+        // No timeout reset — module reloads on navigation, resetting isRedirecting naturally
       }
     }
     return Promise.reject(error);

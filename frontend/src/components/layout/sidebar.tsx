@@ -60,7 +60,7 @@ export function Sidebar({ role }: { role: 'admin' | 'user' }) {
       {/* Mobile overlay backdrop */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-foreground/50 md:hidden"
           onClick={() => setMobileSidebarOpen(false)}
           aria-hidden="true"
         />

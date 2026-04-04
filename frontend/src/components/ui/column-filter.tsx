@@ -172,7 +172,6 @@ export default function ColumnFilter({
                   aria-label={`Search ${label} options`}
                   aria-controls={`${dropdownId}-options`}
                   className="w-full h-7 pl-7 pr-2 text-xs border border-border bg-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary"
-                  autoFocus
                 />
               </div>
             </div>

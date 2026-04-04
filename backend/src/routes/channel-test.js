@@ -4,7 +4,9 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
-const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const http = require('http');
+const https = require('https');
+const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
 // Apply authentication to all routes — admin only for testing operations
@@ -39,6 +41,12 @@ function acquireLock(sessionId) {
   // Check if already locked
   if (lock && lock.locked) {
     return false;
+  }
+
+  // Hard cap to prevent memory exhaustion
+  if (testLocks.size >= 10000) {
+    const oldest = testLocks.keys().next().value;
+    testLocks.delete(oldest);
   }
 
   // Acquire lock
@@ -306,11 +314,17 @@ async function testChannelStream(url, timeout = 15000) {
     };
   }
 
+  const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+  const httpAgent = new http.Agent({ lookup: pinnedLookup });
+  const httpsAgent = new https.Agent({ lookup: pinnedLookup });
+
   try {
     const response = await axios.get(url, {
       timeout: timeout,
       maxRedirects: 5,
       validateStatus: (status) => status >= 200 && status < 500,
+      httpAgent,
+      httpsAgent,
       headers: {
         'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
         Accept: '*/*',

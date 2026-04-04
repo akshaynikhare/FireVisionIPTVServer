@@ -119,6 +119,8 @@ export default function DataTable<T>({
       e.preventDefault();
       if (widthsRef.current.length === 0) return;
 
+      resizeCleanupRef.current?.();
+
       const startX = e.clientX;
       const startWidth = widthsRef.current[colIndex];
 

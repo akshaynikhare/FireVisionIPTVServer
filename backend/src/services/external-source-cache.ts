@@ -83,7 +83,12 @@ class ExternalSourceCacheService {
     }
 
     const query: Record<string, any> = { source, region };
-    if (filters.status) {
+    const allowedStatuses = ['online', 'offline', 'error', 'unknown'];
+    if (
+      filters.status &&
+      typeof filters.status === 'string' &&
+      allowedStatuses.includes(filters.status)
+    ) {
       query['liveness.status'] = filters.status;
     }
 

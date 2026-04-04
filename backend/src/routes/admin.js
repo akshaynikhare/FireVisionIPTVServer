@@ -8,6 +8,7 @@ const PairingRequest = require('../models/PairingRequest');
 const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { audit } = require('../services/audit-log');
+const { validateUrlForSSRF } = require('../utils/ssrf-guard');
 const AuditLog = require('../models/AuditLog');
 const { ExternalSourceChannel } = require('../models/ExternalSourceCache');
 const { ScheduledTaskRun } = require('../models/ScheduledTaskRun');
@@ -106,9 +107,21 @@ router.put('/channels/:id', async (req, res) => {
     if (alternateStreams !== undefined) allowedUpdates.alternateStreams = alternateStreams;
     if (flaggedBad !== undefined) allowedUpdates.flaggedBad = flaggedBad;
     if (metadata !== undefined) {
-      // Merge metadata fields individually to preserve existing values (e.g. isWorking, lastTested)
+      // Whitelist of metadata keys that admins can set (prevents injection of arbitrary DB paths)
+      const ALLOWED_METADATA_KEYS = [
+        'country',
+        'language',
+        'resolution',
+        'network',
+        'website',
+        'quality',
+        'tags',
+        'notes',
+      ];
       for (const [key, value] of Object.entries(metadata)) {
-        allowedUpdates[`metadata.${key}`] = value;
+        if (ALLOWED_METADATA_KEYS.includes(key)) {
+          allowedUpdates[`metadata.${key}`] = value;
+        }
       }
     }
 
@@ -181,9 +194,16 @@ router.delete('/channels/:id', async (req, res) => {
   }
 });
 
-// Delete all channels
+// Delete all channels (requires { confirmed: true } in body)
 router.delete('/channels', async (req, res) => {
   try {
+    if (!req.body?.confirmed) {
+      return res.status(400).json({
+        success: false,
+        error: 'Destructive operation requires { "confirmed": true } in request body',
+      });
+    }
+
     const deleteResult = await Channel.deleteMany({});
 
     audit({
@@ -218,6 +238,21 @@ router.post('/channels/import-m3u', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'M3U content is required',
+      });
+    }
+
+    // Enforce size and line limits
+    if (Buffer.byteLength(m3uContent, 'utf8') > 50 * 1024 * 1024) {
+      return res.status(413).json({
+        success: false,
+        error: 'M3U content too large (max 50MB)',
+      });
+    }
+    const lineCount = m3uContent.split('\n').length;
+    if (lineCount > 100000) {
+      return res.status(413).json({
+        success: false,
+        error: 'M3U content has too many lines (max 100,000)',
       });
     }
 
@@ -259,8 +294,20 @@ router.post('/channels/import-m3u', async (req, res) => {
       }
     }
 
-    // Insert channels into database
-    const insertedChannels = await Channel.insertMany(channels, { ordered: false });
+    // Validate channel URLs against SSRF before inserting
+    const ssrfResults = await Promise.all(channels.map((ch) => validateUrlForSSRF(ch.channelUrl)));
+    const blockedCount = ssrfResults.filter((r) => !r.safe).length;
+    const safeChannels = channels.filter((_, i) => ssrfResults[i].safe);
+
+    if (safeChannels.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: `All ${channels.length} channel URLs were blocked by security policy`,
+      });
+    }
+
+    // Insert only SSRF-safe channels into database
+    const insertedChannels = await Channel.insertMany(safeChannels, { ordered: false });
 
     audit({
       userId: req.user.id,
@@ -271,10 +318,16 @@ router.post('/channels/import-m3u', async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
 
+    const message =
+      blockedCount > 0
+        ? `Imported ${insertedChannels.length} channels (${blockedCount} blocked by security policy)`
+        : `Successfully imported ${insertedChannels.length} channels`;
+
     res.json({
       success: true,
-      message: `Successfully imported ${insertedChannels.length} channels`,
+      message,
       count: insertedChannels.length,
+      blockedCount,
     });
   } catch (error) {
     console.error('Error importing M3U:', error);
@@ -519,13 +572,32 @@ router.get('/stats/detailed', async (req, res) => {
     }));
 
     // Format active sessions with user info
+    // Mask last octet of IPs and truncate User-Agent strings for privacy
+    const maskIp = (ip) => {
+      if (!ip) return 'Unknown';
+      // Handle IPv4 (possibly embedded in IPv6 like ::ffff:1.2.3.4)
+      const v4Match = ip.match(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}/);
+      if (v4Match) return ip.replace(/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}/, '$1.xxx');
+      // For pure IPv6, mask the last segment
+      const parts = ip.split(':');
+      if (parts.length > 1) {
+        parts[parts.length - 1] = 'xxxx';
+        return parts.join(':');
+      }
+      return ip;
+    };
+    const truncateUa = (ua) => {
+      if (!ua) return 'Unknown';
+      return ua.length > 100 ? ua.substring(0, 100) + '...' : ua;
+    };
+
     const formattedSessions = activeSessions.map((session) => ({
       username: session.userId?.username || session.username,
       email: session.userId?.email || session.email,
       profilePicture: session.userId?.profilePicture,
       lastActivity: session.lastActivity,
-      ipAddress: session.ipAddress,
-      userAgent: session.userAgent,
+      ipAddress: maskIp(session.ipAddress),
+      userAgent: truncateUa(session.userAgent),
       location: session.location || 'Unknown',
     }));
 

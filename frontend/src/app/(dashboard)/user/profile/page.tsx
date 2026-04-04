@@ -275,6 +275,7 @@ export default function ProfilePage() {
         <div className="px-4 py-4">
           <div className="flex items-center gap-4">
             {profile.profilePicture ? (
+              /* eslint-disable-next-line @next/next/no-img-element -- dynamic external URL with proxy fallback */
               <img
                 src={
                   profile.profilePicture.startsWith('/')

@@ -68,6 +68,9 @@ const userSchema = new Schema<IUserDocument>(
       deviceModel: String,
       lastPairedDevice: String,
       pairedAt: Date,
+      favorites: [String],
+      favoritesLastModified: Number,
+      favoritesDeviceId: String,
     },
     googleId: {
       type: String,
@@ -100,6 +103,10 @@ const userSchema = new Schema<IUserDocument>(
     },
     passwordResetExpires: {
       type: Date,
+    },
+    codeRevokedAt: {
+      type: Date,
+      default: null,
     },
   },
   {

@@ -1,7 +1,9 @@
 import axios from 'axios';
+import http from 'http';
+import https from 'https';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 
 export interface ProbeResult {
   status: 'alive' | 'dead';
@@ -35,13 +37,20 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
     'User-Agent': userAgent || 'VLC/3.0.18 LibVLC/3.0.18',
     Accept: '*/*',
     'Accept-Encoding': 'gzip, deflate',
-    Connection: 'keep-alive',
+    Connection: 'close',
   };
   if (referrer) headers['Referer'] = referrer;
+
+  // AbortController for the entire probe — cascading requests included
+  const probeAbort = new AbortController();
+  const probeTimer = setTimeout(() => probeAbort.abort(), timeout);
+  // Deadline for cascading sub-requests (segment/variant checks)
+  const cascadeTimeout = Math.min(8000, Math.max(timeout - 4000, 3000));
 
   // SSRF protection: validate URL before making outbound requests
   const ssrfCheck = await validateUrlForSSRF(url);
   if (!ssrfCheck.safe) {
+    clearTimeout(probeTimer);
     return {
       status: 'dead' as const,
       responseTimeMs: Date.now() - startTime,
@@ -54,6 +63,12 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
   }
 
   const isHls = url.includes('.m3u8');
+
+  // Pin DNS to prevent rebinding between validation and fetch
+  // keepAlive: false ensures sockets are closed after each request
+  const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+  const httpAgent = new http.Agent({ lookup: pinnedLookup, keepAlive: false });
+  const httpsAgent = new https.Agent({ lookup: pinnedLookup, keepAlive: false });
 
   // Shared redirect guard for all outbound requests in this probe
   const beforeRedirect = (options: any) => {
@@ -72,9 +87,12 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
       maxRedirects: 5,
       validateStatus: (s) => s >= 200 && s < 500,
       headers,
+      httpAgent,
+      httpsAgent,
       maxContentLength: isHls ? 512 * 1024 : 1024,
       responseType: isHls ? 'text' : 'stream',
       beforeRedirect,
+      signal: probeAbort.signal,
     });
 
     const responseTimeMs = Date.now() - startTime;
@@ -113,6 +131,13 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
     }
 
     // HLS manifest validation
+    // For text responses, the socket may still be held open by the http agent.
+    // Destroy the underlying socket to release it immediately.
+    const socket = response.request?.socket || response.request?.res?.socket;
+    if (socket && typeof socket.destroy === 'function' && !socket.destroyed) {
+      socket.destroy();
+    }
+
     const manifest = String(response.data);
     const manifestValid = manifest.includes('#EXTM3U') || manifest.includes('#EXT-X-');
 
@@ -138,16 +163,17 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
     let segmentReachable: boolean | null = null;
     const segmentUrl = extractFirstSegmentUrl(manifest, url);
 
-    if (segmentUrl) {
+    if (segmentUrl && !probeAbort.signal.aborted) {
       const segSsrf = await validateUrlForSSRF(segmentUrl);
       if (segSsrf.safe) {
         try {
           const segRes = await axios.head(segmentUrl, {
-            timeout: 8000,
+            timeout: cascadeTimeout,
             maxRedirects: 5,
             validateStatus: (s) => s >= 200 && s < 500,
             headers,
             beforeRedirect,
+            signal: probeAbort.signal,
           });
           segmentReachable = segRes.status >= 200 && segRes.status < 400;
         } catch {
@@ -160,22 +186,32 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
 
     // If manifest is a master playlist (has #EXT-X-STREAM-INF but no #EXTINF segments),
     // try to probe the first variant playlist
-    if (manifestInfo.segmentCount === 0 && manifest.includes('#EXT-X-STREAM-INF')) {
+    if (
+      manifestInfo.segmentCount === 0 &&
+      manifest.includes('#EXT-X-STREAM-INF') &&
+      !probeAbort.signal.aborted
+    ) {
       const variantUrl = extractFirstVariantUrl(manifest, url);
       if (variantUrl) {
         const varSsrf = await validateUrlForSSRF(variantUrl);
         if (varSsrf.safe) {
           try {
             const varRes = await axios.get(variantUrl, {
-              timeout: 8000,
+              timeout: cascadeTimeout,
               maxRedirects: 5,
               validateStatus: (s) => s >= 200 && s < 500,
               headers,
               maxContentLength: 512 * 1024,
               responseType: 'text',
               beforeRedirect,
+              signal: probeAbort.signal,
             });
-            if (varRes.status >= 200 && varRes.status < 400) {
+            // Destroy underlying socket for text response
+            const varSocket = varRes.request?.socket || varRes.request?.res?.socket;
+            if (varSocket && typeof varSocket.destroy === 'function' && !varSocket.destroyed) {
+              varSocket.destroy();
+            }
+            if (varRes.status >= 200 && varRes.status < 400 && !probeAbort.signal.aborted) {
               const varManifest = String(varRes.data);
               const varSegUrl = extractFirstSegmentUrl(varManifest, variantUrl);
               if (varSegUrl) {
@@ -183,11 +219,12 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
                 if (varSegSsrf.safe) {
                   try {
                     const segRes2 = await axios.head(varSegUrl, {
-                      timeout: 8000,
+                      timeout: cascadeTimeout,
                       maxRedirects: 5,
                       validateStatus: (s) => s >= 200 && s < 500,
                       headers,
                       beforeRedirect,
+                      signal: probeAbort.signal,
                     });
                     segmentReachable = segRes2.status >= 200 && segRes2.status < 400;
                   } catch {
@@ -217,11 +254,25 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
       manifestInfo,
     };
   } catch (error: any) {
+    // Destroy any response stream that may be lingering from a partial read
+    if (error.response?.data && typeof error.response.data.destroy === 'function') {
+      error.response.data.destroy();
+    }
+    const errSocket = error.response?.request?.socket || error.response?.request?.res?.socket;
+    if (errSocket && typeof errSocket.destroy === 'function' && !errSocket.destroyed) {
+      errSocket.destroy();
+    }
+
     const responseTimeMs = Date.now() - startTime;
     let errorMsg = 'Unknown error';
     let statusCode: number | null = null;
 
-    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    if (
+      error.code === 'ECONNABORTED' ||
+      error.message?.includes('timeout') ||
+      error.name === 'AbortError' ||
+      error.name === 'CanceledError'
+    ) {
       errorMsg = 'Timeout';
     } else if (error.code === 'ENOTFOUND') {
       errorMsg = 'DNS resolution failed';
@@ -245,6 +296,11 @@ export async function probeStream(url: string, options: ProbeOptions = {}): Prom
       segmentReachable: null,
       manifestInfo: null,
     };
+  } finally {
+    clearTimeout(probeTimer);
+    // Destroy agents to close any pooled sockets
+    httpAgent.destroy();
+    httpsAgent.destroy();
   }
 }
 

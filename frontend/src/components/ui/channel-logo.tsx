@@ -25,6 +25,7 @@ export default function ChannelLogo({ src, alt, size = 'md', className = '' }: C
   }
 
   return (
+    /* eslint-disable-next-line @next/next/no-img-element -- dynamic external URL with onError fallback */
     <img
       src={proxyImageUrl(src)}
       alt={alt}

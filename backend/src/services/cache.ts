@@ -80,12 +80,21 @@ export class CacheService {
       let cursor = '0';
 
       do {
-        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', fullPattern, 'COUNT', 100);
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', fullPattern, 'COUNT', 20);
         cursor = nextCursor;
 
         if (keys.length > 0) {
-          await redis.del(...keys);
+          const pipeline = redis.pipeline();
+          for (const key of keys) {
+            pipeline.del(key);
+          }
+          await pipeline.exec();
           deleted += keys.length;
+        }
+
+        // Yield to the event loop between iterations
+        if (cursor !== '0') {
+          await new Promise((resolve) => setImmediate(resolve));
         }
       } while (cursor !== '0');
     } catch {

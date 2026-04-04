@@ -44,6 +44,14 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       });
     }
 
+    // Session binding: warn on IP/UA mismatch (log for now, strict mode can reject)
+    const sessionData = session as any;
+    if (sessionData.ipAddress && sessionData.ipAddress !== req.ip) {
+      console.warn(
+        `Session IP mismatch: session=${sessionData.ipAddress} request=${req.ip} user=${sessionData.userId?.username || 'unknown'}`,
+      );
+    }
+
     // Update last activity
     await session.updateActivity();
 

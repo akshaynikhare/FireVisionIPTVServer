@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
-import { gunzipSync } from 'zlib';
+import { createGunzip } from 'zlib';
 import EpgProgram from '../models/EpgProgram';
 
 const Channel = require('../models/Channel');
@@ -238,21 +238,39 @@ class EpgService {
     const coveredSet = new Set(coveredChannelIds.map((id) => id.toLowerCase()));
     const isGzip = url.endsWith('.gz');
 
+    // Stream the response to avoid holding compressed + decompressed buffers simultaneously
     const response = await axios.get(url, {
       timeout: 120000,
-      responseType: isGzip ? 'arraybuffer' : 'text',
+      responseType: 'stream',
       maxContentLength: 100 * 1024 * 1024,
       maxRedirects: 5,
       headers: { 'User-Agent': 'FireVision IPTV/1.0' },
     });
 
-    let xmlData: string;
-    if (isGzip) {
-      const buffer = Buffer.from(response.data);
-      xmlData = gunzipSync(buffer).toString('utf-8');
-    } else {
-      xmlData = typeof response.data === 'string' ? response.data : String(response.data);
-    }
+    const xmlData = await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      let totalSize = 0;
+      const maxSize = 200 * 1024 * 1024; // 200MB decompressed limit
+
+      let stream = response.data;
+      if (isGzip) {
+        const gunzip = createGunzip();
+        stream = stream.pipe(gunzip);
+        gunzip.on('error', reject);
+      }
+
+      stream.on('data', (chunk: Buffer) => {
+        totalSize += chunk.length;
+        if (totalSize > maxSize) {
+          stream.destroy(new Error('EPG XML exceeds maximum decompressed size (200MB)'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+      stream.on('error', reject);
+      response.data.on('error', reject);
+    });
 
     const parser = new XMLParser({
       ignoreAttributes: false,

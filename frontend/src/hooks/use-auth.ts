@@ -26,17 +26,30 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
     if (!hydrated || validated.current) return;
     if (!user || !sessionId) return;
     validated.current = true;
+    const controller = new AbortController();
     api
-      .get('/auth/me')
+      .get('/auth/me', { signal: controller.signal })
       .then((res) => {
+        if (controller.signal.aborted) return;
         const serverUser = res.data?.user;
-        if (serverUser && user && serverUser.emailVerified !== user.emailVerified) {
-          setUser({ ...user, emailVerified: serverUser.emailVerified });
+        if (serverUser && user) {
+          const updates: Partial<typeof user> = {};
+          if (serverUser.emailVerified !== user.emailVerified) {
+            updates.emailVerified = serverUser.emailVerified;
+          }
+          if (serverUser.profilePicture !== user.profilePicture) {
+            updates.profilePicture = serverUser.profilePicture;
+          }
+          if (Object.keys(updates).length > 0) {
+            if (controller.signal.aborted) return;
+            setUser({ ...user, ...updates });
+          }
         }
       })
       .catch(() => {
         // 401 is handled by the response interceptor (calls logout + redirects)
       });
+    return () => controller.abort();
   }, [hydrated, user, sessionId, setUser]);
 
   useEffect(() => {

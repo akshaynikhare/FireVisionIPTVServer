@@ -17,6 +17,9 @@ export interface IUser {
     deviceModel?: string;
     lastPairedDevice?: string;
     pairedAt?: Date;
+    favorites?: string[];
+    favoritesLastModified?: number;
+    favoritesDeviceId?: string;
   };
   googleId?: string;
   githubId?: string;
@@ -25,6 +28,7 @@ export interface IUser {
   emailVerificationExpires?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+  codeRevokedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
