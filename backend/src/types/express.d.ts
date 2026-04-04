@@ -5,6 +5,7 @@ declare namespace Express {
       username: string;
       email: string;
       role: 'Admin' | 'User';
+      channels?: unknown[];
       channelListCode?: string;
       isActive: boolean;
       emailVerified: boolean;
