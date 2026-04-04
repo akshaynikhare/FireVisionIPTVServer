@@ -227,16 +227,17 @@ export default function Home() {
       <footer className="relative z-10 border-t border-border">
         <div className="max-w-6xl mx-auto px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
-            &copy; 2025 FireVision IPTV <span aria-hidden="true">&bull;</span> Open Source Project
+            &copy; {new Date().getFullYear()} FireVision IPTV <span aria-hidden="true">&bull;</span>{' '}
+            Open Source Project
           </span>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link
               href="/privacy"
               className="text-xs text-muted-foreground hover:text-primary transition-colors"
             >
               Privacy Policy
             </Link>
-            <span className="text-muted-foreground/40" aria-hidden="true">
+            <span className="text-muted-foreground/40 hidden sm:inline" aria-hidden="true">
               &bull;
             </span>
             <Link
@@ -245,7 +246,7 @@ export default function Home() {
             >
               Terms of Service
             </Link>
-            <span className="text-muted-foreground/40" aria-hidden="true">
+            <span className="text-muted-foreground/40 hidden sm:inline" aria-hidden="true">
               &bull;
             </span>
             <a
@@ -258,7 +259,7 @@ export default function Home() {
               <ExternalLink className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only"> (opens in new tab)</span>
             </a>
-            <span className="text-muted-foreground/40" aria-hidden="true">
+            <span className="text-muted-foreground/40 hidden sm:inline" aria-hidden="true">
               &bull;
             </span>
             <a

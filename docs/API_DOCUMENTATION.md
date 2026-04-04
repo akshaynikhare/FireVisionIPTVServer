@@ -1,44 +1,34 @@
-# FireVision IPTV Server - API Documentation
+# API Documentation
 
-## Table of Contents
+**Base URL:** `http://localhost:8009/api/v1` (dev) | `https://tv.cadnative.com/api/v1` (prod)
 
-- [Authentication](#authentication)
-- [JWT Authentication](#jwt-authentication)
-- [Public Signup](#public-signup)
-- [User Management](#user-management)
-- [User Playlist](#user-playlist)
-- [Channel Management](#channel-management)
-- [Admin Operations](#admin-operations)
-- [TV/Playlist](#tvplaylist)
-- [PIN-Based TV Pairing](#pin-based-tv-pairing)
-- [App Version Management](#app-version-management)
-- [Config Endpoints](#config-endpoints)
-- [Proxy Endpoints](#proxy-endpoints)
+## Conventions
 
----
+**Auth:** All authenticated endpoints accept either header:
 
-## Base URL
+- `X-Session-Id: <session_id>` (session-based)
+- `Authorization: Bearer <access_token>` (JWT)
 
-```
-http://localhost:8009/api/v1
-```
+**Response format:** All responses return `{ "success": true/false, ... }`. Errors include an `error` field.
 
-## Authentication
+**Rate limiting:** See [Rate Limiting](#rate-limiting) table at the bottom.
 
-All authenticated endpoints require either the `X-Session-Id` header with a valid session ID obtained from login, or an `Authorization: Bearer <token>` header with a valid JWT access token.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant MongoDB
 
-### Headers
-
-```
-X-Session-Id: <session_id>
-Content-Type: application/json
-```
-
-or
-
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
+    alt Session Auth
+        Client->>API: POST /auth/login {username, password}
+        API->>MongoDB: Verify credentials (bcrypt)
+        API-->>Client: {sessionId, user}
+        Client->>API: GET /channels (X-Session-Id)
+    else JWT Auth
+        Client->>API: POST /jwt/login {username, password}
+        API-->>Client: {accessToken, refreshToken, user}
+        Client->>API: GET /channels (Authorization: Bearer)
+    end
 ```
 
 ---
@@ -1558,31 +1548,6 @@ Proxies HLS and other media streams with CORS headers.
 
 ---
 
-## Error Responses
-
-All error responses follow this format:
-
-```json
-{
-  "success": false,
-  "error": "Error message here"
-}
-```
-
-**Common HTTP Status Codes:**
-
-- `200 OK`: Successful request
-- `201 Created`: Resource created successfully
-- `400 Bad Request`: Invalid request data
-- `401 Unauthorized`: Authentication required or failed
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `410 Gone`: Resource expired (e.g., pairing PIN)
-- `429 Too Many Requests`: Rate limit exceeded
-- `500 Internal Server Error`: Server error
-
----
-
 ## Rate Limiting
 
 Rate limiting protects the API from abuse. Limits are tracked per authenticated user (not per IP) when a valid session or JWT is present, preventing multiple devices on the same network from sharing a single rate-limit bucket.
@@ -1599,39 +1564,6 @@ Rate limiting protects the API from abuse. Limits are tracked per authenticated 
 | Report play (`/channels/:id/report-play`)                              | 1 per channel per device / 1 min | Channel+Device               | In-memory                       |
 
 Standard rate limit headers (`RateLimit-*`) are included in all responses.
-
----
-
-## Session Management
-
-- Sessions expire after 24 hours
-- Sessions are stored in MongoDB
-- Use `X-Session-Id` header for all authenticated requests
-- Multiple sessions per user are supported
-- Users can view and revoke their active sessions
-
----
-
-## Security Notes
-
-1. Always use HTTPS in production
-2. Change default super admin credentials before deployment
-3. Use strong, unique values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `SUPER_ADMIN_PASSWORD`
-4. Enable rate limiting in production
-5. Configure CORS `ALLOWED_ORIGINS` properly
-6. Never commit `.env` file to version control
-7. Regularly rotate JWT secrets and credentials
-
----
-
-## Quick Start
-
-1. Copy `.env.example` to `.env` and configure variables
-2. Update super admin credentials in `.env`
-3. Start the server: `docker-compose up -d`
-4. Access admin dashboard: `http://localhost:8009/admin`
-5. Login with super admin credentials
-6. Create additional users and manage channels
 
 ---
 
@@ -1718,8 +1650,3 @@ Same as `/me/channels` but includes filtered alternate streams for each channel.
 ### 8. Unflag Alternate Stream
 
 `POST /api/v1/channels/:id/alternates/:index/unflag` (Admin only)
-
----
-
-**Version:** 2.2.0
-**Last Updated:** 2026-03-22

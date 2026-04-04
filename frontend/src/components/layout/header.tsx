@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { LogOut, Menu, Moon, Sun, UserCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/store/auth-store';
@@ -13,26 +13,18 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuthStore();
   const { toggleMobileSidebar } = useUIStore();
-  const [profilePic, setProfilePic] = useState<string | null>(null);
-  const prevUserIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!user || user.id === prevUserIdRef.current) return;
-    prevUserIdRef.current = user.id;
-    api
-      .get('/auth/me')
-      .then((res) => {
-        const data = res.data.user || res.data.data || res.data;
-        if (data.profilePicture) {
-          setProfilePic(
-            data.profilePicture.startsWith('/')
-              ? `/api/v1${data.profilePicture}`
-              : data.profilePicture,
-          );
-        }
-      })
-      .catch(() => {});
-  }, [user]);
+  const [picError, setPicError] = useState(false);
+
+  const rawPic = user?.profilePicture;
+  const profilePic =
+    rawPic && !picError
+      ? rawPic.startsWith('/') && !rawPic.startsWith('//')
+        ? `/api/v1${rawPic}`
+        : rawPic.startsWith('http')
+          ? rawPic
+          : null
+      : null;
 
   async function handleLogout() {
     try {
@@ -67,6 +59,7 @@ export function Header() {
         {user && (
           <div className="flex items-center gap-2 px-2 border-l border-border ml-1">
             {profilePic ? (
+              /* eslint-disable-next-line @next/next/no-img-element -- dynamic external URL with onError fallback */
               <img
                 src={profilePic}
                 alt={`${user.username}'s profile picture`}
@@ -74,7 +67,7 @@ export function Header() {
                 width={24}
                 height={24}
                 className="h-6 w-6 rounded-full object-cover"
-                onError={() => setProfilePic(null)}
+                onError={() => setPicError(true)}
               />
             ) : (
               <UserCircle className="h-4 w-4 text-muted-foreground" />

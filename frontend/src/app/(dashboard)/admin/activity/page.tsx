@@ -72,48 +72,56 @@ export default function ActivityPage() {
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('pageSize', String(pageSize));
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (selectedActions.length > 0 && selectedActions.length < filterOptions.action.length) {
-        params.set('action', selectedActions.join(','));
-      }
-      if (
-        selectedResources.length > 0 &&
-        selectedResources.length < filterOptions.resource.length
-      ) {
-        params.set('resource', selectedResources.join(','));
-      }
-      if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
-        params.set('status', selectedStatuses.join(','));
-      }
+  const fetchLogs = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        if (selectedActions.length > 0 && selectedActions.length < filterOptions.action.length) {
+          params.set('action', selectedActions.join(','));
+        }
+        if (
+          selectedResources.length > 0 &&
+          selectedResources.length < filterOptions.resource.length
+        ) {
+          params.set('resource', selectedResources.join(','));
+        }
+        if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
+          params.set('status', selectedStatuses.join(','));
+        }
 
-      const res = await api.get(`/activity?${params.toString()}`);
-      const data = res.data?.data || res.data;
-      setLogs(data.logs || []);
-      setTotalCount(data.totalCount || 0);
-    } catch {
-      setError('Failed to load activity logs');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, debouncedSearch, selectedActions, selectedResources, selectedStatuses, filterOptions]);
+        const res = await api.get(`/activity?${params.toString()}`, { signal });
+        const data = res.data?.data || res.data;
+        setLogs(data.logs || []);
+        setTotalCount(data.totalCount || 0);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== 'CanceledError')
+          setError('Failed to load activity logs');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, debouncedSearch, selectedActions, selectedResources, selectedStatuses, filterOptions],
+  );
 
   useEffect(() => {
+    const controller = new AbortController();
     api
-      .get('/activity/filter-options')
+      .get('/activity/filter-options', { signal: controller.signal })
       .then((res) => {
         setFilterOptions(res.data?.data || { action: [], resource: [], status: [] });
       })
       .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
-    fetchLogs();
+    const controller = new AbortController();
+    fetchLogs(controller.signal);
+    return () => controller.abort();
   }, [fetchLogs]);
 
   useEffect(() => {

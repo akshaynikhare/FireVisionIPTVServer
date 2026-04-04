@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
+import { AuthSidePanel } from '@/components/layout/auth-side-panel';
 
 function LoginContent() {
   const router = useRouter();
@@ -59,7 +60,7 @@ function LoginContent() {
           setLoading(false);
         });
     }
-  }, [searchParams, setSession, router]);
+  }, [searchParams, setSession, router, redirect]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,7 +112,10 @@ function LoginContent() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {message && !error && (
-          <div className="border border-primary/40 bg-primary/10 px-3 py-2.5 text-sm text-primary">
+          <div
+            role="status"
+            className="border border-primary/40 bg-primary/10 px-3 py-2.5 text-sm text-primary"
+          >
             {message}
           </div>
         )}
@@ -263,58 +267,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <div className="h-screen overflow-y-auto flex">
-      <div className="hidden lg:flex lg:w-[420px] flex-col justify-between border-r border-border bg-card p-10">
-        <div>
-          <Link href="/" className="inline-block">
-            <span className="text-lg font-display font-bold tracking-tight">
-              FIRE<span className="text-primary">VISION</span>
-            </span>
-          </Link>
-          <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
-            IPTV Management Console
-          </p>
-
-          <div className="mt-10 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                01
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Stream Management</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Import, organize, and monitor live IPTV channels with real-time health checks.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                02
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Device Provisioning</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Pair and manage connected devices across your network with ease.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                03
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">EPG & Scheduling</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Deliver electronic program guides and schedule content for your viewers.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Secure access to your channel management and device provisioning infrastructure.
-        </p>
-      </div>
+      <AuthSidePanel footer="Secure access to your channel management and device provisioning infrastructure." />
 
       <div className="flex-1 flex items-center justify-center px-6 bg-background">
         <Suspense fallback={null}>

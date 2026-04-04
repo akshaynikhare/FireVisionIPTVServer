@@ -157,7 +157,7 @@ export default function UsersPage() {
 
   function handleCopyCode(e: React.MouseEvent, code: string) {
     e.stopPropagation();
-    navigator.clipboard.writeText(code);
+    navigator.clipboard.writeText(code).catch(() => {});
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 1500);
   }

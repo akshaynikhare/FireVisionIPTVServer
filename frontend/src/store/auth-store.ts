@@ -8,6 +8,7 @@ interface User {
   role: 'Admin' | 'User';
   channelListCode?: string;
   emailVerified?: boolean;
+  profilePicture?: string;
 }
 
 interface AuthState {

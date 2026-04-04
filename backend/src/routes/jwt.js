@@ -8,6 +8,7 @@ const {
   signRefreshToken,
   persistRefreshToken,
   hashToken,
+  rotateRefreshToken,
 } = require('../utils/jwtUtil');
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -80,7 +81,8 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ success: false, error: 'User inactive' });
     }
     const newAccess = signAccessToken(user);
-    return res.json({ success: true, accessToken: newAccess });
+    const newRefresh = await rotateRefreshToken(refreshToken, user, req);
+    return res.json({ success: true, accessToken: newAccess, refreshToken: newRefresh });
   } catch (e) {
     console.error('Refresh error', e);
     return res.status(500).json({ success: false, error: 'Refresh failed' });

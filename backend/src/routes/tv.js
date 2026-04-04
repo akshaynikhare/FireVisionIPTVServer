@@ -10,7 +10,7 @@ const { audit } = require('../services/audit-log');
 
 // Shared helper: validate code, find user, update lastLogin
 async function findUserByCode(code, res) {
-  if (!code || code.length !== 6) {
+  if (!code || code.length !== 6 || !/^[A-Z0-9]{6}$/.test(code.toUpperCase())) {
     res.status(400).json({
       success: false,
       error: 'Invalid channel list code. Code must be 6 characters.',
@@ -25,6 +25,13 @@ async function findUserByCode(code, res) {
     res.status(404).json({
       success: false,
       error: 'Invalid or inactive channel list code',
+    });
+    return null;
+  }
+  if (user.codeRevokedAt) {
+    res.status(403).json({
+      success: false,
+      error: 'This channel list code has been revoked. Please regenerate your code.',
     });
     return null;
   }
@@ -70,10 +77,11 @@ router.get('/playlist/:code/json', async (req, res) => {
       // Admin gets all channels
       channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 });
     } else {
-      // Regular users get only their assigned channels
+      // Regular users get only their assigned active channels
       const channelIds = (user.channels || []).filter(Boolean);
       channels = await Channel.find({
         _id: { $in: channelIds },
+        isActive: { $ne: false },
       }).sort({ channelGroup: 1, order: 1 });
     }
 
@@ -141,16 +149,24 @@ router.get('/stream/:code', async (req, res) => {
       return res.status(400).send('Invalid URL format');
     }
 
-    const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+    const http = require('http');
+    const https = require('https');
+    const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
     const ssrfCheck = await validateUrlForSSRF(url);
     if (!ssrfCheck.safe) {
       return res.status(403).send(ssrfCheck.reason);
     }
 
+    const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+    const httpAgent = new http.Agent({ lookup: pinnedLookup });
+    const httpsAgent = new https.Agent({ lookup: pinnedLookup });
+
     const axios = require('axios');
     const response = await axios.get(url, {
       responseType: 'stream',
       timeout: 30000,
+      httpAgent,
+      httpsAgent,
       headers: {
         'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
         Accept: '*/*',
@@ -251,6 +267,9 @@ router.get('/stream/:code', async (req, res) => {
       response.data.on('error', (error) => {
         console.error('TV stream error:', error);
         if (!res.headersSent) res.status(500).send('Stream error');
+      });
+      req.on('close', () => {
+        response.data.destroy();
       });
     }
   } catch (error) {
@@ -735,7 +754,8 @@ router.get('/pairing/status/:pin', async (req, res) => {
       });
     }
 
-    // Check if completed
+    // Check if completed ��� only return channelListCode (needed by TV app),
+    // not username/role which leaks user info to anyone polling the PIN
     if (pairingRequest.status === 'completed' && pairingRequest.userId) {
       const user = pairingRequest.userId;
       return res.json({
@@ -743,8 +763,6 @@ router.get('/pairing/status/:pin', async (req, res) => {
         paired: true,
         status: 'completed',
         channelListCode: user.channelListCode,
-        username: user.username,
-        role: user.role,
         message: 'Device paired successfully!',
       });
     }

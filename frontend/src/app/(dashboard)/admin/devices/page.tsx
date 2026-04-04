@@ -27,9 +27,10 @@ export default function DevicesPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchData() {
       try {
-        const res = await api.get('/admin/stats/detailed');
+        const res = await api.get('/admin/stats/detailed', { signal: controller.signal });
         const data = res.data;
         setStats({
           total: data.pairings?.total ?? 0,
@@ -38,13 +39,15 @@ export default function DevicesPage() {
           today: data.pairings?.today ?? 0,
           recent: data.pairings?.recent || [],
         });
-      } catch {
-        setError('Failed to load device data');
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== 'CanceledError')
+          setError('Failed to load device data');
       } finally {
         setLoading(false);
       }
     }
     fetchData();
+    return () => controller.abort();
   }, []);
 
   if (loading) {

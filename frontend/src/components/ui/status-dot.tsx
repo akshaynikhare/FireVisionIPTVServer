@@ -46,10 +46,11 @@ export default function StatusDot({
         className={`${dotSize} rounded-full shrink-0 ${STATUS_CLASSES[status]}`}
         aria-hidden="true"
       />
-      {showLabel && displayLabel && (
+      {showLabel && displayLabel ? (
         <span className="text-xs text-muted-foreground capitalize">{displayLabel}</span>
+      ) : (
+        <span className="sr-only">{displayLabel || status}</span>
       )}
-      <span className="sr-only">{displayLabel || status}</span>
     </span>
   );
 }

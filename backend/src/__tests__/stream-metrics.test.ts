@@ -162,7 +162,7 @@ describe('POST /channels/:id/report-play', () => {
     expect(updated.metrics.proxyPlayCount).toBe(1);
   });
 
-  it('promotes alternate when streamUrl differs from primary', async () => {
+  it('does not promote alternate from report-play (scheduler-only promotion)', async () => {
     const altUrl = 'http://example.com/alt.m3u8';
     const ch = await createChannel({
       alternateStreams: [
@@ -178,7 +178,10 @@ describe('POST /channels/:id/report-play', () => {
       .post(`/channels/${ch._id}/report-play`)
       .send({ deviceId: 'dev-promote', streamUrl: altUrl });
     const updated: any = await Channel.findById(ch._id).lean();
-    expect(updated.channelUrl).toBe(altUrl);
+    // Primary should remain unchanged — promotion is now handled only by the scheduler
+    expect(updated.channelUrl).toBe('http://example.com/primary.m3u8');
+    // Metrics should still be updated
+    expect(updated.metrics.playCount).toBe(1);
   });
 
   it('returns 429 on second play report within 1 minute from same device', async () => {

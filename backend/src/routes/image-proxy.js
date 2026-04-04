@@ -38,7 +38,7 @@ router.get(
       // Validate URL format
       try {
         new URL(url);
-      } catch (_error) {
+      } catch {
         return res.status(400).json({
           success: false,
           error: 'Invalid URL format',
@@ -84,7 +84,8 @@ router.get('/stats', requireAuth, requireAdmin, (req, res) => {
     success: true,
     data: {
       mode: 'redirect',
-      description: 'Image proxy validates URLs and redirects to the original source. No server-side caching.',
+      description:
+        'Image proxy validates URLs and redirects to the original source. No server-side caching.',
     },
   });
 });

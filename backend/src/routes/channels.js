@@ -4,13 +4,14 @@ const Channel = require('../models/Channel');
 const { requireAuth, requireAdmin } = require('./auth');
 const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { validateUrlForSSRF, isPrivateIP } = require('../utils/ssrf-guard');
+const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
 
 // In-memory rate-limit maps for stream metrics reporting
 const reportStatusLimits = new Map();
 const reportPlayLimits = new Map();
 const healthSyncLimits = new Map();
+const flagLimits = new Map();
 
 // Cleanup stale rate-limit entries every 10 minutes
 // .unref() ensures this timer doesn't prevent graceful process exit
@@ -26,17 +27,25 @@ setInterval(
     for (const [key, ts] of healthSyncLimits) {
       if (now - ts > 5 * 60 * 1000) healthSyncLimits.delete(key);
     }
+    for (const [key, ts] of flagLimits) {
+      if (now - ts > 60 * 1000) flagLimits.delete(key);
+    }
+    // Cap map sizes to prevent unbounded growth between cleanups
+    if (reportStatusLimits.size > 50000) reportStatusLimits.clear();
+    if (reportPlayLimits.size > 50000) reportPlayLimits.clear();
+    if (healthSyncLimits.size > 50000) healthSyncLimits.clear();
+    if (flagLimits.size > 50000) flagLimits.clear();
   },
   10 * 60 * 1000,
 ).unref();
 
-// Slim alternateStreams to only viable entries for client consumption
+// Filter alternateStreams to viable entries for client consumption.
+// Keeps full objects (liveness, flaggedBad, etc.) so web frontend can display rich details.
 function slimAlternates(channel) {
   if (!channel.alternateStreams?.length) return channel;
   channel.alternateStreams = channel.alternateStreams
     .filter((alt) => alt.liveness?.status !== 'dead' && alt.flaggedBad?.isFlagged !== true)
-    .slice(0, 3)
-    .map((alt) => ({ streamUrl: alt.streamUrl, quality: alt.quality || null }));
+    .slice(0, 10);
   return channel;
 }
 
@@ -127,6 +136,11 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
     if (!q || q.trim().length === 0) {
       return res.status(400).json({ success: false, error: 'Search query is required' });
     }
+    if (q.length > 500) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Search query too long (max 500 characters)' });
+    }
 
     const escaped = escapeRegex(q);
     const channels = await Channel.find({
@@ -151,7 +165,9 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per device per 5 minutes
 router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId, reports } = req.body;
+    const { deviceId, reports: reportsRaw, results: resultsRaw } = req.body;
+    // Android app sends "results", web may send "reports" — accept both
+    const reports = reportsRaw || resultsRaw;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({ success: false, error: 'deviceId is required' });
@@ -163,8 +179,9 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Maximum 100 reports per sync' });
     }
 
-    // Rate limiting
-    const rateLimitKey = `health-sync:${deviceId}`;
+    // Rate limiting — key by authenticated user + device to prevent spoofing
+    const userId = req.user?.id?.toString() || 'anon';
+    const rateLimitKey = `health-sync:${userId}:${deviceId}`;
     const lastSync = healthSyncLimits.get(rateLimitKey);
     if (lastSync && Date.now() - lastSync < 5 * 60 * 1000) {
       return res.status(429).json({
@@ -173,11 +190,22 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
       });
     }
 
+    // Pre-validate that reported channel IDs exist in the database
+    const reportedIds = [
+      ...new Set(reports.map((r) => r.channelId).filter((id) => id && typeof id === 'string')),
+    ];
+    const existingChannels = await Channel.find({ _id: { $in: reportedIds } }, { _id: 1 }).lean();
+    const validChannelIds = new Set(existingChannels.map((c) => c._id.toString()));
+
     const validStatuses = ['dead', 'alive', 'unresponsive', 'played'];
     const results = { updated: 0, failed: 0, skipped: 0 };
 
     for (const report of reports) {
       if (!report.channelId || !report.status || !validStatuses.includes(report.status)) {
+        results.skipped++;
+        continue;
+      }
+      if (!validChannelIds.has(report.channelId.toString())) {
         results.skipped++;
         continue;
       }
@@ -224,7 +252,7 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
 router.get('/test-status', requireAuth, async (req, res) => {
   try {
     res.json({ success: true, isLocked: false });
-  } catch (_error) {
+  } catch {
     res.status(500).json({ success: false, error: 'Failed to check test status' });
   }
 });
@@ -410,9 +438,14 @@ router.get('/:id/with-fallbacks', requireAuth, async (req, res) => {
   }
 });
 
-// Flag primary stream as bad (any authenticated user)
+// Flag primary stream as bad (any authenticated user, rate-limited: 1 per channel per user per minute)
 router.post('/:id/flag', requireAuth, async (req, res) => {
   try {
+    const flagKey = `${req.user.id}:${req.params.id}:primary`;
+    if (flagLimits.has(flagKey)) {
+      return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
+    }
+
     const { reason } = req.body;
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
     if (!reason || !validReasons.includes(reason)) {
@@ -437,6 +470,8 @@ router.post('/:id/flag', requireAuth, async (req, res) => {
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
+
+    flagLimits.set(flagKey, Date.now());
 
     audit({
       userId: req.user.id,
@@ -491,11 +526,16 @@ router.post('/:id/unflag', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Flag an alternate stream as bad (any authenticated user)
+// Flag an alternate stream as bad (any authenticated user, rate-limited)
 router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
   try {
     const { reason } = req.body;
     const index = parseInt(req.params.index, 10);
+    const flagKey = `${req.user.id}:${req.params.id}:alt${index}`;
+    if (flagLimits.has(flagKey)) {
+      return res.status(429).json({ success: false, error: 'Please wait before flagging again' });
+    }
+
     const validReasons = ['looping', 'frozen', 'wrong-content', 'other'];
 
     if (!reason || !validReasons.includes(reason)) {
@@ -520,6 +560,8 @@ router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
       flaggedAt: new Date(),
     };
     await channel.save();
+
+    flagLimits.set(flagKey, Date.now());
 
     audit({
       userId: req.user.id,
@@ -592,6 +634,12 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         .json({ success: false, error: 'Stream URL blocked by security policy' });
     }
 
+    const http = require('http');
+    const https = require('https');
+    const pinnedLookup = createPinnedLookup(ssrfCheck.resolvedAddresses);
+    const httpAgent = new http.Agent({ lookup: pinnedLookup });
+    const httpsAgent = new https.Agent({ lookup: pinnedLookup });
+
     const axios = require('axios');
     let isWorking = false;
     let error = null;
@@ -602,6 +650,8 @@ router.post('/:id/test', requireAuth, async (req, res) => {
         maxRedirects: 5,
         responseType: 'stream',
         validateStatus: (status) => status < 500,
+        httpAgent,
+        httpsAgent,
         headers: {
           'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
           Accept: '*/*',
@@ -753,7 +803,7 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
 // Rate limit: 1 per channel per device per 1 minute
 router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { deviceId, proxyPlay, streamUrl } = req.body;
+    const { deviceId, proxyPlay } = req.body;
 
     if (!deviceId || typeof deviceId !== 'string') {
       return res.status(400).json({
@@ -790,28 +840,9 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
-    // Promote alternate if a different stream URL worked
-    if (streamUrl && streamUrl !== channel.channelUrl && channel.alternateStreams?.length) {
-      const altIndex = channel.alternateStreams.findIndex((alt) => alt.streamUrl === streamUrl);
-      if (altIndex !== -1) {
-        const now = new Date();
-        const winningAlt = channel.alternateStreams[altIndex];
-        const demotedPrimary = {
-          streamUrl: channel.channelUrl,
-          quality: null,
-          liveness: { status: 'dead', lastCheckedAt: now },
-          flaggedBad: { isFlagged: false },
-          demotedAt: now,
-        };
-        channel.alternateStreams.splice(altIndex, 1, demotedPrimary);
-        channel.channelUrl = winningAlt.streamUrl;
-        channel.flaggedBad = { isFlagged: false, reason: null, flaggedBy: null, flaggedAt: null };
-        channel.metadata = channel.metadata || {};
-        channel.metadata.isWorking = true;
-        channel.metadata.lastTested = now;
-        await channel.save();
-      }
-    }
+    // Note: auto-promotion from report-play was removed to avoid race conditions
+    // with the stream-health-service scheduler and to prevent untrusted clients
+    // from forcing promotions. The scheduler handles promotion based on health probes.
 
     reportPlayLimits.set(rateLimitKey, Date.now());
 

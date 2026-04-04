@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
+import { AuthSidePanel } from '@/components/layout/auth-side-panel';
 
 function RegisterContent() {
   const router = useRouter();
@@ -291,58 +292,7 @@ function RegisterContent() {
 export default function RegisterPage() {
   return (
     <div className="h-screen overflow-y-auto flex">
-      <div className="hidden lg:flex lg:w-[420px] flex-col justify-between border-r border-border bg-card p-10">
-        <div>
-          <Link href="/" className="inline-block">
-            <span className="text-lg font-display font-bold tracking-tight">
-              FIRE<span className="text-primary">VISION</span>
-            </span>
-          </Link>
-          <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
-            IPTV Management Console
-          </p>
-
-          <div className="mt-10 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                01
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Stream Management</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Import, organize, and monitor live IPTV channels with real-time health checks.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                02
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Device Provisioning</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Pair and manage connected devices across your network with ease.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-                03
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">EPG & Scheduling</p>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  Deliver electronic program guides and schedule content for your viewers.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Create an account to access stream management and device provisioning tools.
-        </p>
-      </div>
+      <AuthSidePanel footer="Create an account to access stream management and device provisioning tools." />
 
       <div className="flex-1 flex items-center justify-center px-6 bg-background">
         <Suspense fallback={null}>

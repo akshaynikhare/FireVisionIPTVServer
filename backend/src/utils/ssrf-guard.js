@@ -76,9 +76,11 @@ async function validateUrlForSSRF(urlStr) {
     }
 
     // DNS resolution check — resolve ALL addresses to prevent DNS rebinding
+    let resolvedAddresses;
     try {
       const results = await dnsLookup(hostname, { family: 0, all: true });
-      for (const { address } of results) {
+      resolvedAddresses = results.map((r) => r.address);
+      for (const address of resolvedAddresses) {
         if (isPrivateIP(address)) {
           return { safe: false, reason: 'Hostname resolves to a private/internal address' };
         }
@@ -87,10 +89,44 @@ async function validateUrlForSSRF(urlStr) {
       return { safe: false, reason: 'DNS resolution failed for hostname' };
     }
 
-    return { safe: true };
+    return { safe: true, resolvedAddresses };
   } catch {
     return { safe: false, reason: 'Invalid URL' };
   }
 }
 
-module.exports = { isPrivateIP, validateUrlForSSRF };
+/**
+ * Create a custom DNS lookup function that pins to pre-resolved addresses.
+ * Pass this to axios httpAgent/httpsAgent to prevent DNS rebinding.
+ * Usage:
+ *   const agent = new http.Agent({ lookup: createPinnedLookup(resolvedAddresses) });
+ *   axios.get(url, { httpAgent: agent, httpsAgent: agent });
+ */
+function createPinnedLookup(resolvedAddresses) {
+  return function pinnedLookup(_hostname, options, callback) {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
+    }
+    const family = options.family || 0;
+    const filtered = resolvedAddresses.filter((addr) => {
+      if (family === 4) return addr.includes('.');
+      if (family === 6) return addr.includes(':');
+      return true;
+    });
+    const address = filtered[0] || resolvedAddresses[0];
+    if (!address) {
+      return callback(new Error('No pinned addresses available'));
+    }
+    const addrFamily = address.includes(':') ? 6 : 4;
+    if (options.all) {
+      return callback(
+        null,
+        filtered.map((addr) => ({ address: addr, family: addr.includes(':') ? 6 : 4 })),
+      );
+    }
+    return callback(null, address, addrFamily);
+  };
+}
+
+module.exports = { isPrivateIP, validateUrlForSSRF, createPinnedLookup };

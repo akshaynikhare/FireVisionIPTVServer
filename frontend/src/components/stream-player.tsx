@@ -10,6 +10,7 @@ interface StreamPlayerChannel {
   url: string;
   logo?: string;
   channelId?: string;
+  alternateUrls?: string[];
 }
 
 interface StreamPlayerProps {
@@ -28,7 +29,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
   const [activeSource, setActiveSource] = useState<'direct' | 'proxy'>('direct');
   const [mini, setMini] = useState(false);
   const wasActiveRef = useRef(false); // tracks if player was already open (for swap vs fresh open)
-  const playReportedRef = useRef<string | null>(null);
+  const playReportedRef = useRef<{ channelId: string; at: number } | null>(null);
+  const currentSourceRef = useRef<'direct' | 'proxy'>('proxy');
 
   // Drag position for mini player
   const [position, setPosition] = useState({ right: 16, bottom: 16 });
@@ -68,9 +70,24 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     const url = channel.url;
     const directUrl = url;
     const proxyUrl = `/api/v1/stream-proxy?url=${encodeURIComponent(url)}`;
+    const alternateUrls = channel.alternateUrls || [];
+    let alternateIndex = 0;
     const sessionId = typeof window !== 'undefined' ? useAuthStore.getState().sessionId : null;
     let destroyed = false;
+    let activeHls: { destroy: () => void } | null = null;
     let currentSource: 'direct' | 'proxy' = mode === 'proxy' ? 'proxy' : 'direct';
+    currentSourceRef.current = currentSource;
+
+    const safeDestroyHls = (instance: { destroy: () => void } | null) => {
+      if (!instance) return;
+      try {
+        instance.destroy();
+      } catch {
+        /* already destroyed */
+      }
+      if (hlsRef.current === instance) hlsRef.current = null;
+      if (activeHls === instance) activeHls = null;
+    };
 
     setStatus('Loading...');
     setPlayerError('');
@@ -97,8 +114,9 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
         if (Hls.isSupported()) {
           const tryHlsSource = (src: string, isProxy: boolean) => {
             if (destroyed) return;
-            hlsRef.current?.destroy();
+            safeDestroyHls(activeHls);
             currentSource = isProxy ? 'proxy' : 'direct';
+            currentSourceRef.current = currentSource;
             setActiveSource(currentSource);
             if (isProxy && mode === 'direct-fallback') setStatus('Trying proxy...');
             setPlayerError('');
@@ -121,6 +139,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                 }
               },
             });
+            activeHls = hls;
             hlsRef.current = hls;
             hls.loadSource(src);
             hls.attachMedia(video!);
@@ -139,14 +158,20 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
                     setStatus('Media error — recovering...');
                     hls.recoverMediaError();
                   } else if (!isProxy && mode === 'direct-fallback') {
-                    hls.destroy();
+                    safeDestroyHls(hls);
                     tryHlsSource(proxyUrl, true);
                   } else if (data.type === 'networkError' && mode === 'proxy') {
                     setStatus('Network error — retrying...');
                     hls.startLoad();
+                  } else if (alternateIndex < alternateUrls.length) {
+                    const altUrl = alternateUrls[alternateIndex++];
+                    const altProxy = `/api/v1/stream-proxy?url=${encodeURIComponent(altUrl)}`;
+                    setStatus(`Trying alternate ${alternateIndex}/${alternateUrls.length}...`);
+                    safeDestroyHls(hls);
+                    tryHlsSource(altProxy, true);
                   } else {
                     setPlayerError(`Fatal error: ${data.details}`);
-                    hls.destroy();
+                    safeDestroyHls(hls);
                   }
                 }
               },
@@ -157,6 +182,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
         } else if (video!.canPlayType('application/vnd.apple.mpegurl')) {
           const startUrl = mode === 'proxy' ? proxyUrl : directUrl;
           currentSource = mode === 'proxy' ? 'proxy' : 'direct';
+          currentSourceRef.current = currentSource;
           setActiveSource(currentSource);
           video!.src = startUrl;
           let nativeFallback = false;
@@ -171,9 +197,18 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             if (!nativeFallback && mode === 'direct-fallback') {
               nativeFallback = true;
               currentSource = 'proxy';
+              currentSourceRef.current = currentSource;
               setActiveSource(currentSource);
               setStatus('Trying proxy...');
               video!.src = proxyUrl;
+              video!.load();
+            } else if (alternateIndex < alternateUrls.length) {
+              const altUrl = alternateUrls[alternateIndex++];
+              currentSource = 'proxy';
+              currentSourceRef.current = currentSource;
+              setActiveSource(currentSource);
+              setStatus(`Trying alternate ${alternateIndex}/${alternateUrls.length}...`);
+              video!.src = `/api/v1/stream-proxy?url=${encodeURIComponent(altUrl)}`;
               video!.load();
             } else {
               setPlayerError('Playback error');
@@ -188,16 +223,25 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     }
 
     initPlayer();
+    const PLAY_REPORT_DEDUP_MS = 30_000;
     const reportPlay = () => {
-      if (!channel.channelId || playReportedRef.current === channel.channelId) return;
-      playReportedRef.current = channel.channelId;
+      if (!channel.channelId) return;
+      const prev = playReportedRef.current;
+      if (
+        prev &&
+        prev.channelId === channel.channelId &&
+        Date.now() - prev.at < PLAY_REPORT_DEDUP_MS
+      )
+        return;
+      playReportedRef.current = { channelId: channel.channelId, at: Date.now() };
       const deviceId = `web-${sessionId || 'anonymous'}`;
       api
         .post(
           `/channels/${channel.channelId}/report-play`,
-          { deviceId, proxyPlay: currentSource === 'proxy' },
+          { deviceId, proxyPlay: currentSourceRef.current === 'proxy' },
           {
             headers: { 'X-Skip-Auth-Redirect': '1' },
+            timeout: 10_000,
           },
         )
         .catch((err) => {
@@ -223,7 +267,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
 
     return () => {
       destroyed = true;
-      hlsRef.current?.destroy();
+      safeDestroyHls(activeHls);
       hlsRef.current = null;
       video.removeEventListener('playing', onPlaying);
       video.removeEventListener('pause', onPause);
@@ -273,6 +317,7 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     dragCleanupRef.current = cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- position captured at drag start via dragRef, adding to deps would break drag
   }, []);
 
   if (!channel) return null;

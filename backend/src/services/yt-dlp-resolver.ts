@@ -11,6 +11,13 @@ interface ResolveResult {
 
 class YtDlpResolver {
   async resolveStreamUrl(ytChannelId: string): Promise<ResolveResult | null> {
+    // Validate channel ID: alphanumeric, hyphens, underscores, optional leading @
+    const VALID_CHANNEL_ID = /^@?[a-zA-Z0-9_-]+$/;
+    if (!ytChannelId || !VALID_CHANNEL_ID.test(ytChannelId)) {
+      console.warn(`[yt-dlp] Invalid channel ID rejected: ${ytChannelId}`);
+      return null;
+    }
+
     // Support both channel IDs (UC...) and handles (@AajTak)
     const videoUrl = ytChannelId.startsWith('@')
       ? `https://www.youtube.com/${ytChannelId}/live`
@@ -20,7 +27,7 @@ class YtDlpResolver {
         'yt-dlp',
         ['-f', 'b[protocol=m3u8]/b', '-g', '--no-warnings', videoUrl],
         { timeout: YT_DLP_TIMEOUT },
-        (error, stdout, stderr) => {
+        (error, stdout, _stderr) => {
           if (error) {
             console.warn(`[yt-dlp] Failed to resolve ${ytChannelId}:`, error.message);
             return resolve(null);

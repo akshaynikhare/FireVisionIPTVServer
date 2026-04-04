@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Copy, Check, RefreshCw } from 'lucide-react';
 import api from '@/lib/api';
@@ -43,6 +43,11 @@ export default function UserDetailPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    return () => clearTimeout(copyTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     async function fetchUser() {
@@ -99,9 +104,10 @@ export default function UserDetailPage() {
 
   function handleCopyCode() {
     if (!user?.channelListCode) return;
-    navigator.clipboard.writeText(user.channelListCode);
+    navigator.clipboard.writeText(user.channelListCode).catch(() => {});
     setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 1500);
+    clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopiedCode(false), 1500);
   }
 
   if (loading) {
@@ -341,102 +347,123 @@ export default function UserDetailPage() {
       </div>
 
       {/* Assigned Channels */}
-      {user.channels && user.channels.length > 0 && (() => {
-        const channels = user.channels!;
-        const groupCounts = channels.reduce<Record<string, number>>((acc, ch) => {
-          const g = ch.channelGroup || 'Uncategorized';
-          acc[g] = (acc[g] || 0) + 1;
-          return acc;
-        }, {});
-        const groupEntries = Object.entries(groupCounts).sort((a, b) => b[1] - a[1]);
+      {user.channels &&
+        user.channels.length > 0 &&
+        (() => {
+          const channels = user.channels!;
+          const groupCounts = channels.reduce<Record<string, number>>((acc, ch) => {
+            const g = ch.channelGroup || 'Uncategorized';
+            acc[g] = (acc[g] || 0) + 1;
+            return acc;
+          }, {});
+          const groupEntries = Object.entries(groupCounts).sort((a, b) => b[1] - a[1]);
 
-        return (
-          <div className="border border-border">
-            <div className="px-4 py-2 bg-muted/50 border-b border-border">
-              <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
-                Assigned Channels
-              </h2>
-            </div>
+          return (
+            <div className="border border-border">
+              <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                  Assigned Channels
+                </h2>
+              </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border border-b border-border">
-              <div className="px-4 py-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Total</p>
-                <p className="text-2xl font-bold mt-0.5">{channels.length}</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Groups</p>
-                <p className="text-2xl font-bold mt-0.5">{groupEntries.length}</p>
-              </div>
-              <div className="px-4 py-3 col-span-2 sm:col-span-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-[0.1em] mb-1.5">By Group</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {groupEntries.slice(0, 8).map(([group, count]) => (
-                    <span key={group} className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 border border-border">
-                      <span className="font-medium">{group}</span>
-                      <span className="text-muted-foreground">{count}</span>
-                    </span>
-                  ))}
-                  {groupEntries.length > 8 && (
-                    <span className="text-xs text-muted-foreground px-1">+{groupEntries.length - 8} more</span>
-                  )}
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border border-b border-border">
+                <div className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Total</p>
+                  <p className="text-2xl font-bold mt-0.5">{channels.length}</p>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-[0.1em]">Groups</p>
+                  <p className="text-2xl font-bold mt-0.5">{groupEntries.length}</p>
+                </div>
+                <div className="px-4 py-3 col-span-2 sm:col-span-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-[0.1em] mb-1.5">
+                    By Group
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {groupEntries.slice(0, 8).map(([group, count]) => (
+                      <span
+                        key={group}
+                        className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 border border-border"
+                      >
+                        <span className="font-medium">{group}</span>
+                        <span className="text-muted-foreground">{count}</span>
+                      </span>
+                    ))}
+                    {groupEntries.length > 8 && (
+                      <span className="text-xs text-muted-foreground px-1">
+                        +{groupEntries.length - 8} more
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Channel table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground w-10">#</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Channel</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden sm:table-cell">Group</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden md:table-cell">Stream URL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {channels.map((ch, idx) => {
-                    const logo = ch.tvgLogo || ch.channelImg || null;
-                    return (
-                      <tr key={ch._id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2.5 text-muted-foreground text-xs tabular-nums">
-                          {ch.order != null ? ch.order : idx + 1}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            {logo ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={logo} alt="" className="w-6 h-6 object-contain flex-shrink-0 bg-muted" />
-                            ) : (
-                              <div className="w-6 h-6 bg-muted/60 flex-shrink-0 border border-border" />
-                            )}
-                            <span className="font-medium">{ch.channelName}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 hidden sm:table-cell">
-                          <span className="text-xs bg-muted px-1.5 py-0.5 border border-border text-muted-foreground">
-                            {ch.channelGroup || 'Uncategorized'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 hidden md:table-cell">
-                          {ch.channelUrl ? (
-                            <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px] block">
-                              {ch.channelUrl}
+              {/* Channel table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground w-10">
+                        #
+                      </th>
+                      <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        Channel
+                      </th>
+                      <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden sm:table-cell">
+                        Group
+                      </th>
+                      <th className="text-left px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground hidden md:table-cell">
+                        Stream URL
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {channels.map((ch, idx) => {
+                      const logo = ch.tvgLogo || ch.channelImg || null;
+                      return (
+                        <tr key={ch._id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-2.5 text-muted-foreground text-xs tabular-nums">
+                            {ch.order != null ? ch.order : idx + 1}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {logo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={logo}
+                                  alt=""
+                                  className="w-6 h-6 object-contain flex-shrink-0 bg-muted"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 bg-muted/60 flex-shrink-0 border border-border" />
+                              )}
+                              <span className="font-medium">{ch.channelName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 hidden sm:table-cell">
+                            <span className="text-xs bg-muted px-1.5 py-0.5 border border-border text-muted-foreground">
+                              {ch.channelGroup || 'Uncategorized'}
                             </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="px-4 py-2.5 hidden md:table-cell">
+                            {ch.channelUrl ? (
+                              <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px] block">
+                                {ch.channelUrl}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       <ConfirmDialog
         open={showRegenerateConfirm}

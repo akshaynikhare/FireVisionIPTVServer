@@ -185,7 +185,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 
     // Check if user is accessing their own profile or is admin
-    if (req.user.role !== 'Admin' && req.user.id.toString() !== id) {
+    if (req.user.role !== 'Admin' && req.user.id.toString() !== id.toString()) {
       return res.status(403).json({
         success: false,
         error: 'Access denied',
@@ -194,7 +194,10 @@ router.get('/:id', requireAuth, async (req, res) => {
 
     const user = await User.findById(id)
       .select('-password')
-      .populate('channels', 'channelName channelGroup channelUrl channelImg tvgLogo order channelId');
+      .populate(
+        'channels',
+        'channelName channelGroup channelUrl channelImg tvgLogo order channelId',
+      );
 
     if (!user) {
       return res.status(404).json({
@@ -229,7 +232,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 
     // Check if user is accessing their own profile or is admin
     const isAdmin = req.user.role === 'Admin';
-    const isOwnProfile = req.user.id.toString() === id;
+    const isOwnProfile = req.user.id.toString() === id.toString();
 
     if (!isAdmin && !isOwnProfile) {
       return res.status(403).json({
@@ -275,6 +278,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
 
     // Only admin can change role and isActive
+    const previousRole = user.role;
     if (isAdmin) {
       if (role !== undefined) user.role = role;
       if (isActive !== undefined) user.isActive = isActive;
@@ -289,6 +293,22 @@ router.put('/:id', requireAuth, async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
+
+    // Dedicated audit entry for role changes (especially escalation to Admin)
+    if (role !== undefined && role !== previousRole) {
+      audit({
+        userId: req.user.id,
+        action: role === 'Admin' ? 'role_escalation' : 'role_change',
+        resource: 'user',
+        resourceId: String(user._id),
+        changes: { before: { role: previousRole }, after: { role } },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      console.warn(
+        `[SECURITY] Role changed for user ${user.username} (${user._id}): ${previousRole} -> ${role} by ${req.user.id}`,
+      );
+    }
 
     // Return user without password hash
     const userResponse = user.toJSON();
@@ -322,7 +342,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid user ID format' });
     }
 
-    if (id === req.user.id.toString()) {
+    if (id.toString() === req.user.id.toString()) {
       return res.status(400).json({
         success: false,
         error: 'Cannot delete your own admin account',
@@ -369,6 +389,46 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
 // Note: Channel assignment removed - users manage their own channels via /api/v1/user-playlist
 
+// Revoke pairing code (Admin or own profile)
+router.put('/:id/revoke-code', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID format' });
+    }
+
+    if (req.user.role !== 'Admin' && req.user.id.toString() !== id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    user.codeRevokedAt = new Date();
+    await user.save();
+
+    audit({
+      userId: req.user.id,
+      action: 'revoke_code',
+      resource: 'user',
+      resourceId: id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      message: 'Channel list code revoked. Use regenerate-code to issue a new one.',
+    });
+  } catch (error) {
+    console.error('Error revoking code:', error);
+    res.status(500).json({ success: false, error: 'Failed to revoke code' });
+  }
+});
+
 // Regenerate playlist code (Admin or own profile)
 router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
   try {
@@ -379,7 +439,7 @@ router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
     }
 
     // Check if user is accessing their own profile or is admin
-    if (req.user.role !== 'Admin' && req.user.id.toString() !== id) {
+    if (req.user.role !== 'Admin' && req.user.id.toString() !== id.toString()) {
       return res.status(403).json({
         success: false,
         error: 'Access denied',
@@ -394,8 +454,9 @@ router.put('/:id/regenerate-code', requireAuth, async (req, res) => {
       });
     }
 
-    // Generate new code
+    // Revoke old code and generate new one
     user.channelListCode = await User.generateChannelListCode();
+    user.codeRevokedAt = null; // Clear revocation on the new code
     await user.save();
     audit({
       userId: req.user.id,

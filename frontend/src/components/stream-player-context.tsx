@@ -17,6 +17,7 @@ interface StreamChannel {
   url: string;
   logo?: string;
   channelId?: string;
+  alternateUrls?: string[];
 }
 
 interface StreamPlayerState {

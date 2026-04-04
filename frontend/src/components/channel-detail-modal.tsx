@@ -1,7 +1,7 @@
 'use client';
 
-import { type ReactNode } from 'react';
-import { Play, Flag, ArrowUpCircle, AlertTriangle } from 'lucide-react';
+import { type ReactNode, useState, useEffect } from 'react';
+import { Play, Flag, ArrowUpCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import Modal from '@/components/ui/modal';
 import ChannelLogo from '@/components/ui/channel-logo';
 import StatusDot from '@/components/ui/status-dot';
@@ -53,11 +53,41 @@ export default function ChannelDetailModal({
   onUnflagAlternate,
   isAdmin,
 }: ChannelDetailModalProps) {
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [confirmPromote, setConfirmPromote] = useState<number | null>(null);
+
+  useEffect(() => {
+    setPendingAction(null);
+    setConfirmPromote(null);
+  }, [channel?.channelId]);
+
   if (!channel) return null;
 
   const visibleFields = fields.filter((r) => r.value);
   const alternates = channel.alternateStreams || [];
   const primaryFlagged = channel.flaggedBad?.isFlagged;
+
+  async function withLoading(key: string, fn: () => void | Promise<void>) {
+    setPendingAction(key);
+    try {
+      await fn();
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  function formatTimeAgo(date: string | Date | null | undefined) {
+    if (!date) return null;
+    const d = new Date(date);
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Channel Details" size="lg">
@@ -126,6 +156,14 @@ export default function ChannelDetailModal({
                       {alt.liveness.responseTimeMs}ms
                     </span>
                   )}
+                  {alt.liveness?.lastCheckedAt && (
+                    <span
+                      className="text-muted-foreground/50 font-mono text-[10px]"
+                      title={new Date(alt.liveness.lastCheckedAt).toLocaleString()}
+                    >
+                      {formatTimeAgo(alt.liveness.lastCheckedAt)}
+                    </span>
+                  )}
                   {alt.flaggedBad?.isFlagged && (
                     <span className="inline-flex items-center gap-0.5 text-signal-red text-[10px]">
                       <AlertTriangle className="h-2.5 w-2.5" />
@@ -135,37 +173,86 @@ export default function ChannelDetailModal({
                   <div className="flex items-center gap-1 shrink-0">
                     {onPromoteAlternate && !alt.flaggedBad?.isFlagged && (
                       <button
-                        onClick={() => onPromoteAlternate(idx)}
-                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => setConfirmPromote(idx)}
+                        disabled={pendingAction === `promote-${idx}`}
+                        className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
                         title="Promote to primary"
+                        aria-label={`Promote alternate stream ${idx + 1} to primary`}
                       >
-                        <ArrowUpCircle className="h-3.5 w-3.5" />
+                        {pendingAction === `promote-${idx}` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ArrowUpCircle className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     )}
                     {alt.flaggedBad?.isFlagged
                       ? isAdmin &&
                         onUnflagAlternate && (
                           <button
-                            onClick={() => onUnflagAlternate(idx)}
-                            className="flex items-center justify-center h-6 w-6 text-signal-red hover:text-foreground transition-colors"
+                            onClick={() =>
+                              withLoading(`unflag-${idx}`, () => onUnflagAlternate(idx))
+                            }
+                            disabled={pendingAction === `unflag-${idx}`}
+                            className="flex items-center justify-center h-6 w-6 text-signal-red hover:text-foreground transition-colors disabled:opacity-50"
                             title="Clear flag"
+                            aria-label={`Clear flag on alternate stream ${idx + 1}`}
                           >
-                            <Flag className="h-3.5 w-3.5" />
+                            {pendingAction === `unflag-${idx}` ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Flag className="h-3.5 w-3.5" />
+                            )}
                           </button>
                         )
                       : onFlagAlternate && (
                           <button
-                            onClick={() => onFlagAlternate(idx)}
-                            className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-signal-red transition-colors"
+                            onClick={() => withLoading(`flag-${idx}`, () => onFlagAlternate(idx))}
+                            disabled={pendingAction === `flag-${idx}`}
+                            className="flex items-center justify-center h-6 w-6 text-muted-foreground hover:text-signal-red transition-colors disabled:opacity-50"
                             title="Flag as bad"
+                            aria-label={`Flag alternate stream ${idx + 1} as bad`}
                           >
-                            <Flag className="h-3.5 w-3.5" />
+                            {pendingAction === `flag-${idx}` ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Flag className="h-3.5 w-3.5" />
+                            )}
                           </button>
                         )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Promote confirmation dialog */}
+            {confirmPromote !== null && onPromoteAlternate && (
+              <div className="mt-2 p-3 border border-primary/30 bg-primary/5 text-xs space-y-2">
+                <p className="text-foreground">
+                  Promote alternate #{confirmPromote + 1} to primary? This changes the stream for
+                  all users.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      const idx = confirmPromote;
+                      setConfirmPromote(null);
+                      await withLoading(`promote-${idx}`, () => onPromoteAlternate(idx));
+                    }}
+                    disabled={!!pendingAction}
+                    className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    Confirm Promote
+                  </button>
+                  <button
+                    onClick={() => setConfirmPromote(null)}
+                    className="px-3 py-1.5 text-xs font-medium border border-border text-muted-foreground uppercase tracking-[0.1em] hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -195,8 +282,10 @@ export default function ChannelDetailModal({
             ? isAdmin &&
               onUnflagPrimary && (
                 <button
-                  onClick={onUnflagPrimary}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-signal-red/30 text-signal-red uppercase tracking-[0.1em] hover:bg-signal-red/10 transition-colors"
+                  onClick={() => withLoading('unflag-primary', onUnflagPrimary)}
+                  disabled={pendingAction === 'unflag-primary'}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-signal-red/30 text-signal-red uppercase tracking-[0.1em] hover:bg-signal-red/10 transition-colors disabled:opacity-50"
+                  aria-label="Clear flag on primary stream"
                 >
                   <Flag className="h-4 w-4" />
                   Clear Flag
@@ -204,8 +293,10 @@ export default function ChannelDetailModal({
               )
             : onFlagPrimary && (
                 <button
-                  onClick={onFlagPrimary}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border text-muted-foreground uppercase tracking-[0.1em] hover:text-signal-red hover:border-signal-red/30 transition-colors"
+                  onClick={() => withLoading('flag-primary', onFlagPrimary)}
+                  disabled={pendingAction === 'flag-primary'}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border text-muted-foreground uppercase tracking-[0.1em] hover:text-signal-red hover:border-signal-red/30 transition-colors disabled:opacity-50"
+                  aria-label="Flag primary stream as bad"
                 >
                   <Flag className="h-4 w-4" />
                   Flag Bad Stream

@@ -43,6 +43,8 @@ const scheduledTaskRunSchema = new Schema(
     result: { type: Schema.Types.Mixed, default: null },
     error: { type: String, default: null },
     subtasks: { type: [subtaskSchema], default: [] },
+    lockedAt: { type: Date, default: null },
+    lockedBy: { type: String, default: null },
   },
   { timestamps: true },
 );

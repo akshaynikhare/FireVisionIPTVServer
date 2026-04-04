@@ -64,7 +64,7 @@ export default function UserDashboard() {
 
   function handleCopy() {
     if (playlistUrl) {
-      navigator.clipboard.writeText(playlistUrl);
+      navigator.clipboard.writeText(playlistUrl).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     }
@@ -95,7 +95,7 @@ export default function UserDashboard() {
       <div className="border border-border">
         <div className="grid grid-cols-3 sm:grid-cols-3">
           <div className="p-2.5 sm:p-4">
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+            <p className="text-[11px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
               Channels
             </p>
             <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 tabular-nums">
@@ -103,13 +103,13 @@ export default function UserDashboard() {
             </p>
             <div className="flex items-center gap-1.5 mt-1 sm:mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-[10px] sm:text-xs text-muted-foreground">
+              <span className="text-[11px] sm:text-xs text-muted-foreground">
                 {channelHealth.working} ok
               </span>
               {channelHealth.failing > 0 && (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-signal-red" aria-hidden="true" />
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                  <span className="text-[11px] sm:text-xs text-muted-foreground">
                     {channelHealth.failing}
                   </span>
                 </>
@@ -117,7 +117,7 @@ export default function UserDashboard() {
             </div>
           </div>
           <div className="p-2.5 sm:p-4 border-l border-border">
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+            <p className="text-[11px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
               Device
             </p>
             <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 truncate">
@@ -127,7 +127,7 @@ export default function UserDashboard() {
               {profile?.metadata?.lastPairedDevice ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">paired</span>
+                  <span className="text-[11px] sm:text-xs text-muted-foreground">paired</span>
                 </>
               ) : (
                 <>
@@ -135,13 +135,13 @@ export default function UserDashboard() {
                     className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">none</span>
+                  <span className="text-[11px] sm:text-xs text-muted-foreground">none</span>
                 </>
               )}
             </div>
           </div>
           <div className="p-2.5 sm:p-4 border-l border-border">
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
+            <p className="text-[11px] sm:text-xs uppercase tracking-[0.15em] text-muted-foreground">
               Account
             </p>
             <p className="text-lg sm:text-2xl font-display font-bold mt-0.5 sm:mt-1.5 capitalize">
@@ -149,7 +149,7 @@ export default function UserDashboard() {
             </p>
             <div className="flex items-center gap-1.5 mt-1 sm:mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-signal-green" aria-hidden="true" />
-              <span className="text-[10px] sm:text-xs text-muted-foreground">active</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground">active</span>
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function UserDashboard() {
 
       {/* Playlist Link */}
       <div>
-        <h2 className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
+        <h2 className="text-[11px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
           Playlist Link
         </h2>
         <div className="border border-border p-3 sm:p-4">
@@ -203,7 +203,7 @@ export default function UserDashboard() {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
+        <h2 className="text-[11px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2 sm:mb-3">
           Quick Actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">

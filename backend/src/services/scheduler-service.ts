@@ -1,6 +1,8 @@
 import { ScheduledTaskRun } from '../models/ScheduledTaskRun';
 import { getAllTasks, getTask } from './task-registry';
-import type { TaskDefinition } from './task-registry';
+
+const LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutes — stale locks are auto-released
+const PROCESS_ID = `${process.pid}-${Date.now()}`;
 
 class SchedulerService {
   private timers: Map<string, ReturnType<typeof setInterval>> = new Map();
@@ -27,7 +29,7 @@ class SchedulerService {
 
   // Stop all interval timers
   stop(): void {
-    for (const [name, timer] of this.timers) {
+    for (const [, timer] of this.timers) {
       clearInterval(timer);
     }
     this.timers.clear();
@@ -61,20 +63,45 @@ class SchedulerService {
       throw new Error(`Unknown task: ${taskName}`);
     }
 
-    // Atomic concurrency guard — unique partial index on { taskName } where status='running'
-    // ensures only one 'running' doc per task exists. The create() will throw E11000 if
-    // another process already claimed the lock.
+    // Atomic distributed lock via findOneAndUpdate + upsert.
+    // Acquires if no running doc exists, or reclaims if the existing lock is stale (older than LOCK_TTL_MS).
+    // The unique partial index on { taskName } where status='running' guarantees at most one running doc.
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - LOCK_TTL_MS);
+
     let run;
     try {
-      run = await ScheduledTaskRun.create({
-        taskName,
-        status: 'running',
-        trigger,
-        triggeredBy: triggeredBy || null,
-        startedAt: new Date(),
-      });
+      run = await ScheduledTaskRun.findOneAndUpdate(
+        {
+          taskName,
+          status: 'running',
+          $or: [
+            { lockedAt: { $exists: false } },
+            { lockedAt: null },
+            { lockedAt: { $lt: staleBefore } },
+          ],
+        },
+        {
+          $set: {
+            status: 'running',
+            trigger,
+            triggeredBy: triggeredBy || null,
+            startedAt: now,
+            lockedAt: now,
+            lockedBy: PROCESS_ID,
+            completedAt: null,
+            durationMs: null,
+            result: null,
+            error: null,
+            subtasks: [],
+          },
+          $setOnInsert: { taskName },
+        },
+        { upsert: true, new: true },
+      );
     } catch (err: any) {
       if (err.code === 11000) {
+        // Another process won the upsert race — lock is held and not stale
         if (trigger === 'scheduled') {
           console.log(`[scheduler] Skipping '${taskName}' — already running`);
           return null;
@@ -82,6 +109,15 @@ class SchedulerService {
         throw new Error(`Task '${taskName}' is already running`);
       }
       throw err;
+    }
+
+    // If we matched a stale doc but another process beat us to it, verify we own the lock
+    if (run.lockedBy !== PROCESS_ID) {
+      if (trigger === 'scheduled') {
+        console.log(`[scheduler] Skipping '${taskName}' — already running`);
+        return null;
+      }
+      throw new Error(`Task '${taskName}' is already running`);
     }
 
     console.log(`[scheduler] Running '${taskDef.displayName}' (${trigger})`);

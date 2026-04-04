@@ -63,9 +63,10 @@ router.get('/google/start', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   if (!global._oauthStates) global._oauthStates = new Map();
   // Purge expired entries first
-  for (const [k, v] of global._oauthStates) {
-    if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
-  }
+  const expired = Array.from(global._oauthStates.entries()).filter(
+    ([, v]) => v.expiresAt < Date.now(),
+  );
+  for (const [k] of expired) global._oauthStates.delete(k);
   if (global._oauthStates.size >= 1000) {
     return res.status(503).json({
       success: false,
@@ -104,6 +105,14 @@ router.get('/google/callback', async (req, res) => {
     return res.status(400).json({ success: false, error: 'State parameter expired' });
   }
   try {
+    // Validate that the callback URI matches the configured redirect URI exactly
+    const callbackUrl = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
+    const configuredPath = new URL(GOOGLE_REDIRECT_URI).pathname;
+    const callbackPath = new URL(callbackUrl).pathname;
+    if (callbackPath !== configuredPath) {
+      return res.status(400).json({ success: false, error: 'Redirect URI mismatch' });
+    }
+
     // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -186,9 +195,10 @@ router.get('/github/start', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   if (!global._oauthStates) global._oauthStates = new Map();
   // Purge expired entries first
-  for (const [k, v] of global._oauthStates) {
-    if (v.expiresAt < Date.now()) global._oauthStates.delete(k);
-  }
+  const ghExpired = Array.from(global._oauthStates.entries()).filter(
+    ([, v]) => v.expiresAt < Date.now(),
+  );
+  for (const [k] of ghExpired) global._oauthStates.delete(k);
   if (global._oauthStates.size >= 1000) {
     return res.status(503).json({
       success: false,
@@ -220,6 +230,14 @@ router.get('/github/callback', async (req, res) => {
     return res.status(400).json({ success: false, error: 'State parameter expired' });
   }
   try {
+    // Validate that the callback URI matches the configured redirect URI exactly
+    const ghCallbackUrl = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
+    const ghConfiguredPath = new URL(GITHUB_REDIRECT_URI).pathname;
+    const ghCallbackPath = new URL(ghCallbackUrl).pathname;
+    if (ghCallbackPath !== ghConfiguredPath) {
+      return res.status(400).json({ success: false, error: 'Redirect URI mismatch' });
+    }
+
     // Exchange code for access token
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',

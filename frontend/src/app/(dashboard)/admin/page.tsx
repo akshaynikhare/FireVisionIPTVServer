@@ -74,7 +74,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
 
   function copyCode(text: string) {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {});
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   }
@@ -243,13 +243,13 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Alive</p>
-                <p className="text-xl font-display font-bold tabular-nums text-[hsl(var(--signal-green))]">
+                <p className="text-xl font-display font-bold tabular-nums text-signal-green">
                   {streamHealth.channels.totalAliveCount ?? 0}
                 </p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Dead</p>
-                <p className="text-xl font-display font-bold tabular-nums text-[hsl(var(--signal-red))]">
+                <p className="text-xl font-display font-bold tabular-nums text-signal-red">
                   {streamHealth.channels.totalDeadCount ?? 0}
                 </p>
               </div>
@@ -305,12 +305,12 @@ export default function AdminDashboard() {
       )}
 
       {config?.defaultTvCode && (
-        <div className="border border-primary/30 bg-primary/5 p-4 flex items-center justify-between ">
-          <div>
+        <div className="border border-primary/30 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
               Default Channel List Code
             </p>
-            <div className="flex items-center gap-3 mt-1.5">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5">
               <span className="text-xl font-display font-bold tracking-[0.15em] font-mono">
                 {config.defaultTvCode}
               </span>
@@ -319,7 +319,7 @@ export default function AdminDashboard() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <a
               href={`/api/v1/tv/playlist/${config.defaultTvCode}`}
               target="_blank"

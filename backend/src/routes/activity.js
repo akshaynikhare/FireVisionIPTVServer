@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AuditLog = require('../models/AuditLog');
+const { escapeRegex } = require('../utils/escapeRegex');
 const { requireAuth, requireAdmin } = require('./auth');
 
 // All activity routes require admin
@@ -38,10 +39,11 @@ router.get('/', async (req, res) => {
     }
 
     if (search) {
+      const escaped = escapeRegex(search);
       filter.$or = [
-        { action: { $regex: search, $options: 'i' } },
-        { resource: { $regex: search, $options: 'i' } },
-        { resourceId: { $regex: search, $options: 'i' } },
+        { action: { $regex: escaped, $options: 'i' } },
+        { resource: { $regex: escaped, $options: 'i' } },
+        { resourceId: { $regex: escaped, $options: 'i' } },
       ];
     }
 

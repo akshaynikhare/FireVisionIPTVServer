@@ -69,33 +69,41 @@ const channelSchema = new Schema<IChannelDocument>(
       flaggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
       flaggedAt: { type: Date, default: null },
     },
-    alternateStreams: [
-      {
-        streamUrl: { type: String, required: true },
-        quality: { type: String, default: null },
-        liveness: {
-          status: {
-            type: String,
-            enum: ['alive', 'dead', 'unknown'],
-            default: 'unknown',
+    alternateStreams: {
+      type: [
+        {
+          streamUrl: { type: String, required: true },
+          quality: { type: String, default: null },
+          liveness: {
+            status: {
+              type: String,
+              enum: ['alive', 'dead', 'unknown'],
+              default: 'unknown',
+            },
+            lastCheckedAt: { type: Date, default: null },
+            responseTimeMs: { type: Number, default: null },
+            error: { type: String, default: null },
           },
-          lastCheckedAt: { type: Date, default: null },
-          responseTimeMs: { type: Number, default: null },
-          error: { type: String, default: null },
+          flaggedBad: {
+            isFlagged: { type: Boolean, default: false },
+            reason: { type: String, default: null },
+            flaggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+            flaggedAt: { type: Date, default: null },
+          },
+          userAgent: { type: String, default: null },
+          referrer: { type: String, default: null },
+          source: { type: String, default: null },
+          promotedAt: { type: Date, default: null },
+          demotedAt: { type: Date, default: null },
         },
-        flaggedBad: {
-          isFlagged: { type: Boolean, default: false },
-          reason: { type: String, default: null },
-          flaggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-          flaggedAt: { type: Date, default: null },
+      ],
+      validate: [
+        {
+          validator: (v: unknown[]) => !v || v.length <= 50,
+          message: 'A channel can have at most 50 alternate streams',
         },
-        userAgent: { type: String, default: null },
-        referrer: { type: String, default: null },
-        source: { type: String, default: null },
-        promotedAt: { type: Date, default: null },
-        demotedAt: { type: Date, default: null },
-      },
-    ],
+      ],
+    },
     metrics: {
       deadCount: { type: Number, default: 0 },
       aliveCount: { type: Number, default: 0 },

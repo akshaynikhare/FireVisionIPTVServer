@@ -182,6 +182,7 @@ export function ConfirmStep({
               {channels.map((ch) => (
                 <div key={ch.uid} className="flex items-center gap-3 px-4 py-2">
                   {ch.tvgLogo ? (
+                    /* eslint-disable-next-line @next/next/no-img-element -- dynamic external URL with onError fallback */
                     <img
                       src={proxyImageUrl(ch.tvgLogo)}
                       alt={ch.channelName}

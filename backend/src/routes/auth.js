@@ -1448,21 +1448,24 @@ router.post('/verify-email', async (req, res) => {
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.findOne({
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: { $gt: new Date() },
-    });
+    // Atomic: find + consume token in one operation to prevent replay
+    const user = await User.findOneAndUpdate(
+      {
+        emailVerificationToken: hashedToken,
+        emailVerificationExpires: { $gt: new Date() },
+      },
+      {
+        $set: { emailVerified: true },
+        $unset: { emailVerificationToken: '', emailVerificationExpires: '' },
+      },
+      { new: true },
+    );
 
     if (!user) {
       return res
         .status(400)
         .json({ success: false, error: 'Invalid or expired verification token' });
     }
-
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
 
     audit({
       userId: user._id,
@@ -1585,18 +1588,21 @@ router.post('/reset-password', async (req, res) => {
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: new Date() },
-    });
+    // Atomically find and invalidate the token to prevent reuse (race condition safe)
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { $gt: new Date() },
+      },
+      { $unset: { passwordResetToken: 1, passwordResetExpires: 1 } },
+      { new: true },
+    );
 
     if (!user) {
       return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
     }
 
     user.password = newPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
     await user.save();
 
     // Invalidate all sessions and refresh tokens for this user
