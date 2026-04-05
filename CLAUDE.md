@@ -130,6 +130,13 @@ See `.env.example` for all configuration. Key groups:
 - Minimal comments — only when logic isn't self-evident
 - No unnecessary abstractions or future-proofing
 
+### Secrets & environment variables
+
+- All secrets and config (API keys, DSNs, measurement IDs) must be **runtime env vars** passed via `docker-compose.production.yml`, never baked into Docker images as build args
+- This project is self-hosted — other users need to supply their own keys without rebuilding images
+- For Next.js frontend: don't use `NEXT_PUBLIC_*` prefix. Instead, read non-prefixed env vars in server components (runtime) and inject to client via `<script>` tags when needed
+- Follow the existing pattern in `docker-publish.yml`: secrets go in GitHub `secrets`, non-sensitive config in GitHub `vars`, both flow through `envsubst` into the compose file
+
 ### What NOT to do
 
 - Don't add new npm dependencies without asking

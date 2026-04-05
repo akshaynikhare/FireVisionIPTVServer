@@ -154,6 +154,10 @@ jobs:
           LIVENESS_CHECK_INTERVAL_MS: ${{ vars.LIVENESS_CHECK_INTERVAL_MS }}
           EPG_REFRESH_INTERVAL_MS: ${{ vars.EPG_REFRESH_INTERVAL_MS }}
           CACHE_REFRESH_INTERVAL_MS: ${{ vars.CACHE_REFRESH_INTERVAL_MS }}
+          # Observability
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          FRONTEND_SENTRY_DSN: ${{ secrets.FRONTEND_SENTRY_DSN }}
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
         run: |
           # Substitute env vars into the production compose file
           envsubst < docker-compose.production.yml > docker-compose.deploy.yml
