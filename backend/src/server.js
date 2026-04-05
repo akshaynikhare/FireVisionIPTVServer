@@ -10,11 +10,11 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 Sentry.init({
-  dsn: process.env.SENTRY_DSN,
+  dsn: process.env.BACKEND_SENTRY_DSN,
   integrations: [Sentry.httpIntegration()],
   tracesSampleRate: 0.1,
   environment: process.env.NODE_ENV ?? 'development',
-  enabled: !!process.env.SENTRY_DSN,
+  enabled: !!process.env.BACKEND_SENTRY_DSN,
 });
 
 // Validate required environment variables
