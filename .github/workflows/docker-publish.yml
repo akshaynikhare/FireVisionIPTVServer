@@ -87,6 +87,9 @@ jobs:
           push: true
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+          build-args: |
+            GA_MEASUREMENT_ID=${{ vars.GA_MEASUREMENT_ID }}
+            FRONTEND_SENTRY_DSN=${{ secrets.FRONTEND_SENTRY_DSN }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.vars.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
