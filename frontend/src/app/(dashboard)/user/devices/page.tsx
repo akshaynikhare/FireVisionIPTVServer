@@ -117,10 +117,20 @@ export default function PairDevicePage() {
           </p>
         </div>
         <div className="p-5">
-          <p className="text-sm text-muted-foreground mb-4">
-            Open the FireVision app on your TV. A 6-digit PIN will appear on screen. Enter it below
-            to link your account.
-          </p>
+          <div className="text-sm text-muted-foreground mb-4 space-y-1.5">
+            <p>
+              <strong className="text-foreground">Step 1:</strong> Install and open the FireVision
+              app on your Fire TV or Android TV
+            </p>
+            <p>
+              <strong className="text-foreground">Step 2:</strong> A 6-digit PIN will appear on your
+              TV screen
+            </p>
+            <p>
+              <strong className="text-foreground">Step 3:</strong> Enter the PIN below to link your
+              TV
+            </p>
+          </div>
           <form onSubmit={handleConfirmPin} className="flex items-end gap-3 flex-wrap">
             <div className="space-y-1.5 flex-1 max-w-xs">
               <label
@@ -217,6 +227,10 @@ export default function PairDevicePage() {
               {result.message}
             </div>
           )}
+
+          <p className="mt-4 text-xs text-muted-foreground/70">
+            Don&apos;t see a PIN? Make sure the FireVision app is installed and open on your TV.
+          </p>
         </div>
       </div>
 
@@ -229,7 +243,8 @@ export default function PairDevicePage() {
         </div>
         <div className="p-5">
           <p className="text-sm text-muted-foreground mb-3">
-            Use this code in the TV app to load your channel list directly.
+            This code uniquely identifies your playlist. Enter it in the TV app&apos;s Settings to
+            load your channels without re-pairing.
           </p>
           <div className="flex items-center gap-3">
             <code className="text-2xl font-mono font-bold bg-muted px-4 py-2 tracking-[0.3em]">

@@ -32,6 +32,9 @@ services:
       BREVO_PASSWORD: ${BREVO_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
       APP_URL: ${APP_URL}
+      GOOGLE_RECAPTCHA_SITE_KEY: ${GOOGLE_RECAPTCHA_SITE_KEY}
+      GOOGLE_RECAPTCHA_SECRET_KEY: ${GOOGLE_RECAPTCHA_SECRET_KEY}
+      BACKEND_SENTRY_DSN: ${BACKEND_SENTRY_DSN}
       ALLOWED_ORIGINS: https://tv.cadnative.com
       DISABLE_SCHEDULER: 'true'
     networks:
@@ -50,6 +53,9 @@ services:
     image: ${DOCKER_FRONTEND_IMAGE}
     container_name: firevision-frontend
     restart: unless-stopped
+    environment:
+      GA_MEASUREMENT_ID: ${GA_MEASUREMENT_ID}
+      FRONTEND_SENTRY_DSN: ${FRONTEND_SENTRY_DSN}
     networks:
       - firevision-network
       - gkz-network
@@ -101,6 +107,7 @@ services:
       LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS}
       EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS}
       CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS}
+      BACKEND_SENTRY_DSN: ${BACKEND_SENTRY_DSN}
     command:
       [
         'sh',

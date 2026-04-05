@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tv, Smartphone, Copy, Check, ChevronRight, Zap, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Tv, Smartphone, Copy, Check, ChevronRight, Zap, ExternalLink, Play } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -154,6 +155,43 @@ export default function UserDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Getting Started — shown when user has no channels */}
+      {channelCount === 0 && (
+        <div className="border border-primary/30 bg-primary/5 p-4 sm:p-5">
+          <h3 className="text-sm font-display font-bold uppercase tracking-[0.1em]">
+            Getting Started
+          </h3>
+          <ol className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2.5">
+              <Zap className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <span>Add channels — browse sources or import an M3U playlist</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Smartphone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <span>Pair your TV — open the FireVision app and enter the PIN shown on screen</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Play className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <span>Watch — your channels appear on TV automatically</span>
+            </li>
+          </ol>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Link
+              href="/user/quick-pick"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
+            >
+              <Zap className="h-3.5 w-3.5" /> Add Channels
+            </Link>
+            <Link
+              href="/user/devices"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium border border-border uppercase tracking-[0.1em] transition-colors hover:bg-muted"
+            >
+              <Smartphone className="h-3.5 w-3.5" /> Pair TV
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Playlist Link */}
       <div>

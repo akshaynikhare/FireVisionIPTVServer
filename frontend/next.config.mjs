@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8009';
 
@@ -24,4 +26,7 @@ const nextConfig = {
   }),
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+});

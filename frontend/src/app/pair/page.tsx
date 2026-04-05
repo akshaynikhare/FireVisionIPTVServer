@@ -139,6 +139,9 @@ function PairContent() {
             Create Account
           </Link>
         </div>
+        <p className="text-xs text-muted-foreground/70">
+          After signing in, your TV will automatically connect and start loading your channels.
+        </p>
       </div>
     );
   }

@@ -209,4 +209,12 @@ router.get('/apk', async (req, res) => {
   }
 });
 
+router.get('/demo-code', (req, res) => {
+  const code = process.env.SUPER_ADMIN_CHANNEL_LIST_CODE;
+  if (!code) {
+    return res.status(404).json({ success: false, error: 'Demo code not configured' });
+  }
+  return res.json({ code });
+});
+
 module.exports = router;

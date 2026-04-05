@@ -147,10 +147,17 @@ jobs:
           BREVO_PASSWORD: ${{ secrets.BREVO_PASSWORD }}
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           APP_URL: ${{ vars.APP_URL }}
+          # reCAPTCHA
+          GOOGLE_RECAPTCHA_SITE_KEY: ${{ vars.GOOGLE_RECAPTCHA_SITE_KEY }}
+          GOOGLE_RECAPTCHA_SECRET_KEY: ${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY }}
           # Scheduler
           LIVENESS_CHECK_INTERVAL_MS: ${{ vars.LIVENESS_CHECK_INTERVAL_MS }}
           EPG_REFRESH_INTERVAL_MS: ${{ vars.EPG_REFRESH_INTERVAL_MS }}
           CACHE_REFRESH_INTERVAL_MS: ${{ vars.CACHE_REFRESH_INTERVAL_MS }}
+          # Observability
+          BACKEND_SENTRY_DSN: ${{ secrets.BACKEND_SENTRY_DSN }}
+          FRONTEND_SENTRY_DSN: ${{ secrets.FRONTEND_SENTRY_DSN }}
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
         run: |
           # Substitute env vars into the production compose file
           envsubst < docker-compose.production.yml > docker-compose.deploy.yml

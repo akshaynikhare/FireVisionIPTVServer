@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Channel = require('../models/Channel');
+const AuditLog = require('../models/AuditLog');
 const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { audit } = require('../services/audit-log');
@@ -32,7 +34,7 @@ router.get('/filter-options', requireAuth, requireAdmin, async (req, res) => {
 // Get all users (Admin only) with server-side filtering & pagination
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { role, status, search, page, pageSize } = req.query;
+    const { role, status, search, page, pageSize, sortBy, sortOrder } = req.query;
     const filter = {};
 
     // Multi-value role filter
@@ -69,24 +71,83 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 
     const p = parseInt(page, 10) || 1;
     const ps = Math.min(parseInt(pageSize, 10) || 50, 200);
+    const order = sortOrder === 'asc' ? 1 : -1;
 
-    const [users, totalCount] = await Promise.all([
-      User.find(filter)
-        .select('-password')
-        .populate('channels', 'channelName channelGroup')
-        .sort({ createdAt: -1 })
-        .skip((p - 1) * ps)
-        .limit(ps),
-      User.countDocuments(filter),
+    // Build sort — channelCount requires computing array length
+    let sort = { createdAt: -1 };
+    if (sortBy === 'channelCount') {
+      sort = { channelCount: order, createdAt: -1 };
+    } else if (sortBy === 'lastActivity') {
+      sort = { lastLogin: order, createdAt: -1 };
+    }
+
+    let users;
+    let totalCount;
+
+    if (sortBy === 'channelCount') {
+      // Use aggregation to sort by channels array length
+      const pipeline = [
+        { $match: filter },
+        { $addFields: { channelCount: { $size: { $ifNull: ['$channels', []] } } } },
+        { $sort: sort },
+        { $skip: (p - 1) * ps },
+        { $limit: ps },
+        { $project: { password: 0 } },
+      ];
+      const [aggUsers, countResult] = await Promise.all([
+        User.aggregate(pipeline),
+        User.countDocuments(filter),
+      ]);
+      // Populate channels after aggregation
+      users = await User.populate(aggUsers, {
+        path: 'channels',
+        select: 'channelName channelGroup',
+      });
+      totalCount = countResult;
+    } else {
+      [users, totalCount] = await Promise.all([
+        User.find(filter)
+          .select('-password')
+          .populate('channels', 'channelName channelGroup')
+          .sort(sort)
+          .skip((p - 1) * ps)
+          .limit(ps),
+        User.countDocuments(filter),
+      ]);
+    }
+
+    // Get last activity date for each user in this page
+    const userIds = users.map((u) => u._id);
+    const lastActivities = await AuditLog.aggregate([
+      { $match: { userId: { $in: userIds } } },
+      { $group: { _id: '$userId', lastActivity: { $max: '$timestamp' } } },
     ]);
+    const activityMap = {};
+    for (const entry of lastActivities) {
+      activityMap[entry._id.toString()] = entry.lastActivity;
+    }
+
+    const data = users.map((u) => {
+      const userObj = typeof u.toJSON === 'function' ? u.toJSON() : { ...u };
+      const auditDate = activityMap[(u._id || u.id).toString()] || null;
+      const loginDate = userObj.lastLogin || null;
+      const fallbackDate = userObj.createdAt || null;
+      if (auditDate && loginDate) {
+        userObj.lastActivity = new Date(auditDate) > new Date(loginDate) ? auditDate : loginDate;
+      } else {
+        userObj.lastActivity = auditDate || loginDate || fallbackDate;
+      }
+      userObj.channelCount = (userObj.channels || []).length;
+      return userObj;
+    });
 
     res.json({
       success: true,
-      count: users.length,
+      count: data.length,
       totalCount,
       page: p,
       pageSize: ps,
-      data: users,
+      data,
     });
   } catch (error) {
     console.error('Error fetching users:', error);

@@ -15,6 +15,7 @@ function LoginContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const message = searchParams.get('message');
@@ -28,7 +29,15 @@ function LoginContent() {
     const oauthError = searchParams.get('error');
 
     if (oauthError) {
-      setError('OAuth authentication failed. Try a different sign-in method or contact support.');
+      if (oauthError === 'account_inactive') {
+        setError(
+          'Your account has been disabled. Please contact the server administrator to restore access.',
+        );
+        const email = searchParams.get('admin_email');
+        if (email) setAdminEmail(email);
+      } else {
+        setError('OAuth authentication failed. Try a different sign-in method or contact support.');
+      }
       return;
     }
 
@@ -49,11 +58,20 @@ function LoginContent() {
           }
         })
         .catch((err: unknown) => {
-          const status = (err as { response?: { status?: number } })?.response?.status;
-          if (status === 429) {
+          const resp = (
+            err as {
+              response?: { status?: number; data?: { code?: string; adminEmail?: string } };
+            }
+          )?.response;
+          if (resp?.status === 429) {
             setError(
               'Too many requests — you have been rate-limited. Please wait a few minutes and try again.',
             );
+          } else if (resp?.status === 403 && resp?.data?.code === 'ACCOUNT_DISABLED') {
+            setError(
+              'Your account has been disabled. Please contact the server administrator to restore access.',
+            );
+            if (resp.data.adminEmail) setAdminEmail(resp.data.adminEmail);
           } else {
             setError('OAuth login failed. The code may have expired — please try again.');
           }
@@ -65,6 +83,7 @@ function LoginContent() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setAdminEmail('');
     setLoading(true);
 
     try {
@@ -82,11 +101,18 @@ function LoginContent() {
         router.push('/user');
       }
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 429) {
+      const resp = (
+        err as { response?: { status?: number; data?: { code?: string; adminEmail?: string } } }
+      )?.response;
+      if (resp?.status === 429) {
         setError(
           'Too many requests — you have been rate-limited. Please wait a few minutes and try again.',
         );
+      } else if (resp?.status === 403 && resp?.data?.code === 'ACCOUNT_DISABLED') {
+        setError(
+          'Your account has been disabled. Please contact the server administrator to restore access.',
+        );
+        if (resp.data.adminEmail) setAdminEmail(resp.data.adminEmail);
       } else {
         setError('Invalid username or password');
       }
@@ -114,9 +140,33 @@ function LoginContent() {
         {message && !error && (
           <div
             role="status"
-            className="border border-primary/40 bg-primary/10 px-3 py-2.5 text-sm text-primary"
+            className={`border px-3 py-2.5 text-sm ${
+              message === 'account_disabled'
+                ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                : 'border-primary/40 bg-primary/10 text-primary'
+            }`}
           >
-            {message}
+            {message === 'account_disabled' ? (
+              <>
+                <p>
+                  Your account has been disabled. Please contact the server administrator to restore
+                  access.
+                </p>
+                {searchParams.get('admin_email') && (
+                  <p className="mt-1.5">
+                    Contact:{' '}
+                    <a
+                      href={`mailto:${searchParams.get('admin_email')}`}
+                      className="underline hover:text-destructive/80"
+                    >
+                      {searchParams.get('admin_email')}
+                    </a>
+                  </p>
+                )}
+              </>
+            ) : (
+              message
+            )}
           </div>
         )}
 
@@ -126,7 +176,15 @@ function LoginContent() {
             aria-live="polite"
             className="border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
           >
-            {error}
+            <p>{error}</p>
+            {adminEmail && (
+              <p className="mt-1.5">
+                Contact:{' '}
+                <a href={`mailto:${adminEmail}`} className="underline hover:text-destructive/80">
+                  {adminEmail}
+                </a>
+              </p>
+            )}
           </div>
         )}
 
