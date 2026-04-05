@@ -61,7 +61,9 @@ function RegisterContent() {
 
       <div className="mb-8">
         <h1 className="text-xl font-display font-bold uppercase tracking-wider">Register</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Set up your operator account</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Create your account to manage channels and pair your TV
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
