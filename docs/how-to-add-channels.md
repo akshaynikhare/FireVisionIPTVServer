@@ -8,12 +8,10 @@ After pairing your TV device, you need to add channels to your personal playlist
 
 ### 1. Log in to the Web Dashboard
 
-Open your browser and go to your FireVision server URL (e.g. `http://your-server:3001`).
+Open your browser and go to your FireVision server URL (e.g. `https://tv.cadnative.com/login`).
 Log in with the same account you used to pair your TV — [Go to Login](https://tv.cadnative.com/login).
 
-<!-- TODO: Add screenshot of the login page -->
-
-![Login Page](images/how-to-add-channels/login.png)
+![Login Page](images/how-to-add-channels/login.jpg)
 
 ### 2. Navigate to "My Channels"
 
@@ -21,31 +19,17 @@ From the sidebar, click **Channels** to open the channel browser — [Go to My C
 
 Here you can see all available channels from your connected sources.
 
-<!-- TODO: Add screenshot of the channels page -->
+![My Channels Page](images/how-to-add-channels/my-channels.jpg)
 
-![My Channels Page](images/how-to-add-channels/my-channels.png)
-
-### 3. Browse and Add Channels
-
-- Use the **search bar** to find channels by name or group
-- Click the **+** button on any channel card to add it to your playlist
-- Use the **category filter** to browse channels by group
-
-<!-- TODO: Add screenshot showing the add button on a channel card -->
-
-![Add Channel Button](images/how-to-add-channels/add-channel.png)
-
-### 4. Use Quick Pick for Bulk Adding (Optional)
+### 3. Use Quick Pick for Bulk Adding
 
 If you want to add popular channels fast, use **Quick Pick** — [Go to Quick Pick](https://tv.cadnative.com/user/quick-pick).
 
 Quick Pick lets you select from curated groups and add many channels at once.
 
-<!-- TODO: Add screenshot of the Quick Pick page -->
+![Quick Pick Page](images/how-to-add-channels/quick-pick.jpg)
 
-![Quick Pick Page](images/how-to-add-channels/quick-pick.png)
-
-### 5. Refresh on Your TV
+### 4. Refresh on Your TV
 
 Go back to your TV app:
 
@@ -53,10 +37,6 @@ Go back to your TV app:
 - Or select **Refresh** on the empty screen to reload immediately
 
 Your channels should now appear on the Home and Channels screens.
-
-<!-- TODO: Add screenshot of channels showing on TV -->
-
-![Channels on TV](images/how-to-add-channels/tv-channels.png)
 
 ---
 
