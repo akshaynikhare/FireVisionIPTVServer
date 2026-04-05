@@ -17,6 +17,13 @@ RUN npx -w @firevision/shared tsc
 
 # Copy frontend source and build
 COPY frontend/ ./frontend/
+
+# Build-time env vars for Next.js static rendering
+ARG GA_MEASUREMENT_ID
+ARG FRONTEND_SENTRY_DSN
+ENV GA_MEASUREMENT_ID=$GA_MEASUREMENT_ID
+ENV FRONTEND_SENTRY_DSN=$FRONTEND_SENTRY_DSN
+
 RUN mkdir -p frontend/public && npm run build -w @firevision/frontend
 
 # --- Production stage ---
