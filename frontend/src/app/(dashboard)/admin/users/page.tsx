@@ -13,6 +13,9 @@ import {
   Check,
   ToggleLeft,
   ToggleRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +26,12 @@ import ColumnFilter from '@/components/ui/column-filter';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
 import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
+interface UserChannel {
+  _id: string;
+  channelName: string;
+  channelGroup: string;
+}
+
 interface UserData {
   _id: string;
   username: string;
@@ -32,6 +41,8 @@ interface UserData {
   lastLogin?: string;
   createdAt?: string;
   channelListCode?: string;
+  channels?: UserChannel[];
+  lastActivity?: string;
 }
 
 export default function UsersPage() {
@@ -56,6 +67,10 @@ export default function UsersPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
+  // Sort state
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // Add user form state
   const [newUsername, setNewUsername] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -77,6 +92,10 @@ export default function UsersPage() {
         if (selectedStatuses.length > 0 && selectedStatuses.length < filterOptions.status.length) {
           params.set('status', selectedStatuses.join(','));
         }
+        if (sortBy) {
+          params.set('sortBy', sortBy);
+          params.set('sortOrder', sortOrder);
+        }
         const res = await api.get(`/users?${params.toString()}`, { signal });
         const body = res.data;
         setUsers(Array.isArray(body) ? body : body.data || body.users || []);
@@ -90,7 +109,7 @@ export default function UsersPage() {
         setLoading(false);
       }
     },
-    [page, debouncedSearch, selectedRoles, selectedStatuses, filterOptions],
+    [page, debouncedSearch, selectedRoles, selectedStatuses, filterOptions, sortBy, sortOrder],
   );
 
   // Fetch filter options once
@@ -174,10 +193,24 @@ export default function UsersPage() {
     }
   }
 
-  // Reset to page 1 when search or filters change
+  // Reset to page 1 when search, filters, or sort change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, selectedRoles, selectedStatuses]);
+  }, [debouncedSearch, selectedRoles, selectedStatuses, sortBy, sortOrder]);
+
+  function handleSort(column: string) {
+    if (sortBy === column) {
+      if (sortOrder === 'desc') {
+        setSortOrder('asc');
+      } else {
+        setSortBy(null);
+        setSortOrder('desc');
+      }
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  }
 
   // Data is already filtered & paginated server-side
   const paginated = users;
@@ -232,7 +265,7 @@ export default function UsersPage() {
 
       <DataTable<UserData>
         data={paginated}
-        gridTemplate="1fr 1fr 120px 80px 80px 80px"
+        gridTemplate="1fr 1fr 140px 100px 120px 80px 80px 80px"
         ariaLabel="Users table"
         emptyMessage={
           debouncedSearch
@@ -278,6 +311,62 @@ export default function UsersPage() {
               ),
               cell: (u) => (
                 <span className="text-sm text-muted-foreground truncate">{u.email}</span>
+              ),
+            },
+            {
+              key: 'lastActivity',
+              header: (
+                <button
+                  onClick={() => handleSort('lastActivity')}
+                  className="inline-flex items-center gap-1 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors"
+                >
+                  Last_Activity
+                  {sortBy === 'lastActivity' ? (
+                    sortOrder === 'desc' ? (
+                      <ArrowDown className="h-3 w-3" />
+                    ) : (
+                      <ArrowUp className="h-3 w-3" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 opacity-40" />
+                  )}
+                </button>
+              ),
+              cell: (u) => (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {u.lastActivity
+                    ? new Date(u.lastActivity).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : '—'}
+                </span>
+              ),
+            },
+            {
+              key: 'userChannels',
+              header: (
+                <button
+                  onClick={() => handleSort('channelCount')}
+                  className="inline-flex items-center gap-1 text-xs uppercase tracking-[0.15em] text-muted-foreground font-medium hover:text-foreground transition-colors"
+                >
+                  User Ch.
+                  {sortBy === 'channelCount' ? (
+                    sortOrder === 'desc' ? (
+                      <ArrowDown className="h-3 w-3" />
+                    ) : (
+                      <ArrowUp className="h-3 w-3" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 opacity-40" />
+                  )}
+                </button>
+              ),
+              cell: (u) => (
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {u.channels?.length ?? 0}
+                </span>
               ),
             },
             {

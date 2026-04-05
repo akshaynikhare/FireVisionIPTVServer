@@ -1,11 +1,21 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
 import { Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
 import { AuthSidePanel } from '@/components/layout/auth-side-panel';
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      ready: (cb: () => void) => void;
+      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+    };
+  }
+}
 
 function RegisterContent() {
   const router = useRouter();
@@ -19,6 +29,31 @@ function RegisterContent() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState<string | null>(null);
+  const recaptchaLoaded = useRef(false);
+
+  useEffect(() => {
+    api
+      .get('/config/defaults')
+      .then((res) => {
+        const key = res.data?.data?.recaptchaSiteKey;
+        if (key) setRecaptchaSiteKey(key);
+      })
+      .catch(() => {});
+  }, []);
+
+  const executeRecaptcha = useCallback(async (): Promise<string | null> => {
+    if (!recaptchaSiteKey || !recaptchaLoaded.current) return null;
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        window.grecaptcha.ready(() => {
+          window.grecaptcha.execute(recaptchaSiteKey, { action: 'register' }).then(resolve, reject);
+        });
+      });
+    } catch {
+      return null;
+    }
+  }, [recaptchaSiteKey]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,7 +66,8 @@ function RegisterContent() {
     setLoading(true);
 
     try {
-      await api.post('/auth/register', { username, email, password });
+      const recaptchaToken = await executeRecaptcha();
+      await api.post('/auth/register', { username, email, password, recaptchaToken });
       const loginUrl =
         '/login?message=' +
         encodeURIComponent('Account created! Check your email to verify before signing in.') +
@@ -51,6 +87,16 @@ function RegisterContent() {
 
   return (
     <div className="w-full max-w-sm">
+      {recaptchaSiteKey && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`}
+          strategy="afterInteractive"
+          onLoad={() => {
+            recaptchaLoaded.current = true;
+          }}
+        />
+      )}
+
       <div className="lg:hidden mb-10">
         <Link href="/">
           <span className="text-lg font-display font-bold tracking-tight">
@@ -228,6 +274,29 @@ function RegisterContent() {
         >
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
+
+        {recaptchaSiteKey && (
+          <p className="text-[10px] text-muted-foreground/60 leading-snug">
+            Protected by reCAPTCHA.{' '}
+            <a
+              href="https://policies.google.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Privacy
+            </a>{' '}
+            &{' '}
+            <a
+              href="https://policies.google.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Terms
+            </a>
+          </p>
+        )}
       </form>
 
       <div className="mt-6 space-y-3">

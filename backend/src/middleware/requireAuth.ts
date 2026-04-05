@@ -41,6 +41,7 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       return res.status(401).json({
         success: false,
         error: 'User account is inactive',
+        adminEmail: process.env.SUPER_ADMIN_EMAIL || null,
       });
     }
 

@@ -191,9 +191,11 @@ router.post('/login', async (req, res) => {
     // Check if user is active
     if (!user.isActive) {
       console.warn(`Failed login attempt: inactive account (${safeInput}), IP: ${req.ip}`);
-      return res.status(401).json({
+      return res.status(403).json({
         success: false,
-        error: 'Invalid credentials',
+        error: 'Account is disabled',
+        code: 'ACCOUNT_DISABLED',
+        adminEmail: process.env.SUPER_ADMIN_EMAIL || null,
       });
     }
 
@@ -938,7 +940,7 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
  */
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, recaptchaToken } = req.body;
 
     // Validate input
     if (!username || !email || !password) {
@@ -946,6 +948,38 @@ router.post('/register', async (req, res) => {
         success: false,
         error: 'Username, email, and password are required',
       });
+    }
+
+    // Verify reCAPTCHA if configured
+    const recaptchaSecret = process.env.GOOGLE_RECAPTCHA_SECRET_KEY;
+    if (recaptchaSecret) {
+      if (!recaptchaToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'reCAPTCHA verification is required',
+        });
+      }
+
+      const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          secret: recaptchaSecret,
+          response: recaptchaToken,
+          remoteip: req.ip,
+        }),
+      });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.success || verifyData.score < 0.5) {
+        console.warn(
+          `reCAPTCHA failed for registration: score=${verifyData.score}, success=${verifyData.success}, IP: ${req.ip}`,
+        );
+        return res.status(403).json({
+          success: false,
+          error: 'Registration blocked — suspected bot activity. Please try again.',
+        });
+      }
     }
 
     // Validate username format
@@ -1133,7 +1167,11 @@ router.get('/google/callback', async (req, res) => {
     }
 
     if (user && !user.isActive) {
-      return res.redirect('/login?error=account_inactive');
+      const email = process.env.SUPER_ADMIN_EMAIL;
+      const qs = email
+        ? `/login?error=account_inactive&admin_email=${encodeURIComponent(email)}`
+        : '/login?error=account_inactive';
+      return res.redirect(qs);
     }
 
     if (!user) {
@@ -1305,7 +1343,11 @@ router.get('/github/callback', async (req, res) => {
     }
 
     if (user && !user.isActive) {
-      return res.redirect('/login?error=account_inactive');
+      const email = process.env.SUPER_ADMIN_EMAIL;
+      const qs = email
+        ? `/login?error=account_inactive&admin_email=${encodeURIComponent(email)}`
+        : '/login?error=account_inactive';
+      return res.redirect(qs);
     }
 
     if (!user) {
@@ -1408,8 +1450,16 @@ router.post('/oauth-exchange', async (req, res) => {
     }
 
     const user = await User.findById(entry.userId).select('-password');
-    if (!user || !user.isActive) {
+    if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid or expired code' });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Account is disabled',
+        code: 'ACCOUNT_DISABLED',
+        adminEmail: process.env.SUPER_ADMIN_EMAIL || null,
+      });
     }
 
     res.json({

@@ -44,7 +44,16 @@ api.interceptors.response.use(
       ) {
         // Clear both Zustand store and raw localStorage keys in one call
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        const data = error.response?.data;
+        const isInactive = data?.error === 'User account is inactive';
+        if (isInactive) {
+          const email = data?.adminEmail;
+          window.location.href = email
+            ? `/login?message=account_disabled&admin_email=${encodeURIComponent(email)}`
+            : '/login?message=account_disabled';
+        } else {
+          window.location.href = '/login';
+        }
         // No timeout reset — module reloads on navigation, resetting isRedirecting naturally
       }
     }

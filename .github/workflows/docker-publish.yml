@@ -147,6 +147,9 @@ jobs:
           BREVO_PASSWORD: ${{ secrets.BREVO_PASSWORD }}
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           APP_URL: ${{ vars.APP_URL }}
+          # reCAPTCHA
+          GOOGLE_RECAPTCHA_SITE_KEY: ${{ vars.GOOGLE_RECAPTCHA_SITE_KEY }}
+          GOOGLE_RECAPTCHA_SECRET_KEY: ${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY }}
           # Scheduler
           LIVENESS_CHECK_INTERVAL_MS: ${{ vars.LIVENESS_CHECK_INTERVAL_MS }}
           EPG_REFRESH_INTERVAL_MS: ${{ vars.EPG_REFRESH_INTERVAL_MS }}
