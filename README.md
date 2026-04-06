@@ -4,8 +4,95 @@
 [![CI](https://github.com/akshaynikhare/FireVisionIPTVServer/actions/workflows/ci.yml/badge.svg)](https://github.com/akshaynikhare/FireVisionIPTVServer/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akshaynikhare/FireVisionIPTVServer)](https://github.com/akshaynikhare/FireVisionIPTVServer/releases/latest)
 [![License](https://img.shields.io/github/license/akshaynikhare/FireVisionIPTVServer)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://github.com/akshaynikhare/FireVisionIPTVServer/pkgs/container/firevisioniptvserver)
 
-Backend and admin dashboard for FireVision IPTV — manages channels, users, device pairing, M3U imports, and app updates.
+**Self-hosted IPTV channel management platform.** Manage channels, users, EPG, and paired devices from a single admin panel — then stream directly to your Fire TV with the [companion Android app](https://github.com/akshaynikhare/FireVisionIPTV).
+
+> Your server. Your channels. No subscriptions.
+
+---
+
+## Features
+
+### Channel Management
+
+- Import M3U playlists and external sources (Pluto TV, Samsung TV Plus)
+- Smart stream grouping with auto-fallback to alternate streams
+- Live health scanning — online/offline status per channel
+- Bulk operations: enable, disable, reorder, delete
+- Per-channel stream testing with latency and manifest metrics
+- Global M3U playlist endpoint compatible with any IPTV player
+
+### EPG & Programme Guide
+
+- XMLTV EPG integration with scheduled auto-refresh
+- Per-channel programme schedule synced to paired TV devices
+
+### Device Pairing
+
+- PIN-based pairing with QR code support
+- TV app receives synced channel list, favorites, and health data in real time
+- Legacy code-based pairing for older clients
+
+### Admin Panel
+
+- Full user management — create, deactivate, assign roles, reset passwords
+- Role-based access control: Admin and User roles
+- Statistics dashboard — channels, users, sessions, activity timeline, charts
+- Scheduler control — liveness checks, EPG refresh, cache warm-up
+- OTA app version management — push APK updates to all paired TV devices
+
+### Auth & Security
+
+- Session-based auth (primary) + JWT (API clients)
+- OAuth2 sign-in with Google and GitHub
+- Refresh token rotation, per-session revocation, force logout all devices
+- Rate limiting, CORS, security headers
+
+### Infrastructure
+
+- One-command Docker Compose setup (dev + production)
+- Redis caching with graceful fallback if unavailable
+- Sentry error monitoring
+- Transactional email via Brevo SMTP (MailHog in dev)
+- Stream proxy and image proxy
+
+---
+
+## Quick Start
+
+**Requirements:** Docker & Docker Compose, 2 GB RAM minimum
+
+```bash
+# 1. Clone and configure
+git clone https://github.com/akshaynikhare/FireVisionIPTVServer.git
+cd FireVisionIPTVServer
+cp .env.example .env
+```
+
+Edit `.env` — at minimum set your admin credentials and JWT secrets:
+
+```env
+SUPER_ADMIN_USERNAME=admin
+SUPER_ADMIN_PASSWORD=YourSecurePassword123!
+SUPER_ADMIN_EMAIL=you@example.com
+
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_ACCESS_SECRET=<random-32-char-string>
+JWT_REFRESH_SECRET=<different-random-32-char-string>
+```
+
+```bash
+# 2. Start the full stack (API + frontend + scheduler + MongoDB + Redis)
+docker compose up -d
+
+# Admin panel → http://localhost:3001
+# API         → http://localhost:3000
+```
+
+For production deployment, see [Self-Hosting Guide](docs/workflow/SELF_HOSTING_GUIDE.md).
+
+---
 
 ## Architecture
 
@@ -30,39 +117,45 @@ Backend and admin dashboard for FireVision IPTV — manages channels, users, dev
 
 ## Tech Stack
 
-|              |                                             |
-| ------------ | ------------------------------------------- |
-| **Backend**  | Express, TypeScript, Mongoose               |
-| **Frontend** | Next.js 14, Tailwind CSS, Shadcn/ui         |
-| **State**    | TanStack Query + Zustand                    |
-| **Database** | MongoDB 7                                   |
-| **Cache**    | Redis 7 (optional — graceful fallback)      |
-| **Auth**     | Session-based + JWT, OAuth (Google, GitHub) |
-| **Testing**  | Jest, Supertest, Playwright                 |
-| **CI/CD**    | GitHub Actions → Docker → Portainer         |
+|              |                                              |
+| ------------ | -------------------------------------------- |
+| **Backend**  | Express.js, TypeScript, Mongoose             |
+| **Frontend** | Next.js 14, Tailwind CSS, shadcn/ui          |
+| **State**    | TanStack Query + Zustand                     |
+| **Database** | MongoDB 7                                    |
+| **Cache**    | Redis 7 (optional — graceful fallback)       |
+| **Auth**     | Session-based + JWT, OAuth2 (Google, GitHub) |
+| **Testing**  | Jest, Supertest, Playwright (E2E)            |
+| **CI/CD**    | GitHub Actions → Docker (GHCR) → Portainer   |
 
-## Deployment
+---
 
-Tag-based auto deploy: push a git tag → builds Docker image → publishes to GHCR → deploys via Portainer.
+## Android Client
 
-```
-git tag v1.2.3 && git push origin v1.2.3
-```
+Pair with the [FireVision IPTV](https://github.com/akshaynikhare/FireVisionIPTV) app — open-source IPTV player for Amazon Fire TV and Android TV.
 
-See [Deployment Guide](docs/workflow/DEPLOYMENT_GUIDE.md) for full setup.
+Features: HLS live streaming via ExoPlayer, D-pad navigation, server-synced favorites, background health scanning, OTA updates.
+
+---
 
 ## Documentation
 
-Detailed guides in [`docs/`](docs/):
+| Doc                                                       | Description                                  |
+| --------------------------------------------------------- | -------------------------------------------- |
+| [Self-Hosting Guide](docs/workflow/SELF_HOSTING_GUIDE.md) | Production Docker setup step-by-step         |
+| [API Documentation](docs/API_DOCUMENTATION.md)            | All endpoints with request/response examples |
+| [Architecture](docs/ARCHITECTURE.md)                      | System design and data flow                  |
+| [Setup Guide](docs/workflow/SETUP_GUIDE.md)               | Local dev environment                        |
+| [TV Pairing System](docs/workflow/TV_PAIRING_SYSTEM.md)   | How device pairing works                     |
+| [Deployment Guide](docs/workflow/DEPLOYMENT_GUIDE.md)     | Tag-based auto-deploy via GitHub Actions     |
+| [OAuth Setup](docs/workflow/OAUTH_SETUP.md)               | Google & GitHub OAuth configuration          |
+| [Feature List](docs/FEATURE_LIST.md)                      | Complete feature inventory                   |
 
-- [API Documentation](docs/API_DOCUMENTATION.md) — Endpoints, request/response examples
-- [Architecture](docs/ARCHITECTURE.md) — System design and data flow
-- [Setup Guide](docs/SETUP_GUIDE.md) — Dev environment setup
-- [Deployment Guide](docs/workflow/DEPLOYMENT_GUIDE.md) — Production deployment
-- [Admin Dashboard](docs/ADMIN_DASHBOARD.md) — Admin panel usage
-- [TV Pairing System](docs/TV_PAIRING_SYSTEM.md) — Device pairing flow
-- [Channel List Codes](docs/CHANNEL_LIST_CODE_SYSTEM.md) — Channel management
-- [OAuth Setup](docs/OAUTH_SETUP.md) — Google & GitHub OAuth config
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome.
 
 ## License
 
