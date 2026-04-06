@@ -12,6 +12,18 @@
 
 ---
 
+## Screenshots
+
+| Admin Dashboard                                      | Channel Management                                     | EPG Guide                                |
+| ---------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------- |
+| ![Admin Dashboard](preview/screenshot-dashboard.png) | ![Channel Management](preview/screenshot-channels.png) | ![EPG Guide](preview/screenshot-epg.png) |
+
+| User Management                                  | Device Pairing                                    | Statistics                                  |
+| ------------------------------------------------ | ------------------------------------------------- | ------------------------------------------- |
+| ![User Management](preview/screenshot-users.png) | ![Device Pairing](preview/screenshot-pairing.png) | ![Statistics](preview/screenshot-stats.png) |
+
+---
+
 ## Features
 
 ### Channel Management
