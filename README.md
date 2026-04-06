@@ -16,11 +16,11 @@
 
 | Admin Dashboard                                      | Channel Management                                     | EPG Guide                                |
 | ---------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------- |
-| ![Admin Dashboard](preview/screenshot-dashboard.png) | ![Channel Management](preview/screenshot-channels.png) | ![EPG Guide](preview/screenshot-epg.png) |
+| ![Admin Dashboard](preview/screenshot-dashboard.jpg) | ![Channel Management](preview/screenshot-channels.jpg) | ![EPG Guide](preview/screenshot-epg.jpg) |
 
 | User Management                                  | Device Pairing                                    | Statistics                                  |
 | ------------------------------------------------ | ------------------------------------------------- | ------------------------------------------- |
-| ![User Management](preview/screenshot-users.png) | ![Device Pairing](preview/screenshot-pairing.png) | ![Statistics](preview/screenshot-stats.png) |
+| ![User Management](preview/screenshot-users.jpg) | ![Device Pairing](preview/screenshot-pairing.jpg) | ![Statistics](preview/screenshot-stats.jpg) |
 
 ---
 
@@ -105,6 +105,8 @@ docker compose up -d
 For production deployment, see [Self-Hosting Guide](docs/workflow/SELF_HOSTING_GUIDE.md).
 
 ---
+
+x
 
 ## Architecture
 
