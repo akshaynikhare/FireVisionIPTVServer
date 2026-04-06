@@ -106,8 +106,6 @@ For production deployment, see [Self-Hosting Guide](docs/workflow/SELF_HOSTING_G
 
 ---
 
-x
-
 ## Architecture
 
 ```
