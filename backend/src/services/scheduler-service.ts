@@ -2,6 +2,7 @@ import { ScheduledTaskRun } from '../models/ScheduledTaskRun';
 import { getAllTasks, getTask } from './task-registry';
 
 const LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutes — stale locks are auto-released
+const HEARTBEAT_MS = 60 * 1000; // refresh the lock every minute while a task runs
 const PROCESS_ID = `${process.pid}-${Date.now()}`;
 
 class SchedulerService {
@@ -13,7 +14,8 @@ class SchedulerService {
     await this.recoverStaleRuns();
 
     const tasks = getAllTasks();
-    for (const task of tasks) {
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
       const timer = setInterval(() => {
         this.executeTask(task.name, 'scheduled').catch((err) =>
           console.error(`[scheduler] Scheduled run of '${task.name}' failed:`, err.message),
@@ -21,10 +23,42 @@ class SchedulerService {
       }, task.intervalMs);
       this.timers.set(task.name, timer);
 
+      // Catch-up: if the task is overdue (never ran, or last completed run is
+      // older than its interval), trigger an immediate run. Staggered per index
+      // to avoid a thundering herd on (re)start.
+      this.maybeRunOnStart(task, i).catch((err) =>
+        console.error(`[scheduler] Catch-up check for '${task.name}' failed:`, err.message),
+      );
+
       const hours = (task.intervalMs / 3600000).toFixed(1);
       console.log(`[scheduler] ${task.displayName} scheduled every ${hours}h`);
     }
     console.log(`[scheduler] Started ${tasks.length} tasks`);
+  }
+
+  // Trigger an immediate run if the task is overdue relative to its last completed run.
+  private async maybeRunOnStart(
+    task: { name: string; intervalMs: number },
+    index: number,
+  ): Promise<void> {
+    const lastCompleted = await ScheduledTaskRun.findOne({
+      taskName: task.name,
+      status: 'completed',
+    })
+      .sort({ completedAt: -1 })
+      .lean();
+
+    const lastAt = lastCompleted?.completedAt || lastCompleted?.startedAt;
+    const overdue = !lastAt || Date.now() - new Date(lastAt).getTime() >= task.intervalMs;
+    if (!overdue) return;
+
+    // Stagger to avoid all overdue tasks firing at once on start.
+    const delayMs = index * 5000;
+    setTimeout(() => {
+      this.executeTask(task.name, 'scheduled').catch((err) =>
+        console.error(`[scheduler] Catch-up run of '${task.name}' failed:`, err.message),
+      );
+    }, delayMs);
   }
 
   // Stop all interval timers
@@ -122,14 +156,28 @@ class SchedulerService {
 
     console.log(`[scheduler] Running '${taskDef.displayName}' (${trigger})`);
 
+    // Heartbeat: keep refreshing lockedAt so the stale-lock reclaim (LOCK_TTL_MS)
+    // doesn't fire mid-run for tasks that outlast the TTL. Only refreshes while we
+    // still own the lock.
+    const heartbeat = setInterval(() => {
+      ScheduledTaskRun.updateOne(
+        { _id: run._id, lockedBy: PROCESS_ID, status: 'running' },
+        { $set: { lockedAt: new Date() } },
+      ).catch((err) =>
+        console.error(`[scheduler] Heartbeat for '${taskName}' failed:`, err.message),
+      );
+    }, HEARTBEAT_MS);
+
     try {
       const result = await taskDef.handler();
 
       const completedAt = new Date();
       const durationMs = completedAt.getTime() - run.startedAt!.getTime();
 
+      // Only write completion if we still own the lock — a reclaimed run may now
+      // belong to another process, and clobbering it would corrupt history.
       await ScheduledTaskRun.updateOne(
-        { _id: run._id },
+        { _id: run._id, lockedBy: PROCESS_ID },
         {
           status: 'completed',
           completedAt,
@@ -152,7 +200,7 @@ class SchedulerService {
       const durationMs = completedAt.getTime() - run.startedAt!.getTime();
 
       await ScheduledTaskRun.updateOne(
-        { _id: run._id },
+        { _id: run._id, lockedBy: PROCESS_ID },
         {
           status: 'failed',
           completedAt,
@@ -163,6 +211,8 @@ class SchedulerService {
 
       console.error(`[scheduler] '${taskDef.displayName}' failed: ${err.message}`);
       throw err;
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 

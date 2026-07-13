@@ -373,13 +373,20 @@ class IptvOrgCacheService {
       };
     }
 
-    let resolve!: () => void;
-    let reject!: (err: Error) => void;
-    this.refreshPromise = new Promise<void>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
+    // Store the actual work promise so concurrent callers share it. The no-op
+    // catch prevents an unhandled rejection if no one else is awaiting, while
+    // callers that do await still receive the rejection.
+    this.refreshPromise = this.doRefresh();
+    this.refreshPromise.catch(() => {});
+    await this.refreshPromise;
+    const meta = await this.getCacheMeta();
+    return {
+      enrichedCount: meta?.enrichedCount || 0,
+      durationMs: meta?.refreshDurationMs || 0,
+    };
+  }
 
+  private async doRefresh(): Promise<void> {
     const startTime = Date.now();
 
     try {
@@ -472,9 +479,6 @@ class IptvOrgCacheService {
       console.log(
         `[iptv-org-cache] Refresh complete: ${enriched.length} channels upserted in ${durationMs}ms`,
       );
-
-      resolve();
-      return { enrichedCount: enriched.length, durationMs };
     } catch (err: any) {
       // Reset in-progress flag
       await IptvOrgCacheMeta.findOneAndUpdate(
@@ -483,7 +487,6 @@ class IptvOrgCacheService {
       ).catch(() => {});
 
       console.error('[iptv-org-cache] Refresh failed:', err.message);
-      reject(err);
       throw err;
     } finally {
       this.refreshPromise = null;

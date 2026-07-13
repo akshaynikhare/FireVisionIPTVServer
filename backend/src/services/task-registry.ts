@@ -27,17 +27,18 @@ export interface TaskDefinition {
   handler: () => Promise<TaskResult>;
 }
 
-const LIVENESS_INTERVAL = parseInt(process.env.LIVENESS_CHECK_INTERVAL_MS || '86400000', 10);
-const EPG_INTERVAL = parseInt(process.env.EPG_REFRESH_INTERVAL_MS || '21600000', 10);
-const CACHE_INTERVAL = parseInt(process.env.CACHE_REFRESH_INTERVAL_MS || '3600000', 10);
-const STREAM_HEALTH_INTERVAL = parseInt(
-  process.env.STREAM_HEALTH_CHECK_INTERVAL_MS || '14400000',
-  10,
-);
-const YOUTUBE_REFRESH_INTERVAL = parseInt(
-  process.env.YOUTUBE_REFRESH_INTERVAL_MS || '14400000',
-  10,
-);
+// Parse an interval env var, falling back to the default if it's missing or
+// non-finite/non-positive (a NaN would make setInterval fire ~every 1ms).
+function intervalMs(envValue: string | undefined, defaultMs: number): number {
+  const n = parseInt(envValue || '', 10);
+  return Number.isFinite(n) && n > 0 ? n : defaultMs;
+}
+
+const LIVENESS_INTERVAL = intervalMs(process.env.LIVENESS_CHECK_INTERVAL_MS, 86400000);
+const EPG_INTERVAL = intervalMs(process.env.EPG_REFRESH_INTERVAL_MS, 21600000);
+const CACHE_INTERVAL = intervalMs(process.env.CACHE_REFRESH_INTERVAL_MS, 3600000);
+const STREAM_HEALTH_INTERVAL = intervalMs(process.env.STREAM_HEALTH_CHECK_INTERVAL_MS, 14400000);
+const YOUTUBE_REFRESH_INTERVAL = intervalMs(process.env.YOUTUBE_REFRESH_INTERVAL_MS, 14400000);
 
 async function livenessHandler(): Promise<TaskResult> {
   const subtasks: SubtaskResult[] = [];

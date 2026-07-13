@@ -31,6 +31,9 @@ const refreshTokenSchema = new Schema<IRefreshTokenDocument>(
   },
 );
 
+// TTL index: auto-delete tokens once they expire (prevents unbounded growth)
+refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 refreshTokenSchema.methods.isActive = function (this: IRefreshTokenDocument): boolean {
   return !this.revokedAt && this.expiresAt > new Date();
 };

@@ -398,11 +398,23 @@ export default function StatsPage() {
   }, []);
 
   const fetchTrend = useCallback(
-    async (type: string, range: TimeRange, setter: (d: TrendPoint[]) => void) => {
+    async (
+      type: string,
+      range: TimeRange,
+      setter: (d: TrendPoint[]) => void,
+      signal?: AbortSignal,
+    ) => {
       try {
-        const res = await api.get(`/admin/stats/trends/${type}?range=${range}`);
+        const res = await api.get(`/admin/stats/trends/${type}?range=${range}`, { signal });
+        if (signal?.aborted) return;
         setter(res.data?.data || []);
-      } catch {
+      } catch (err: unknown) {
+        if (signal?.aborted) return;
+        if (
+          err instanceof Error &&
+          (err.name === 'AbortError' || (err as { code?: string }).code === 'ERR_CANCELED')
+        )
+          return;
         setter([]);
       }
     },
@@ -410,15 +422,21 @@ export default function StatsPage() {
   );
 
   useEffect(() => {
-    fetchTrend('users', userRange, setUserTrend);
+    const controller = new AbortController();
+    fetchTrend('users', userRange, setUserTrend, controller.signal);
+    return () => controller.abort();
   }, [userRange, fetchTrend]);
 
   useEffect(() => {
-    fetchTrend('sessions', sessionRange, setSessionTrend);
+    const controller = new AbortController();
+    fetchTrend('sessions', sessionRange, setSessionTrend, controller.signal);
+    return () => controller.abort();
   }, [sessionRange, fetchTrend]);
 
   useEffect(() => {
-    fetchTrend('pairings', pairingRange, setPairingTrend);
+    const controller = new AbortController();
+    fetchTrend('pairings', pairingRange, setPairingTrend, controller.signal);
+    return () => controller.abort();
   }, [pairingRange, fetchTrend]);
 
   if (loading) {

@@ -27,6 +27,8 @@ export interface IAlternateStream {
 }
 
 export interface IChannel {
+  // null = shared admin catalog; a user id = a private channel owned by that user.
+  ownerId?: Types.ObjectId | null;
   channelId: string;
   channelName: string;
   channelUrl: string;

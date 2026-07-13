@@ -35,8 +35,15 @@ async function findUserByCode(code, res) {
     });
     return null;
   }
-  user.lastLogin = new Date();
-  await user.save();
+  // Called on every request (incl. each HLS segment). Only touch lastLogin when
+  // it's stale (>5 min) and use a lightweight atomic update, fire-and-forget so a
+  // failed write never blocks streaming.
+  const FIVE_MINUTES = 5 * 60 * 1000;
+  if (!user.lastLogin || Date.now() - user.lastLogin.getTime() > FIVE_MINUTES) {
+    User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } }).catch((err) =>
+      console.error('Failed to update lastLogin:', err.message),
+    );
+  }
   return user;
 }
 
@@ -74,8 +81,8 @@ router.get('/playlist/:code/json', async (req, res) => {
     let channels;
 
     if (user.role === 'Admin') {
-      // Admin gets all channels
-      channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 });
+      // Admin/demo gets the shared catalog only (never users' private channels)
+      channels = await Channel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 });
     } else {
       // Regular users get only their assigned active channels
       const channelIds = (user.channels || []).filter(Boolean);
@@ -754,8 +761,14 @@ router.get('/pairing/status/:pin', async (req, res) => {
       });
     }
 
-    // Check if completed ��� only return channelListCode (needed by TV app),
-    // not username/role which leaks user info to anyone polling the PIN
+    // Check if completed — only return channelListCode (needed by TV app),
+    // not username/role which leaks user info to anyone polling the PIN.
+    // SECURITY RISK (accepted): channelListCode is the credential the TV needs to
+    // fetch playlists. The PIN-based flow has no other authenticated/device-bound
+    // channel to deliver it — the TV holds only the PIN — so it must be returned here.
+    // Residual risk: anyone who guesses/knows the PIN during its short expiry window
+    // (default 10 min) can read the code. Mitigated by the short-lived PIN and the
+    // pairingStatusLimiter rate limit in server.js.
     if (pairingRequest.status === 'completed' && pairingRequest.userId) {
       const user = pairingRequest.userId;
       return res.json({

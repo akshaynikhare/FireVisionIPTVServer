@@ -35,7 +35,6 @@ print_help() {
     echo "  logs            - View logs (all services)"
     echo "  logs-api        - View API server logs"
     echo "  logs-mongo      - View MongoDB logs"
-    echo "  logs-nginx      - View Nginx logs"
     echo "  status          - Check service status"
     echo "  health          - Check server health"
     echo "  backup          - Backup database and APKs"
@@ -87,10 +86,6 @@ view_api_logs() {
 
 view_mongo_logs() {
     docker-compose logs -f mongodb
-}
-
-view_nginx_logs() {
-    docker-compose logs -f nginx
 }
 
 check_status() {
@@ -154,16 +149,22 @@ initial_setup() {
     if [ ! -f .env ]; then
         echo -e "${YELLOW}Creating .env file...${NC}"
         cp .env.example .env
+        chmod 600 .env 2>/dev/null || true  # secrets get written below — restrict access
 
-        # Generate API key
+        # Generate strong secrets and replace the CHANGE-ME sentinels
         if command -v openssl &> /dev/null; then
-            API_KEY=$(openssl rand -hex 32)
-            sed -i.bak "s/your-secure-api-key-change-this-immediately/$API_KEY/" .env
+            JWT_ACCESS=$(openssl rand -hex 32)
+            JWT_REFRESH=$(openssl rand -hex 32)
+            ADMIN_PASS=$(openssl rand -base64 24)
+            sed -i.bak "s|^JWT_ACCESS_SECRET=.*|JWT_ACCESS_SECRET=$JWT_ACCESS|" .env
+            sed -i.bak "s|^JWT_REFRESH_SECRET=.*|JWT_REFRESH_SECRET=$JWT_REFRESH|" .env
+            sed -i.bak "s|^SUPER_ADMIN_PASSWORD=.*|SUPER_ADMIN_PASSWORD=$ADMIN_PASS|" .env
             rm .env.bak 2>/dev/null || true
-            echo -e "${GREEN}✓ Generated API key: $API_KEY${NC}"
-            echo -e "${YELLOW}  Save this key! You'll need it for admin operations.${NC}"
+            echo -e "${GREEN}✓ Generated JWT secrets and super admin password${NC}"
+            echo -e "${YELLOW}  Super admin password: $ADMIN_PASS${NC}"
+            echo -e "${YELLOW}  Save this password! You'll need it to log in.${NC}"
         else
-            echo -e "${YELLOW}  Warning: OpenSSL not found. Please manually set API_KEY in .env${NC}"
+            echo -e "${YELLOW}  Warning: OpenSSL not found. Please manually set the CHANGE-ME values in .env${NC}"
         fi
     else
         echo -e "${YELLOW}.env file already exists. Skipping...${NC}"
@@ -271,9 +272,6 @@ case "$1" in
         ;;
     logs-mongo)
         view_mongo_logs
-        ;;
-    logs-nginx)
-        view_nginx_logs
         ;;
     status)
         check_status

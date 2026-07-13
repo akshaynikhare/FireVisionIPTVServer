@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -32,26 +32,47 @@ export default function ExternalSourceTab({
   const [channels, setChannels] = useState<SourceChannel[]>([]);
   const [loading, setLoading] = useState(false);
   const [regionsLoading, setRegionsLoading] = useState(true);
+  const channelsAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     api
-      .get(`/external-sources/${sourceKey}/regions`)
+      .get(`/external-sources/${sourceKey}/regions`, { signal: controller.signal })
       .then((res) => setRegions(res.data.data || []))
       .catch(() => {})
-      .finally(() => setRegionsLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setRegionsLoading(false);
+      });
+    return () => controller.abort();
   }, [sourceKey]);
 
+  useEffect(() => {
+    return () => channelsAbortRef.current?.abort();
+  }, []);
+
   async function fetchChannels(region: string) {
+    channelsAbortRef.current?.abort();
+    const controller = new AbortController();
+    channelsAbortRef.current = controller;
     setSelectedRegion(region);
     setLoading(true);
     setChannels([]);
     try {
-      const res = await api.get(`/external-sources/${sourceKey}/channels?country=${region}`);
+      const res = await api.get(`/external-sources/${sourceKey}/channels?country=${region}`, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       setChannels(res.data.data || []);
-    } catch {
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      if (
+        err instanceof Error &&
+        (err.name === 'AbortError' || (err as { code?: string }).code === 'ERR_CANCELED')
+      )
+        return;
       toast(`Failed to fetch ${sourceLabel} channels`, 'error');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 

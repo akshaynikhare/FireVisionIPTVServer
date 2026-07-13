@@ -15,6 +15,16 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
       throw new Error('SUPER_ADMIN_PASSWORD must be set in production');
     }
     const password = process.env.SUPER_ADMIN_PASSWORD || 'ChangeMeNow123!';
+
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (!process.env.SUPER_ADMIN_PASSWORD || process.env.SUPER_ADMIN_PASSWORD === 'admin123')
+    ) {
+      console.warn(
+        '[SECURITY] SUPER_ADMIN_PASSWORD is unset or the known default in production — set a strong SUPER_ADMIN_PASSWORD in your .env immediately.',
+      );
+    }
+
     const channelListCode =
       process.env.SUPER_ADMIN_CHANNEL_LIST_CODE || (await (User as any).generateChannelListCode());
 
@@ -30,6 +40,7 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
         console.log(`Super Admin found by role (${existingAdmin.username}) — updating credentials`);
         existingAdmin.username = username;
         existingAdmin.email = email;
+        existingAdmin.emailVerified = true;
         existingAdmin.password = password;
         existingAdmin.isActive = true;
         existingAdmin.channelListCode = channelListCode;
@@ -42,6 +53,14 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
 
     if (existingAdmin) {
       console.log('Super Admin user already exists');
+
+      // Sync email from env and ensure the admin is never locked behind email verification
+      if (existingAdmin.email !== email || !existingAdmin.emailVerified) {
+        existingAdmin.email = email;
+        existingAdmin.emailVerified = true;
+        await existingAdmin.save();
+        console.log(`Super Admin email synced to: ${email}`);
+      }
 
       // Update password, role, and channel list code if needed
       if (process.env.FORCE_UPDATE_ADMIN_PASSWORD === 'true') {
@@ -70,6 +89,7 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
       username: username,
       password: password,
       email: email,
+      emailVerified: true,
       role: 'Admin',
       isActive: true,
       channelListCode: channelListCode,

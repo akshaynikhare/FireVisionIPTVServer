@@ -584,3 +584,15 @@ Complete inventory of every feature in the application.
 - Dedicated lower-threshold rate limiter on the pairing status polling endpoint
 - Prevents TV devices from hammering the status endpoint during pairing flow
 - Rate limit is separate from the global API rate limiter to avoid blocking other traffic
+
+## Channel Ownership & Playlist Privacy
+
+- Channels carry an `ownerId`: `null` = shared admin catalog, a user id = that user's private channel
+- User M3U/Xtream imports create private channels owned by the importer — never pooled into the shared catalog
+- Private playlist URLs (which may embed subscription credentials) are hidden from admins and the public demo
+- Admin catalog views, stats, category counts, and the M3U export are scoped to catalog channels only
+- Admin catalog re-import/wipe (`replaceExisting`/delete-all) affects only catalog channels; users' private channels are preserved
+- `channelId` uniqueness is per-owner (compound index), so different users can import the same channel independently
+- Import dedup is scoped per user, so re-importing a playlist won't create duplicates
+- "Browse Demo Channels" pairs to a dedicated `DEMO_CHANNEL_LIST_CODE`; the admin/TV channel sync is bounded by `TV_CHANNELS_MAX`
+- One-time migration backfills ownership with conservative attribution and guarantees no user loses channels

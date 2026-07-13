@@ -124,6 +124,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
   const [groupedSearch, setGroupedSearch] = useState('');
   const [groupedStatus, setGroupedStatus] = useState<string>('');
   const groupedSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectAbortRef = useRef<AbortController | null>(null);
 
   // Region selector
   const [regions, setRegions] = useState<{ code: string; channelCount: number }[]>([]);
@@ -248,7 +249,22 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     setGroupedStatus('');
   }
 
+  function startSelectRequest() {
+    selectAbortRef.current?.abort();
+    const controller = new AbortController();
+    selectAbortRef.current = controller;
+    return controller;
+  }
+
+  function isSelectCanceled(err: unknown) {
+    return (
+      err instanceof Error &&
+      (err.name === 'AbortError' || (err as { code?: string }).code === 'ERR_CANCELED')
+    );
+  }
+
   async function handleSelectRegion(code: string) {
+    const controller = startSelectRequest();
     setSelectedRegion(code);
     setSelectedPlaylist(null);
     resetTableState();
@@ -257,18 +273,20 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
       const params = new URLSearchParams();
       params.set('country', code);
       if (groupedMode) {
-        await fetchGroupedChannels(params, 1);
+        await fetchGroupedChannels(params, 1, controller.signal);
       } else {
-        await fetchChannelsFromApi(params);
+        await fetchChannelsFromApi(params, controller.signal);
       }
-    } catch {
+    } catch (err) {
+      if (isSelectCanceled(err)) return;
       toast('Failed to fetch channels', 'error');
     } finally {
-      setFetchingChannels(false);
+      if (!controller.signal.aborted) setFetchingChannels(false);
     }
   }
 
   async function handleSelectPlaylist(playlist: Playlist) {
+    const controller = startSelectRequest();
     setSelectedPlaylist(playlist.id);
     setSelectedRegion(null);
     resetTableState();
@@ -289,19 +307,21 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
       }
 
       if (groupedMode) {
-        await fetchGroupedChannels(params, 1);
+        await fetchGroupedChannels(params, 1, controller.signal);
       } else {
-        await fetchChannelsFromApi(params);
+        await fetchChannelsFromApi(params, controller.signal);
       }
-    } catch {
+    } catch (err) {
+      if (isSelectCanceled(err)) return;
       toast('Failed to fetch channels', 'error');
     } finally {
-      setFetchingChannels(false);
+      if (!controller.signal.aborted) setFetchingChannels(false);
     }
   }
 
-  async function fetchChannelsFromApi(params: URLSearchParams) {
-    const res = await api.get(`/iptv-org/fetch?${params.toString()}`);
+  async function fetchChannelsFromApi(params: URLSearchParams, signal?: AbortSignal) {
+    const res = await api.get(`/iptv-org/fetch?${params.toString()}`, { signal });
+    if (signal?.aborted) return;
     const data = (res.data.data || []).map((ch: Omit<EnrichedChannel, '_uid'>, i: number) => ({
       ...ch,
       _uid: String(i),
@@ -339,10 +359,11 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     return params;
   }
 
-  async function fetchGroupedChannels(params: URLSearchParams, pg: number) {
+  async function fetchGroupedChannels(params: URLSearchParams, pg: number, signal?: AbortSignal) {
     params.set('limit', String(PAGE_SIZE));
     params.set('skip', String((pg - 1) * PAGE_SIZE));
-    const res = await api.get(`/iptv-org/api/grouped?${params.toString()}`);
+    const res = await api.get(`/iptv-org/api/grouped?${params.toString()}`, { signal });
+    if (signal?.aborted) return;
     const body = res.data;
     const data: GroupedChannel[] = (body.data || []).map(
       (ch: Omit<GroupedChannel, '_uid'> & { channelId: string }) => ({
@@ -685,6 +706,7 @@ export default function ImportPageShell({ mode }: ImportPageShellProps) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (groupedSearchTimer.current) clearTimeout(groupedSearchTimer.current);
+      selectAbortRef.current?.abort();
     };
   }, []);
 

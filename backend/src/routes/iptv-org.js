@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const Channel = require('../models/Channel');
+const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { iptvOrgCacheService } = require('../services/iptv-org-cache');
 const { audit } = require('../services/audit-log');
@@ -453,7 +454,17 @@ router.post('/import', adminOnly, async (req, res) => {
       const session = await Channel.startSession();
       try {
         await session.withTransaction(async () => {
-          await Channel.deleteMany({}, { session });
+          // Only wipe the shared catalog (ownerId:null); users' private channels survive.
+          const catalogIds = await Channel.distinct('_id', { ownerId: null }).session(session);
+          await Channel.deleteMany({ ownerId: null }, { session });
+          // Remove the deleted catalog refs from users; their private channels stay.
+          if (catalogIds.length) {
+            await User.updateMany(
+              { channels: { $in: catalogIds } },
+              { $pull: { channels: { $in: catalogIds } } },
+              { session },
+            );
+          }
           const docs = channels.map((channelData, i) => ({
             channelId: channelData.channelId || `iptv_${Date.now()}_${i}`,
             channelName: channelData.channelName,
@@ -556,7 +567,17 @@ router.post('/import-grouped', adminOnly, async (req, res) => {
       const session = await Channel.startSession();
       try {
         await session.withTransaction(async () => {
-          await Channel.deleteMany({}, { session });
+          // Only wipe the shared catalog (ownerId:null); users' private channels survive.
+          const catalogIds = await Channel.distinct('_id', { ownerId: null }).session(session);
+          await Channel.deleteMany({ ownerId: null }, { session });
+          // Remove the deleted catalog refs from users; their private channels stay.
+          if (catalogIds.length) {
+            await User.updateMany(
+              { channels: { $in: catalogIds } },
+              { $pull: { channels: { $in: catalogIds } } },
+              { session },
+            );
+          }
           const docs = channels.map((ch, i) => ({
             channelId: ch.channelId || `iptv_${Date.now()}_${i}`,
             channelName: ch.channelName,
@@ -657,8 +678,10 @@ router.post('/import-grouped-user', async (req, res) => {
     if (!channels || !Array.isArray(channels)) {
       return res.status(400).json({ success: false, error: 'Channels array is required' });
     }
+    if (channels.length > 500) {
+      return res.status(400).json({ success: false, error: 'Maximum 500 channels per import' });
+    }
 
-    const User = require('../models/User');
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -672,11 +695,21 @@ router.post('/import-grouped-user', async (req, res) => {
       try {
         const url = ch.selectedStreamUrl || ch.channelUrl;
         const name = ch.channelName;
+
+        // Only accept http/https stream URLs
+        if (!url || typeof url !== 'string') continue;
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+        } catch {
+          continue;
+        }
         const logo = ch.tvgLogo || '';
         const id = ch.channelId || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const group = ch.channelGroup || 'Imported';
 
-        let existingChannel = await Channel.findOne({ channelUrl: url });
+        // Dedup only against this user's own private channels.
+        let existingChannel = await Channel.findOne({ channelUrl: url, ownerId: userId });
 
         if (existingChannel) {
           // Merge incoming alternateStreams into the existing channel
@@ -712,6 +745,7 @@ router.post('/import-grouped-user', async (req, res) => {
           }
         } else {
           const newChannel = new Channel({
+            ownerId: userId, // private channel owned by the importing user
             channelId: id,
             channelName: name,
             channelUrl: url,
@@ -815,8 +849,9 @@ router.post('/import-user', async (req, res) => {
     if (!channels || !Array.isArray(channels)) {
       return res.status(400).json({ success: false, error: 'Channels array is required' });
     }
-
-    const User = require('../models/User');
+    if (channels.length > 500) {
+      return res.status(400).json({ success: false, error: 'Maximum 500 channels per import' });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -830,12 +865,22 @@ router.post('/import-user', async (req, res) => {
       try {
         const url = ch.channelUrl || ch.url;
         const name = ch.channelName || ch.name;
+
+        // Only accept http/https stream URLs
+        if (!url || typeof url !== 'string') continue;
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+        } catch {
+          continue;
+        }
         const logo = ch.tvgLogo || ch.logo || '';
         const id =
           ch.channelId || ch.id || `iptv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const group = ch.channelGroup || ch.category || 'IPTV-org';
 
-        let existingChannel = await Channel.findOne({ channelUrl: url });
+        // Dedup only against this user's own private channels.
+        let existingChannel = await Channel.findOne({ channelUrl: url, ownerId: userId });
 
         if (existingChannel) {
           const channelIdStr = existingChannel._id.toString();
@@ -845,6 +890,7 @@ router.post('/import-user', async (req, res) => {
           }
         } else {
           const newChannel = new Channel({
+            ownerId: userId, // private channel owned by the importing user
             channelId: id,
             channelName: name,
             channelUrl: url,

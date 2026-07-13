@@ -92,23 +92,27 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
         { $sort: sort },
         { $skip: (p - 1) * ps },
         { $limit: ps },
-        { $project: { password: 0 } },
+        {
+          $project: {
+            password: 0,
+            channels: 0,
+            emailVerificationToken: 0,
+            emailVerificationExpires: 0,
+            passwordResetToken: 0,
+            passwordResetExpires: 0,
+            googleId: 0,
+            githubId: 0,
+          },
+        },
       ];
-      const [aggUsers, countResult] = await Promise.all([
+      [users, totalCount] = await Promise.all([
         User.aggregate(pipeline),
         User.countDocuments(filter),
       ]);
-      // Populate channels after aggregation
-      users = await User.populate(aggUsers, {
-        path: 'channels',
-        select: 'channelName channelGroup',
-      });
-      totalCount = countResult;
     } else {
       [users, totalCount] = await Promise.all([
         User.find(filter)
           .select('-password')
-          .populate('channels', 'channelName channelGroup')
           .sort(sort)
           .skip((p - 1) * ps)
           .limit(ps),
@@ -137,7 +141,8 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
       } else {
         userObj.lastActivity = auditDate || loginDate || fallbackDate;
       }
-      userObj.channelCount = (userObj.channels || []).length;
+      userObj.channelCount = userObj.channelCount ?? (userObj.channels || []).length;
+      delete userObj.channels;
       return userObj;
     });
 

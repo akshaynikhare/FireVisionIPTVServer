@@ -87,13 +87,15 @@ class EpgService {
       return;
     }
 
-    let resolve!: () => void;
-    let reject!: (err: Error) => void;
-    this.refreshPromise = new Promise<void>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
+    // Store the actual work promise so concurrent callers share it. The no-op
+    // catch prevents an unhandled rejection if no one else is awaiting, while
+    // callers that do await still receive the rejection.
+    this.refreshPromise = this.doRefreshEpg();
+    this.refreshPromise.catch(() => {});
+    return this.refreshPromise;
+  }
 
+  private async doRefreshEpg(): Promise<void> {
     const startTime = Date.now();
 
     try {
@@ -106,7 +108,6 @@ class EpgService {
       if (sources.length === 0) {
         console.log('[epg-service] No EPG sources discovered for current channels');
         this.lastRefreshedAt = new Date();
-        resolve();
         return;
       }
 
@@ -145,11 +146,9 @@ class EpgService {
       console.log(
         `[epg-service] EPG refresh complete: ${totalPrograms} programs upserted from ${sources.length} sources in ${durationMs}ms`,
       );
-
-      resolve();
     } catch (err: any) {
       console.error('[epg-service] EPG refresh failed:', err.message);
-      reject(err);
+      throw err;
     } finally {
       this.refreshPromise = null;
     }

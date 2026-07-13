@@ -18,9 +18,10 @@ export function getRedisClient(): Redis | null {
   try {
     redisClient = new Redis(url, {
       maxRetriesPerRequest: 3,
+      // Never give up reconnecting — after a long outage the client must recover.
+      // Cap the backoff instead of returning null (which permanently ends the client).
       retryStrategy(times: number) {
-        if (times > 10) return null; // Stop retrying
-        return Math.min(times * 100, 3000);
+        return Math.min(times * 200, 5000);
       },
       lazyConnect: true,
     });

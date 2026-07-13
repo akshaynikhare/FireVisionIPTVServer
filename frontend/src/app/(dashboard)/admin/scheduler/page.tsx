@@ -98,6 +98,7 @@ export default function SchedulerPage() {
   const [runsPage, setRunsPage] = useState(1);
   const [taskFilter, setTaskFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [triggeringTask, setTriggeringTask] = useState<string | null>(null);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -107,8 +108,9 @@ export default function SchedulerPage() {
     try {
       const res = await api.get('/scheduler/tasks');
       setTasks(res.data.data || []);
+      setError('');
     } catch {
-      // silent — tasks will show as empty
+      setError('Failed to load scheduler data');
     }
   }, []);
 
@@ -122,8 +124,9 @@ export default function SchedulerPage() {
       const res = await api.get(`/scheduler/runs?${params}`);
       setRuns(res.data.data || []);
       setTotalRuns(res.data.totalCount || 0);
+      setError('');
     } catch {
-      // silent
+      setError('Failed to load scheduler data');
     }
   }, [runsPage, taskFilter]);
 
@@ -191,6 +194,15 @@ export default function SchedulerPage() {
           Background tasks, run history, and manual triggers
         </p>
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </div>
+      )}
 
       {/* Task cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

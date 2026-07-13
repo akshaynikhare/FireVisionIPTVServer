@@ -56,6 +56,15 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Keep the scheduler alive on unexpected errors — a stray rejected background
+// promise should not crash the container (mirrors server.js which only logs).
+process.on('unhandledRejection', (reason) => {
+  console.error('[scheduler-entrypoint] Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[scheduler-entrypoint] Uncaught exception:', err);
+});
+
 main().catch((err) => {
   console.error('[scheduler-entrypoint] Fatal error:', err);
   process.exit(1);

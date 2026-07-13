@@ -24,7 +24,8 @@ const { requireJwtAuth } = require('../middleware/requireJwtAuth');
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) {
+    // Reject non-strings to prevent NoSQL operator injection in the $or query below.
+    if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
       return res.status(400).json({ success: false, error: 'Username and password required' });
     }
     const user = await User.findOne({ $or: [{ username }, { email: username }] });

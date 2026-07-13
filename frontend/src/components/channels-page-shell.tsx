@@ -184,6 +184,8 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
 
   // User: Add from system
   const [allChannels, setAllChannels] = useState<Channel[]>([]);
+  const [allChannelsLoading, setAllChannelsLoading] = useState(false);
+  const [addChannelsError, setAddChannelsError] = useState('');
   const [addSearch, setAddSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -310,25 +312,42 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   }
 
   // --- User: Client-side data fetching ---
-  async function fetchMyChannels() {
+  function isCanceled(err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') return true;
+    return (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: string }).code === 'ERR_CANCELED'
+    );
+  }
+
+  async function fetchMyChannels(signal?: AbortSignal) {
     try {
-      const res = await api.get('/user-playlist/me/channels');
+      const res = await api.get('/user-playlist/me/channels', { signal });
       const body = res.data;
       setChannels(Array.isArray(body) ? body : body.data || body.channels || []);
-    } catch {
-      // empty
+      setError('');
+    } catch (err: unknown) {
+      if (isCanceled(err)) return;
+      setError('Failed to load channels');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
-  async function fetchAllChannels() {
+  async function fetchAllChannels(signal?: AbortSignal) {
+    setAllChannelsLoading(true);
+    setAddChannelsError('');
     try {
-      const res = await api.get('/channels');
+      const res = await api.get('/channels', { signal });
       const body = res.data;
       setAllChannels(Array.isArray(body) ? body : body.data || body.channels || []);
-    } catch {
-      // empty
+    } catch (err: unknown) {
+      if (isCanceled(err)) return;
+      setAddChannelsError('Failed to load channels');
+    } finally {
+      if (!signal?.aborted) setAllChannelsLoading(false);
     }
   }
 
@@ -336,13 +355,24 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   useEffect(() => {
     setOrigin(window.location.origin);
     fetchFavorites();
+    const controller = new AbortController();
     if (isAdmin) {
       refreshFilterOptions();
     } else {
-      fetchMyChannels();
+      fetchMyChannels(controller.signal);
     }
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  // User: load the full catalog when the "Add from system" panel opens
+  useEffect(() => {
+    if (isAdmin || !showAdd || allChannels.length > 0) return;
+    const controller = new AbortController();
+    fetchAllChannels(controller.signal);
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, showAdd]);
 
   // Admin: track prev filters and reset page
   const prevFiltersRef = useRef({
@@ -1212,7 +1242,6 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
                   setAddError('');
                 } else {
                   setShowAdd(!showAdd);
-                  if (!showAdd && allChannels.length === 0) fetchAllChannels();
                 }
               }}
               className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium bg-primary text-primary-foreground uppercase tracking-[0.1em] transition-colors hover:bg-primary/90"
@@ -1302,7 +1331,15 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
           <div className="max-h-64 overflow-y-auto border border-border divide-y divide-border">
             {availableChannels.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                {allChannels.length === 0 ? 'Loading channels...' : 'No channels available to add'}
+                {addChannelsError ? (
+                  <span className="text-destructive">{addChannelsError}</span>
+                ) : allChannelsLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading channels...
+                  </span>
+                ) : (
+                  'No channels available to add'
+                )}
               </div>
             ) : (
               availableChannels.slice(0, 50).map((ch) => (

@@ -122,8 +122,9 @@ class ExternalSourceCacheService {
     // Dedup concurrent refreshes.
     // NOTE: The check and assignment below are synchronous (no await between them),
     // so no concurrent call can slip through in single-threaded Node.js.
-    if (this.refreshPromises.has(key)) {
-      await this.refreshPromises.get(key);
+    const existing = this.refreshPromises.get(key);
+    if (existing) {
+      await existing;
       const meta = await this.getCacheMeta(source, region);
       return {
         channelCount: meta?.channelCount || 0,
@@ -131,14 +132,25 @@ class ExternalSourceCacheService {
       };
     }
 
-    let resolve!: () => void;
-    let reject!: (err: Error) => void;
-    const promise = new Promise<void>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
+    // Store the actual work promise so concurrent callers share it. The no-op
+    // catch prevents an unhandled rejection if no one else is awaiting, while
+    // callers that do await still receive the rejection.
+    const promise = this.doRefreshRegion(source, region, key);
+    promise.catch(() => {});
     this.refreshPromises.set(key, promise);
+    await promise;
+    const meta = await this.getCacheMeta(source, region);
+    return {
+      channelCount: meta?.channelCount || 0,
+      durationMs: meta?.refreshDurationMs || 0,
+    };
+  }
 
+  private async doRefreshRegion(
+    source: ExternalSourceType,
+    region: string,
+    key: string,
+  ): Promise<void> {
     const startTime = Date.now();
 
     try {
@@ -230,9 +242,6 @@ class ExternalSourceCacheService {
       console.log(
         `[ext-cache] Refresh complete for ${source}:${region}: ${channels.length} channels in ${durationMs}ms`,
       );
-
-      resolve();
-      return { channelCount: channels.length, durationMs };
     } catch (err: any) {
       await ExternalSourceCacheMeta.findOneAndUpdate(
         { cacheKey: key },
@@ -240,7 +249,6 @@ class ExternalSourceCacheService {
       ).catch(() => {});
 
       console.error(`[ext-cache] Refresh failed for ${source}:${region}:`, err.message);
-      reject(err);
       throw err;
     } finally {
       this.refreshPromises.delete(key);

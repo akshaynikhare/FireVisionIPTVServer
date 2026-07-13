@@ -258,23 +258,27 @@ function SourceContent({
   }
 
   async function handleTestChannel(ch: SourceChannel) {
-    const res = await api.post(`/external-sources/check-liveness/${ch._uid}`);
-    const result = res.data.data;
-    if (result) {
-      if (isAdmin) {
-        onChannelUpdate(ch._uid, {
-          status: result.status,
-          lastCheckedAt: new Date().toISOString(),
-          responseTimeMs: result.responseTimeMs,
-          error: result.error,
-        });
-        fetchLivenessStats();
-      } else {
-        toast(
-          result.status === 'alive' ? 'Stream is alive' : `Stream is ${result.status}`,
-          result.status === 'alive' ? 'success' : 'error',
-        );
+    try {
+      const res = await api.post(`/external-sources/check-liveness/${ch._uid}`);
+      const result = res.data.data;
+      if (result) {
+        if (isAdmin) {
+          onChannelUpdate(ch._uid, {
+            status: result.status,
+            lastCheckedAt: new Date().toISOString(),
+            responseTimeMs: result.responseTimeMs,
+            error: result.error,
+          });
+          fetchLivenessStats();
+        } else {
+          toast(
+            result.status === 'alive' ? 'Stream is alive' : `Stream is ${result.status}`,
+            result.status === 'alive' ? 'success' : 'error',
+          );
+        }
       }
+    } catch {
+      toast('Failed to test stream', 'error');
     }
   }
 

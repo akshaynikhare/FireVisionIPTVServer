@@ -42,8 +42,10 @@ const epgProgramSchema = new Schema<IEpgProgramDocument>(
   },
 );
 
-// Primary query index: find programs for a channel in a time range
-epgProgramSchema.index({ channelEpgId: 1, startTime: 1 });
+// Primary query index: find programs for a channel in a time range.
+// Unique because epg-service upserts on { channelEpgId, startTime } — prevents
+// duplicate programs under concurrent refresh.
+epgProgramSchema.index({ channelEpgId: 1, startTime: 1 }, { unique: true });
 
 // TTL index: auto-delete programs 24 hours after they end
 // Note: aligned with epg-service filter which skips programs older than 24h

@@ -1,18 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
 
 // Get public configuration defaults
 router.get('/defaults', async (req, res) => {
   try {
-    // Try env vars first, then fall back to the actual super admin's code from DB
-    let defaultTvCode = process.env.DEFAULT_TV_CODE || process.env.SUPER_ADMIN_CHANNEL_LIST_CODE;
-    if (!defaultTvCode) {
-      const superAdmin = await User.findOne({ role: 'Admin', isActive: true }).sort({
-        createdAt: 1,
-      });
-      defaultTvCode = superAdmin?.channelListCode || '';
-    }
+    // Only expose a code from an explicit, dedicated demo/public env var.
+    // Never fall back to a real Admin account's channelListCode (a live credential).
+    const defaultTvCode = process.env.DEFAULT_TV_CODE || process.env.DEMO_CHANNEL_LIST_CODE || '';
 
     const defaults = {
       defaultTvCode,

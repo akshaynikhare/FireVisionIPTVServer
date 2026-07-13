@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "test": "jest"
+    "test": "jest",
+    "migrate:fix-indexes": "tsx src/scripts/migrations/0002-fix-indexes.ts"
   },
   "dependencies": {
     "@firevision/shared": "*",
