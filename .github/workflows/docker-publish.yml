@@ -151,6 +151,7 @@ jobs:
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           APP_URL: ${{ vars.APP_URL }}
           TRUST_CF_CONNECTING_IP: ${{ vars.TRUST_CF_CONNECTING_IP }}
+          DEMO_CHANNEL_LIST_CODE: ${{ vars.DEMO_CHANNEL_LIST_CODE }}
           # reCAPTCHA
           GOOGLE_RECAPTCHA_SITE_KEY: ${{ vars.GOOGLE_RECAPTCHA_SITE_KEY }}
           GOOGLE_RECAPTCHA_SECRET_KEY: ${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY }}
