@@ -408,7 +408,7 @@ router.get('/epg/:code', async (req, res) => {
     // Get user's channels
     let channels;
     if (user.role === 'Admin') {
-      channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 }).lean();
+      channels = await Channel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 }).lean();
     } else {
       channels = await Channel.find({
         _id: { $in: user.channels },
@@ -474,7 +474,7 @@ router.get('/epg/:code/json', async (req, res) => {
     // Get user's channels
     let channels;
     if (user.role === 'Admin') {
-      channels = await Channel.find({}).sort({ channelGroup: 1, order: 1 }).lean();
+      channels = await Channel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 }).lean();
     } else {
       channels = await Channel.find({
         _id: { $in: user.channels },

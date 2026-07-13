@@ -61,8 +61,11 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('[scheduler-entrypoint] Unhandled promise rejection:', reason);
 });
+// An uncaught exception may have left in-memory state (locks, timers) invalid —
+// log and exit so the container restarts clean rather than running corrupted.
 process.on('uncaughtException', (err) => {
-  console.error('[scheduler-entrypoint] Uncaught exception:', err);
+  console.error('[scheduler-entrypoint] Uncaught exception, exiting for clean restart:', err);
+  process.exit(1);
 });
 
 main().catch((err) => {
