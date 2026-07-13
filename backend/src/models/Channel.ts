@@ -3,10 +3,18 @@ import { IAlternateStream, IChannelDocument, IChannelModel } from '@firevision/s
 
 const channelSchema = new Schema<IChannelDocument>(
   {
+    // Ownership: null = shared admin catalog (browsable, servable to the demo);
+    // a user id = a private channel from that user's import (never shown to admins).
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
     channelId: {
       type: String,
       required: true,
-      unique: true,
+      // Uniqueness is per-owner via a compound index (see below), not global.
       index: true,
     },
     channelName: {
@@ -124,6 +132,9 @@ const channelSchema = new Schema<IChannelDocument>(
 // Index for faster queries
 channelSchema.index({ channelGroup: 1, order: 1 });
 channelSchema.index({ channelName: 'text' });
+// channelId is unique PER OWNER (catalog = ownerId:null), not globally, so different
+// users can import the same channelId as their own private channels.
+channelSchema.index({ ownerId: 1, channelId: 1 }, { unique: true });
 
 // Method to convert to M3U format entry
 channelSchema.methods.toM3U = function (this: IChannelDocument): string {
@@ -146,7 +157,8 @@ channelSchema.methods.toM3U = function (this: IChannelDocument): string {
 
 // Static method to generate full M3U playlist
 channelSchema.statics.generateM3UPlaylist = async function (): Promise<string> {
-  const channels = await this.find({}).sort({ channelGroup: 1, order: 1 });
+  // The global M3U export serves the shared catalog only, never users' private channels.
+  const channels = await this.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 });
 
   let m3uContent = '#EXTM3U\n\n';
 

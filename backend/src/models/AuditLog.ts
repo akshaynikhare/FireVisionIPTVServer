@@ -50,6 +50,9 @@ const auditLogSchema = new Schema<IAuditLogDocument>({
 auditLogSchema.index({ userId: 1, timestamp: -1 });
 auditLogSchema.index({ resource: 1, timestamp: -1 });
 
+// TTL index: retain audit history for 1 year, then auto-delete (prevents unbounded growth)
+auditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 });
+
 const AuditLog = mongoose.model<IAuditLogDocument>('AuditLog', auditLogSchema);
 
 module.exports = AuditLog;

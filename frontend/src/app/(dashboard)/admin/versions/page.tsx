@@ -26,36 +26,41 @@ export default function VersionsPage() {
   const [downloadUrl, setDownloadUrl] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchData() {
+      const [latestRes, versionsRes] = await Promise.allSettled([
+        api.get('/app/latest', { signal: controller.signal }),
+        api.get('/app/versions', { signal: controller.signal }),
+      ]);
+      if (controller.signal.aborted) return;
+
+      if (latestRes.status === 'fulfilled') {
+        const data = latestRes.value.data;
+        setLatest(data.version || data.data || data);
+      }
+
+      if (versionsRes.status === 'fulfilled') {
+        const data = versionsRes.value.data;
+        setVersions(data.versions || data.data || []);
+      }
+
+      if (latestRes.status === 'rejected' && versionsRes.status === 'rejected') {
+        setError('Failed to load version information');
+      }
+
       try {
-        const [latestRes, versionsRes] = await Promise.allSettled([
-          api.get('/app/latest'),
-          api.get('/app/versions'),
-        ]);
-
-        if (latestRes.status === 'fulfilled') {
-          const data = latestRes.value.data;
-          setLatest(data.version || data.data || data);
-        }
-
-        if (versionsRes.status === 'fulfilled') {
-          const data = versionsRes.value.data;
-          setVersions(data.versions || data.data || []);
-        }
-
-        try {
-          const dlRes = await api.get('/app/download-url');
+        const dlRes = await api.get('/app/download-url', { signal: controller.signal });
+        if (!controller.signal.aborted) {
           setDownloadUrl(dlRes.data.downloadUrl || dlRes.data.url || '');
-        } catch {
-          // download URL may not be configured
         }
       } catch {
-        setError('Failed to load version information');
-      } finally {
-        setLoading(false);
+        // download URL may not be configured
       }
+
+      if (!controller.signal.aborted) setLoading(false);
     }
     fetchData();
+    return () => controller.abort();
   }, []);
 
   function formatBytes(bytes?: number): string {

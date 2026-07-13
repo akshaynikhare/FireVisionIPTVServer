@@ -15,6 +15,16 @@ async function initializeSuperAdmin(): Promise<IUserDocument> {
       throw new Error('SUPER_ADMIN_PASSWORD must be set in production');
     }
     const password = process.env.SUPER_ADMIN_PASSWORD || 'ChangeMeNow123!';
+
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (!process.env.SUPER_ADMIN_PASSWORD || process.env.SUPER_ADMIN_PASSWORD === 'admin123')
+    ) {
+      console.warn(
+        '[SECURITY] SUPER_ADMIN_PASSWORD is unset or the known default in production — set a strong SUPER_ADMIN_PASSWORD in your .env immediately.',
+      );
+    }
+
     const channelListCode =
       process.env.SUPER_ADMIN_CHANNEL_LIST_CODE || (await (User as any).generateChannelListCode());
 

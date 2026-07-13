@@ -10,6 +10,11 @@ async function initializeTestUser(): Promise<IUserDocument | null> {
   const username = process.env.TEST_USER_USERNAME;
   if (!username) return null; // opt-in: skip if not configured
 
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('Refusing to create test user in production (NODE_ENV=production)');
+    return null;
+  }
+
   try {
     const email = process.env.TEST_USER_EMAIL || 'testuser@firevision.local';
     const password = process.env.TEST_USER_PASSWORD || 'TestUser123!';

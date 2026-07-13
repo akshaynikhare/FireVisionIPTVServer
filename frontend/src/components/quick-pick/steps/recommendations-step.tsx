@@ -125,6 +125,10 @@ export function RecommendationsStep({
 
   // --- Fetch channels from all sources ---
   useEffect(() => {
+    // Skip refetch + pre-select-all if channels are already loaded (e.g. Back-nav),
+    // so we don't wipe the user's curation by re-selecting everything.
+    if (fetchedChannels.length > 0) return;
+
     const controller = new AbortController();
     const signal = controller.signal;
 

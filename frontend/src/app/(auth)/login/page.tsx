@@ -8,6 +8,16 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 import { AuthSidePanel } from '@/components/layout/auth-side-panel';
 
+// Whitelist of known message codes → fixed copy. Prevents arbitrary `?message=`
+// text (phishing) from being rendered in trusted UI chrome.
+const MESSAGE_STRINGS: Record<string, string> = {
+  session_expired: 'Your session has expired. Please sign in again.',
+  logged_out: 'You have been signed out.',
+  registration_success: 'Account created. Please sign in.',
+  password_reset: 'Your password has been reset. Please sign in.',
+  email_verified: 'Your email has been verified. Please sign in.',
+};
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -137,7 +147,7 @@ function LoginContent() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {message && !error && (
+        {message && !error && (message === 'account_disabled' || message in MESSAGE_STRINGS) && (
           <div
             role="status"
             className={`border px-3 py-2.5 text-sm ${
@@ -165,7 +175,7 @@ function LoginContent() {
                 )}
               </>
             ) : (
-              message
+              MESSAGE_STRINGS[message]
             )}
           </div>
         )}

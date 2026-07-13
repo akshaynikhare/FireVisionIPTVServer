@@ -7,7 +7,7 @@ import api from '@/lib/api';
 
 export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
   const router = useRouter();
-  const { user, sessionId, setUser } = useAuthStore();
+  const { user, sessionId, accessToken, setUser } = useAuthStore();
   const [hydrated, setHydrated] = useState(false);
   const validated = useRef(false);
 
@@ -24,7 +24,7 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
 
   useEffect(() => {
     if (!hydrated || validated.current) return;
-    if (!user || !sessionId) return;
+    if (!user || (!sessionId && !accessToken)) return;
     validated.current = true;
     const controller = new AbortController();
     api
@@ -50,11 +50,11 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
         // 401 is handled by the response interceptor (calls logout + redirects)
       });
     return () => controller.abort();
-  }, [hydrated, user, sessionId, setUser]);
+  }, [hydrated, user, sessionId, accessToken, setUser]);
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!user || !sessionId) {
+    if (!user || (!sessionId && !accessToken)) {
       router.replace('/login');
       return;
     }
@@ -66,11 +66,11 @@ export function useRequireAuth(requiredRole?: 'Admin' | 'User') {
       router.replace(user.role === 'Admin' ? '/admin' : '/user');
       return;
     }
-  }, [user, sessionId, requiredRole, router, hydrated]);
+  }, [user, sessionId, accessToken, requiredRole, router, hydrated]);
 
   return {
     user,
-    isAuthenticated: !!user && !!sessionId && user.emailVerified !== false,
+    isAuthenticated: !!user && (!!sessionId || !!accessToken) && user.emailVerified !== false,
     isLoading: !hydrated,
   };
 }

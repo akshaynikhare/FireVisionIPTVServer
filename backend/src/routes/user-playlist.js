@@ -250,18 +250,27 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
       });
     }
 
-    // Find existing channels by URL to avoid duplicates
+    // Dedup only against THIS user's own (private) channels — never the shared catalog
+    // or other users' imports.
     const urls = parsedChannels.map((ch) => ch.channelUrl);
-    const existingChannels = await Channel.find({ channelUrl: { $in: urls } }).select(
-      '_id channelUrl',
-    );
+    const existingChannels = await Channel.find({
+      channelUrl: { $in: urls },
+      ownerId: req.user.id,
+    }).select('_id channelUrl');
     const existingUrlMap = new Map(existingChannels.map((ch) => [ch.channelUrl, ch._id]));
 
-    // Create channels that don't exist yet
-    const toCreate = parsedChannels.filter((ch) => !existingUrlMap.has(ch.channelUrl));
+    // Create the rest as private channels owned by this user.
+    const toCreate = parsedChannels
+      .filter((ch) => !existingUrlMap.has(ch.channelUrl))
+      .map((ch) => ({ ...ch, ownerId: req.user.id }));
     let createdChannels = [];
     if (toCreate.length > 0) {
-      createdChannels = await Channel.insertMany(toCreate, { ordered: false });
+      // ordered:false keeps going past any per-owner (ownerId, channelId) duplicate;
+      // on a BulkWriteError we still keep the successfully inserted docs.
+      createdChannels = await Channel.insertMany(toCreate, { ordered: false }).catch((err) => {
+        if (err.insertedDocs) return err.insertedDocs;
+        throw err;
+      });
     }
 
     // Collect all channel IDs

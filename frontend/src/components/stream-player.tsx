@@ -77,6 +77,9 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
     let activeHls: { destroy: () => void } | null = null;
     let currentSource: 'direct' | 'proxy' = mode === 'proxy' ? 'proxy' : 'direct';
     currentSourceRef.current = currentSource;
+    // Native-HLS (Safari) listeners — hoisted so cleanup can remove them.
+    let nativeLoadedMeta: (() => void) | null = null;
+    let nativeError: (() => void) | null = null;
 
     const safeDestroyHls = (instance: { destroy: () => void } | null) => {
       if (!instance) return;
@@ -186,13 +189,13 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
           setActiveSource(currentSource);
           video!.src = startUrl;
           let nativeFallback = false;
-          video!.addEventListener('loadedmetadata', () => {
+          nativeLoadedMeta = () => {
             if (!destroyed) {
               setStatus('Playing');
               video!.play().catch(() => {});
             }
-          });
-          video!.addEventListener('error', () => {
+          };
+          nativeError = () => {
             if (destroyed) return;
             if (!nativeFallback && mode === 'direct-fallback') {
               nativeFallback = true;
@@ -213,7 +216,9 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
             } else {
               setPlayerError('Playback error');
             }
-          });
+          };
+          video!.addEventListener('loadedmetadata', nativeLoadedMeta);
+          video!.addEventListener('error', nativeError);
         } else {
           setPlayerError('HLS not supported in this browser.');
         }
@@ -273,6 +278,8 @@ export default function StreamPlayer({ channel, onClose, mode = 'proxy' }: Strea
       video.removeEventListener('pause', onPause);
       video.removeEventListener('waiting', onWaiting);
       video.removeEventListener('error', onVidError);
+      if (nativeLoadedMeta) video.removeEventListener('loadedmetadata', nativeLoadedMeta);
+      if (nativeError) video.removeEventListener('error', nativeError);
       video.pause();
       video.removeAttribute('src');
       video.load();

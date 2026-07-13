@@ -31,9 +31,6 @@ api.interceptors.response.use(
       if (error.config?.headers?.['X-Skip-Auth-Redirect']) {
         return Promise.reject(error);
       }
-      // Claim the redirect immediately — before any async work or checks —
-      // so concurrent 401s see the flag and bail out.
-      isRedirecting = true;
       // Skip redirect if already on auth pages
       if (
         typeof window !== 'undefined' &&
@@ -42,6 +39,10 @@ api.interceptors.response.use(
         !window.location.pathname.startsWith('/verify-email') &&
         !window.location.pathname.startsWith('/pair')
       ) {
+        // Claim the redirect only once we know we're actually navigating —
+        // so concurrent 401s see the flag and bail out, and 401s on auth
+        // pages don't permanently disarm the interceptor.
+        isRedirecting = true;
         // Clear both Zustand store and raw localStorage keys in one call
         useAuthStore.getState().logout();
         const data = error.response?.data;

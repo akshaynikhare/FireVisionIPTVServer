@@ -192,7 +192,8 @@ userSchema.methods.generateUserPlaylist = async function (
 
   let channels;
   if (this.role === 'Admin') {
-    channels = await ChannelModel.find({}).sort({ channelGroup: 1, order: 1 });
+    // Admin playlist = the shared catalog only, never users' private channels.
+    channels = await ChannelModel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 });
   } else {
     channels = await ChannelModel.find({
       _id: { $in: this.channels },

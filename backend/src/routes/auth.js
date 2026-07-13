@@ -53,9 +53,9 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    // Anchor the extension check so substrings like ".pngx" don't slip through.
+    const extname = /^\.(jpe?g|png|gif)$/i.test(path.extname(file.originalname));
+    const mimetype = /jpeg|jpg|png|gif/.test(file.mimetype);
 
     if (mimetype && extname) {
       return cb(null, true);
@@ -162,8 +162,9 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validate input
-    if (!username || !password) {
+    // Validate input — reject non-strings to prevent NoSQL operator injection
+    // (e.g. username: { $ne: null }) in the $or query below.
+    if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
       return res.status(400).json({
         success: false,
         error: 'Username and password are required',

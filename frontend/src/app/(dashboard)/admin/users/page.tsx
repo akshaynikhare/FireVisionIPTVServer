@@ -26,12 +26,6 @@ import ColumnFilter from '@/components/ui/column-filter';
 import ConfirmDialog from '@/components/ui/confirm-dialog';
 import DataTable, { type DataTableColumn } from '@/components/ui/data-table';
 
-interface UserChannel {
-  _id: string;
-  channelName: string;
-  channelGroup: string;
-}
-
 interface UserData {
   _id: string;
   username: string;
@@ -41,7 +35,7 @@ interface UserData {
   lastLogin?: string;
   createdAt?: string;
   channelListCode?: string;
-  channels?: UserChannel[];
+  channelCount?: number;
   lastActivity?: string;
 }
 
@@ -365,7 +359,7 @@ export default function UsersPage() {
               ),
               cell: (u) => (
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {u.channels?.length ?? 0}
+                  {u.channelCount ?? 0}
                 </span>
               ),
             },

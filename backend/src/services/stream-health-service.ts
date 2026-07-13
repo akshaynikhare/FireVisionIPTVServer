@@ -153,14 +153,20 @@ class StreamHealthService {
       return allFlagged ? 'flagged-skipped' : 'all-dead';
     }
 
-    // Promote: swap primary URL with best alternate
+    // Promote: swap primary URL with best alternate.
     const promotedAlt = alternates[bestAlternate.index];
     const oldPrimaryUrl = channel.channelUrl;
 
-    // Move current primary to alternates
+    // Move current primary into the vacated alternate slot, carrying the PRIMARY's
+    // own header/quality context (not the promoted alternate's) so the demoted URL
+    // keeps the metadata it actually needs. The old code spread the alternate's
+    // fields onto the old-primary URL, mismatching its headers.
     alternates[bestAlternate.index] = {
       ...alternates[bestAlternate.index],
       streamUrl: oldPrimaryUrl,
+      userAgent: null,
+      referrer: null,
+      quality: channel.metadata?.quality ?? null,
       demotedAt: new Date(),
       liveness: {
         status: 'dead',
@@ -170,12 +176,16 @@ class StreamHealthService {
       },
     };
 
-    // Set new primary
+    // Set new primary — carry the promoted alternate's quality onto the primary.
+    // NOTE: the Channel schema has no top-level userAgent/referrer fields, so the
+    // promoted alternate's custom headers cannot be persisted at the primary level
+    // (see limitation note in the report).
     channel.channelUrl = promotedAlt.streamUrl;
     channel.metadata = channel.metadata || {};
     channel.metadata.isWorking = true;
     channel.metadata.lastTested = new Date();
     channel.metadata.responseTime = bestAlternate.responseTimeMs;
+    if (promotedAlt.quality) channel.metadata.quality = promotedAlt.quality;
 
     // Clear primary flaggedBad since this is a new URL
     channel.flaggedBad = {

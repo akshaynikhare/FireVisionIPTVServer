@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Calendar, RefreshCw, Loader2, Clock, Tv, Globe } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -65,6 +65,7 @@ export default function EpgPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [error, setError] = useState('');
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -107,12 +108,20 @@ export default function EpgPage() {
     return () => clearInterval(interval);
   }, [stats?.refreshInProgress, refreshing, fetchStats]);
 
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
+
   async function handleRefresh() {
     setRefreshing(true);
+    setError('');
     try {
       await api.post('/epg/refresh');
       // Poll for completion
-      setTimeout(async () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(async () => {
         await fetchStats();
         await fetchSources();
         setRefreshing(false);
@@ -201,6 +210,15 @@ export default function EpgPage() {
           {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
         </button>
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </div>
+      )}
 
       {/* Status Banner */}
       {isRefreshing && (

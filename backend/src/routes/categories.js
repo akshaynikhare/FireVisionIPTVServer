@@ -6,8 +6,18 @@ const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth
 // Get all categories (derived from distinct channelGroup values)
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
+    // Scope to what the caller can actually see: admin/demo → shared catalog (ownerId:null);
+    // a user → their own selection. Mirrors GET /channels so counts line up.
+    const isAdmin = req.user.role === 'Admin';
+    const match = isAdmin
+      ? { isActive: { $ne: false }, ownerId: null }
+      : {
+          isActive: { $ne: false },
+          _id: { $in: (req.user.channels || []).filter(Boolean) },
+        };
+
     const groups = await Channel.aggregate([
-      { $match: { isActive: { $ne: false } } },
+      { $match: match },
       {
         $group: {
           _id: '$channelGroup',

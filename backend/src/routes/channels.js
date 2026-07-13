@@ -1,11 +1,19 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const Channel = require('../models/Channel');
+const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
+
+// Max channels the TV app receives in one sync. An Admin's "channel list" is the
+// entire global catalog (can be tens of thousands) — no TV client can browse that,
+// and large payloads crash low-end sticks. Non-admin users are already scoped to
+// their own selection, so this cap only bounds the admin/demo firehose.
+const TV_CHANNELS_MAX = Number(process.env.TV_CHANNELS_MAX) || 2000;
 
 // In-memory rate-limit maps for stream metrics reporting
 const reportStatusLimits = new Map();
@@ -52,13 +60,16 @@ function slimAlternates(channel) {
 // Get channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const query =
-      req.user.role === 'Admin'
-        ? {}
-        : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
+    const isAdmin = req.user.role === 'Admin';
+    // Admin/demo see the shared catalog only (ownerId:null); a user sees their own selection.
+    const query = isAdmin
+      ? { ownerId: null }
+      : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
 
     const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
+      // Bound the admin/demo firehose; a user's own selection is returned in full.
+      .limit(isAdmin ? TV_CHANNELS_MAX : 0)
       .select('-__v -createdAt -updatedAt -channelDrmKey')
       .lean();
 
@@ -79,13 +90,16 @@ router.get('/', requireTvOrSessionAuth, async (req, res) => {
 // Get channels grouped by category
 router.get('/grouped', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const query =
-      req.user.role === 'Admin'
-        ? {}
-        : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
+    const isAdmin = req.user.role === 'Admin';
+    // Admin/demo see the shared catalog only (ownerId:null); a user sees their own selection.
+    const query = isAdmin
+      ? { ownerId: null }
+      : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
 
     const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
+      // Bound the admin/demo firehose; a user's own selection is returned in full.
+      .limit(isAdmin ? TV_CHANNELS_MAX : 0)
       .select('-channelDrmKey')
       .lean();
 
@@ -124,7 +138,13 @@ router.get('/playlist.m3u', async (req, res) => {
     if (!providedCode) {
       return res.status(401).json({ success: false, error: 'Playlist code required' });
     }
-    if (providedCode !== requiredCode) {
+    // Constant-time compare to avoid leaking the code via timing side-channel.
+    const providedBuf = Buffer.from(String(providedCode));
+    const requiredBuf = Buffer.from(String(requiredCode));
+    if (
+      providedBuf.length !== requiredBuf.length ||
+      !crypto.timingSafeEqual(providedBuf, requiredBuf)
+    ) {
       return res.status(403).json({ success: false, error: 'Invalid playlist code' });
     }
 
@@ -164,6 +184,9 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
     if (req.user.role !== 'Admin') {
       searchFilter._id = { $in: (req.user.channels || []).filter(Boolean) };
       searchFilter.isActive = { $ne: false };
+    } else {
+      // Admin/demo search the shared catalog only, never users' private channels.
+      searchFilter.ownerId = null;
     }
 
     const channels = await Channel.find(searchFilter)
@@ -422,6 +445,8 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
+    // Remove the deleted channel id from every user's channels array to avoid orphan refs
+    await User.updateMany({ channels: req.params.id }, { $pull: { channels: req.params.id } });
     audit({
       userId: req.user.id,
       action: 'delete_channel',

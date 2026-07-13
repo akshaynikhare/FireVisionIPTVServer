@@ -38,15 +38,73 @@ Sentry.init({
   }
 }
 
+// Reject known-default / weak secrets in production
+if (process.env.NODE_ENV === 'production') {
+  const PLACEHOLDER_SECRETS = new Set([
+    'your-access-secret',
+    'your-refresh-secret',
+    'dev-access-secret-change-me',
+    'dev-refresh-secret-change-me',
+    'CHANGE-ME',
+    'CHANGE_ME',
+    'change-me',
+  ]);
+  const isWeakSecret = (val) =>
+    !val || PLACEHOLDER_SECRETS.has(val) || /^change[-_]?me/i.test(val) || val.length < 32;
+
+  const problems = [];
+  if (isWeakSecret(process.env.JWT_ACCESS_SECRET))
+    problems.push('JWT_ACCESS_SECRET is a default/placeholder or shorter than 32 characters');
+  if (isWeakSecret(process.env.JWT_REFRESH_SECRET))
+    problems.push('JWT_REFRESH_SECRET is a default/placeholder or shorter than 32 characters');
+  if (process.env.SUPER_ADMIN_PASSWORD === 'admin123')
+    problems.push('SUPER_ADMIN_PASSWORD is set to the default "admin123"');
+
+  if (problems.length > 0) {
+    console.error(`[SECURITY] Refusing to start in production:\n  - ${problems.join('\n  - ')}`);
+    process.exit(1);
+  }
+}
+
 // Resolve paths relative to project root (two levels up from backend/src/)
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const app = express();
 
 // Trust reverse proxy (Docker/Portainer/nginx) so rate-limiter
-// uses the real client IP from X-Forwarded-For
+// uses the real client IP from X-Forwarded-For.
+// ASSUMPTION: production runs behind Cloudflare, so the real client IP is
+// carried in the CF-Connecting-IP header. With two proxy hops (CF edge -> our
+// reverse proxy), req.ip resolves to the CF edge IP, which would collapse all
+// clients into one rate-limit bucket. clientIp() below prefers CF-Connecting-IP.
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
+}
+
+// Resolve the client IP used for rate-limit keys.
+// CF-Connecting-IP is only trustworthy when Cloudflare actually fronts the app —
+// otherwise it's an attacker-controlled header that lets a client mint a fresh
+// rate-limit bucket per request. So only honor it when explicitly opted in
+// (set TRUST_CF_CONNECTING_IP=true only when deployed behind Cloudflare).
+// IPv6 is collapsed to its /64 prefix so a single allocation can't rotate
+// through addresses to dodge the limiter.
+const TRUST_CF_CONNECTING_IP = process.env.TRUST_CF_CONNECTING_IP === 'true';
+
+function normalizeIp(ip) {
+  if (!ip) return ip;
+  const v = ip.startsWith('::ffff:') ? ip.slice(7) : ip; // unwrap IPv4-mapped IPv6
+  if (v.includes(':')) {
+    return v.split(':').slice(0, 4).join(':') + '::/64'; // key on the /64 network
+  }
+  return v;
+}
+
+function clientIp(req) {
+  if (TRUST_CF_CONNECTING_IP) {
+    const cf = req.headers['cf-connecting-ip'];
+    if (cf) return normalizeIp(String(cf).split(',')[0].trim());
+  }
+  return normalizeIp(req.ip);
 }
 
 // Middleware
@@ -88,7 +146,19 @@ app.use('/api/v1/admin/channels/import-m3u', express.json({ limit: '50mb' }));
 // Default body limit is 5MB for all other routes
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
-app.use(morgan('combined'));
+
+// Redact session/JWT credentials that arrive as query params (image-proxy
+// accepts ?sid=/?token= for <img> tags) so they never leak into access logs.
+morgan.token('url-redacted', (req) =>
+  (req.originalUrl || req.url).replace(/([?&](?:sid|token)=)[^&]*/gi, '$1REDACTED'),
+);
+// 'combined' format with the URL field swapped for the redacted variant.
+app.use(
+  morgan(
+    ':remote-addr - :remote-user [:date[clf]] ":method :url-redacted HTTP/:http-version" ' +
+      ':status :res[content-length] ":referrer" ":user-agent"',
+  ),
+);
 
 // CSRF protection: validate Origin/Referer on state-changing requests
 const { csrfProtection } = require('./middleware/csrfProtection');
@@ -131,9 +201,10 @@ function setCachedAdminSession(sessionId, isAdmin, expiresAt) {
 // Keys are always anchored to the client IP so that an attacker cannot bypass
 // the rate limit by cycling fake session IDs or JWTs.
 function resolveRateLimitIdentity(req) {
+  const ip = clientIp(req);
   // Session-based auth (frontend dashboard)
   const sessionId = req.headers['x-session-id'];
-  if (sessionId) return { key: `sess:${sessionId}:${req.ip}`, sessionId };
+  if (sessionId) return { key: `sess:${sessionId}:${ip}`, sessionId };
 
   // JWT auth (TV app / API clients)
   const auth = req.headers.authorization || '';
@@ -143,7 +214,7 @@ function resolveRateLimitIdentity(req) {
       const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
         algorithms: ['HS256'],
       });
-      if (payload.sub) return { key: `jwt:${payload.sub}:${req.ip}` };
+      if (payload.sub) return { key: `jwt:${payload.sub}:${ip}` };
     } catch {
       // Invalid/expired token — fall through to IP-based limiting
     }
@@ -160,7 +231,7 @@ const apiLimiter = rateLimit({
   // Key by user identity + IP when authenticated, otherwise by IP alone
   keyGenerator: (req) => {
     const identity = resolveRateLimitIdentity(req);
-    return identity ? identity.key : req.ip;
+    return identity ? identity.key : clientIp(req);
   },
   // Skip rate limiting entirely for authenticated admin sessions (cached)
   skip: async (req) => {
@@ -191,6 +262,7 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/register', authLimiter);
@@ -205,6 +277,7 @@ const emailActionLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 // Per-account limit: key by email in request body (prevents abuse of a single account)
 const emailAccountLimiter = rateLimit({
@@ -214,7 +287,7 @@ const emailAccountLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const email = (req.body && req.body.email) || '';
-    return `email-action:${email.toLowerCase().trim()}:${req.ip}`;
+    return `email-action:${email.toLowerCase().trim()}:${clientIp(req)}`;
   },
 });
 app.use('/api/v1/auth/forgot-password', emailActionLimiter, emailAccountLimiter);
@@ -226,6 +299,7 @@ const oauthLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
 });
 app.use('/api/v1/oauth/google/start', oauthLimiter);
 app.use('/api/v1/oauth/github/start', oauthLimiter);
@@ -236,6 +310,7 @@ const pairingLimiter = rateLimit({
   max: 10, // 10 attempts per 5 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { success: false, error: 'Too many pairing attempts, please try again later' },
 });
 app.use('/api/v1/tv/pairing/confirm', pairingLimiter);
@@ -249,6 +324,7 @@ const pairingStatusLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { success: false, error: 'Too many status requests, please slow down' },
 });
 app.use('/api/v1/tv/pairing/status', pairingStatusLimiter);

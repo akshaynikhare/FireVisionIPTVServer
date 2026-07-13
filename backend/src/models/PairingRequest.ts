@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import mongoose, { Schema, Model } from 'mongoose';
 import { IPairingRequestDocument, IPairingRequestModel } from '@firevision/shared';
 
@@ -6,8 +7,6 @@ const pairingRequestSchema = new Schema<IPairingRequestDocument>(
     pin: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
     },
     deviceName: {
       type: String,
@@ -47,13 +46,20 @@ const pairingRequestSchema = new Schema<IPairingRequestDocument>(
 // Create TTL index to automatically delete expired requests after 1 hour
 pairingRequestSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 3600 });
 
+// Uniqueness only matters among active (pending) PINs — retained completed/expired
+// records shouldn't cause spurious E11000 on newly generated PINs.
+pairingRequestSchema.index(
+  { pin: 1 },
+  { unique: true, partialFilterExpression: { status: 'pending' } },
+);
+
 // Static method to generate unique 6-digit PIN
 // Bounded retries to prevent infinite loops under contention.
 pairingRequestSchema.statics.generatePin = async function (): Promise<string> {
   const maxAttempts = 20;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const pin = randomInt(100000, 1000000).toString();
 
     const existing = await this.findOne({
       pin,

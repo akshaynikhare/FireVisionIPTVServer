@@ -37,14 +37,16 @@ services:
 
   # MongoDB Admin UI (mongo-express)
   mongo-express:
-    image: mongo-express:1.0
+    image: mongo-express:1.0.2-20-alpine3.19
     container_name: firevision-mongo-express
     restart: unless-stopped
     ports:
       - '127.0.0.1:8081:8081'
     environment:
       ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/firevision-iptv
-      ME_CONFIG_BASICAUTH: 'false'
+      ME_CONFIG_BASICAUTH: 'true'
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_CONFIG_BASICAUTH_PASSWORD:-changeme}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -84,11 +86,9 @@ services:
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@firevision.local}
       SUPER_ADMIN_CHANNEL_LIST_CODE: ${SUPER_ADMIN_CHANNEL_LIST_CODE:-5T6FEP}
       FORCE_UPDATE_ADMIN_PASSWORD: ${FORCE_UPDATE_ADMIN_PASSWORD:-false}
-      # Session Configuration
-      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret-key-to-random-string}
       # Scheduler is handled by the dedicated scheduler container
       DISABLE_SCHEDULER: 'true'
-      SENTRY_DSN: ${SENTRY_DSN:-}
+      BACKEND_SENTRY_DSN: ${BACKEND_SENTRY_DSN:-}
       # Email
       MAIL_PROVIDER: mailhog
       MAILHOG_HOST: mailhog

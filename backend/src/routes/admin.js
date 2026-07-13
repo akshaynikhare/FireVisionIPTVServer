@@ -125,8 +125,9 @@ router.put('/channels/:id', async (req, res) => {
       }
     }
 
-    const channel = await Channel.findByIdAndUpdate(
-      req.params.id,
+    // Admins manage the shared catalog only — never a user's private channel.
+    const channel = await Channel.findOneAndUpdate(
+      { _id: req.params.id, ownerId: null },
       { $set: allowedUpdates },
       { new: true, runValidators: true },
     );
@@ -163,7 +164,8 @@ router.put('/channels/:id', async (req, res) => {
 // Delete channel
 router.delete('/channels/:id', async (req, res) => {
   try {
-    const channel = await Channel.findByIdAndDelete(req.params.id);
+    // Admins can delete catalog channels only — never a user's private channel.
+    const channel = await Channel.findOneAndDelete({ _id: req.params.id, ownerId: null });
 
     if (!channel) {
       return res.status(404).json({
@@ -171,6 +173,9 @@ router.delete('/channels/:id', async (req, res) => {
         error: 'Channel not found',
       });
     }
+
+    // Remove the deleted channel id from every user's channels array to avoid orphan refs
+    await User.updateMany({ channels: req.params.id }, { $pull: { channels: req.params.id } });
 
     audit({
       userId: req.user.id,
@@ -204,7 +209,17 @@ router.delete('/channels', async (req, res) => {
       });
     }
 
-    const deleteResult = await Channel.deleteMany({});
+    // Only the shared catalog (ownerId:null) is wiped — users' private (owned) channels survive.
+    const catalogIds = await Channel.find({ ownerId: null }).distinct('_id');
+    const deleteResult = await Channel.deleteMany({ ownerId: null });
+
+    // Remove the deleted catalog refs from users; their private channels stay in the array.
+    if (catalogIds.length) {
+      await User.updateMany(
+        { channels: { $in: catalogIds } },
+        { $pull: { channels: { $in: catalogIds } } },
+      );
+    }
 
     audit({
       userId: req.user.id,
@@ -256,9 +271,17 @@ router.post('/channels/import-m3u', async (req, res) => {
       });
     }
 
-    // Clear existing channels if requested
+    // Clear existing catalog if requested — only the shared catalog (ownerId:null);
+    // users' private (owned) channels are never touched by an admin catalog refresh.
     if (clearExisting) {
-      await Channel.deleteMany({});
+      const catalogIds = await Channel.find({ ownerId: null }).distinct('_id');
+      await Channel.deleteMany({ ownerId: null });
+      if (catalogIds.length) {
+        await User.updateMany(
+          { channels: { $in: catalogIds } },
+          { $pull: { channels: { $in: catalogIds } } },
+        );
+      }
     }
 
     // Parse M3U content
@@ -342,6 +365,7 @@ router.post('/channels/import-m3u', async (req, res) => {
 router.get('/channels/alternates-stats', async (req, res) => {
   try {
     const [stats] = await Channel.aggregate([
+      { $match: { ownerId: null } }, // catalog only
       {
         $project: {
           hasAlternates: {
@@ -385,9 +409,9 @@ router.get('/channels/alternates-stats', async (req, res) => {
 router.get('/channels/filter-options', async (req, res) => {
   try {
     const [groups, languages, countries] = await Promise.all([
-      Channel.distinct('channelGroup'),
-      Channel.distinct('metadata.language'),
-      Channel.distinct('metadata.country'),
+      Channel.distinct('channelGroup', { ownerId: null }),
+      Channel.distinct('metadata.language', { ownerId: null }),
+      Channel.distinct('metadata.country', { ownerId: null }),
     ]);
     const statuses = ['Live', 'Dead'];
 
@@ -410,7 +434,8 @@ router.get('/channels/filter-options', async (req, res) => {
 router.get('/channels', async (req, res) => {
   try {
     const { group, status, language, country, search, page, pageSize } = req.query;
-    const filter = {};
+    // Admins manage the shared catalog only — never users' private (owned) channels.
+    const filter = { ownerId: null };
 
     // Multi-value group filter (comma-separated)
     if (group) {
@@ -495,10 +520,11 @@ router.get('/channels', async (req, res) => {
 router.get('/stats/detailed', async (req, res) => {
   try {
     // Channel statistics
-    const totalChannels = await Channel.countDocuments();
-    const activeChannels = await Channel.countDocuments({ isActive: true });
-    const inactiveChannels = await Channel.countDocuments({ isActive: false });
+    const totalChannels = await Channel.countDocuments({ ownerId: null });
+    const activeChannels = await Channel.countDocuments({ isActive: true, ownerId: null });
+    const inactiveChannels = await Channel.countDocuments({ isActive: false, ownerId: null });
     const channelsByGroup = await Channel.aggregate([
+      { $match: { ownerId: null } }, // catalog only
       { $group: { _id: '$channelGroup', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
@@ -656,10 +682,11 @@ router.get('/stats/detailed', async (req, res) => {
 
 router.get('/stats', async (req, res) => {
   try {
-    const totalChannels = await Channel.countDocuments();
-    const activeChannels = await Channel.countDocuments({ isActive: true });
-    const inactiveChannels = await Channel.countDocuments({ isActive: false });
+    const totalChannels = await Channel.countDocuments({ ownerId: null });
+    const activeChannels = await Channel.countDocuments({ isActive: true, ownerId: null });
+    const inactiveChannels = await Channel.countDocuments({ isActive: false, ownerId: null });
     const channelsByGroup = await Channel.aggregate([
+      { $match: { ownerId: null } }, // catalog only
       {
         $group: {
           _id: '$channelGroup',
@@ -777,6 +804,7 @@ router.get('/stats/stream-health', async (req, res) => {
   try {
     // Channel health (local channels)
     const [channelHealth] = await Channel.aggregate([
+      { $match: { ownerId: null } }, // catalog only
       {
         $group: {
           _id: null,
@@ -797,14 +825,14 @@ router.get('/stats/stream-health', async (req, res) => {
     ]);
 
     // Streams ranked by failure frequency (top 10 most failing)
-    const mostFailing = await Channel.find({ 'metrics.deadCount': { $gt: 0 } })
+    const mostFailing = await Channel.find({ 'metrics.deadCount': { $gt: 0 }, ownerId: null })
       .sort({ 'metrics.deadCount': -1 })
       .limit(10)
       .select('channelId channelName channelGroup metrics')
       .lean();
 
     // Streams ranked by popularity (top 10 most played)
-    const mostPopular = await Channel.find({ 'metrics.playCount': { $gt: 0 } })
+    const mostPopular = await Channel.find({ 'metrics.playCount': { $gt: 0 }, ownerId: null })
       .sort({ 'metrics.playCount': -1 })
       .limit(10)
       .select('channelId channelName channelGroup metrics')
@@ -813,6 +841,7 @@ router.get('/stats/stream-health', async (req, res) => {
     // Streams with high failures but zero plays (removal candidates)
     const removalCandidates = await Channel.find({
       'metrics.deadCount': { $gt: 0 },
+      ownerId: null,
       $or: [{ 'metrics.playCount': { $exists: false } }, { 'metrics.playCount': 0 }],
     })
       .sort({ 'metrics.deadCount': -1 })
@@ -821,7 +850,10 @@ router.get('/stats/stream-health', async (req, res) => {
       .lean();
 
     // Streams with unresponsive issues
-    const unresponsiveStreams = await Channel.find({ 'metrics.unresponsiveCount': { $gt: 0 } })
+    const unresponsiveStreams = await Channel.find({
+      'metrics.unresponsiveCount': { $gt: 0 },
+      ownerId: null,
+    })
       .sort({ 'metrics.unresponsiveCount': -1 })
       .limit(10)
       .select('channelId channelName channelGroup metrics')

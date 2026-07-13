@@ -385,7 +385,7 @@ router.post('/check-liveness', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/check-liveness/:docId', async (req, res) => {
+router.post('/check-liveness/:docId', adminOnly, async (req, res) => {
   try {
     const result = await externalSourceCacheService.checkSingleStream(req.params.docId);
     if (!result) return res.status(404).json({ success: false, error: 'Channel not found' });
@@ -484,7 +484,16 @@ router.post('/import', adminOnly, async (req, res) => {
           error: 'Set confirmDeleteAll: true to confirm replacing all channels',
         });
       }
-      await Channel.deleteMany({});
+      // Only wipe the shared catalog (ownerId:null); users' private channels survive.
+      const User = require('../models/User');
+      const catalogIds = await Channel.find({ ownerId: null }).distinct('_id');
+      await Channel.deleteMany({ ownerId: null });
+      if (catalogIds.length) {
+        await User.updateMany(
+          { channels: { $in: catalogIds } },
+          { $pull: { channels: { $in: catalogIds } } },
+        );
+      }
     }
 
     const docs = channels.map((ch) => ({
@@ -556,8 +565,10 @@ router.post('/import-user', async (req, res) => {
         continue;
       }
       try {
+        // Dedup only against this user's own private channels.
         let existingChannel = await Channel.findOne({
           channelUrl: ch.channelUrl,
+          ownerId: userId,
         });
 
         if (existingChannel) {
@@ -568,6 +579,7 @@ router.post('/import-user', async (req, res) => {
           }
         } else {
           const newChannel = new Channel({
+            ownerId: userId, // private channel owned by the importing user
             channelId: ch.channelId || `ext_${crypto.randomUUID()}`,
             channelName: ch.channelName,
             channelUrl: ch.channelUrl,
