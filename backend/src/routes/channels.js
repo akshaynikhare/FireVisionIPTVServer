@@ -338,7 +338,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     } = req.body;
 
     if (channelId) {
-      const existing = await Channel.findOne({ channelId });
+      const existing = await Channel.findOne({ channelId, ownerId: null });
       if (existing) {
         return res
           .status(400)
@@ -414,8 +414,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (alternateStreams !== undefined) allowedUpdates.alternateStreams = alternateStreams;
     if (flaggedBad !== undefined) allowedUpdates.flaggedBad = flaggedBad;
 
-    const channel = await Channel.findByIdAndUpdate(
-      req.params.id,
+    // Scope to the shared catalog so an admin can't mutate a user's private channel
+    const channel = await Channel.findOneAndUpdate(
+      { _id: req.params.id, ownerId: null },
       { $set: allowedUpdates },
       { new: true, runValidators: true },
     );
@@ -441,7 +442,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 // Delete channel (admin only)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const channel = await Channel.findByIdAndDelete(req.params.id);
+    const channel = await Channel.findOneAndDelete({ _id: req.params.id, ownerId: null });
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }

@@ -45,8 +45,12 @@ router.put('/me/channels', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
     }
 
-    // Validate channel IDs
-    const channels = await Channel.find({ _id: { $in: channelIds } });
+    // Validate channel IDs — only catalog channels or the user's own private imports,
+    // so a user can't add another user's private channel to their selection.
+    const channels = await Channel.find({
+      _id: { $in: channelIds },
+      $or: [{ ownerId: null }, { ownerId: req.user.id }],
+    });
     if (channels.length !== channelIds.length) {
       return res.status(400).json({ success: false, error: 'Some channel IDs are invalid' });
     }
@@ -88,7 +92,10 @@ router.post('/me/channels/add', requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
     const existingIds = new Set(user.channels.map((id) => id.toString()));
-    const validChannels = await Channel.find({ _id: { $in: channelIds } }).select('_id');
+    const validChannels = await Channel.find({
+      _id: { $in: channelIds },
+      $or: [{ ownerId: null }, { ownerId: req.user.id }],
+    }).select('_id');
     const validIds = validChannels.map((c) => c._id.toString());
 
     const toAdd = validIds.filter((id) => !existingIds.has(id));
