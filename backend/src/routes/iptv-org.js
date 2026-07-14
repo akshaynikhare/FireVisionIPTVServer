@@ -6,7 +6,7 @@ const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { iptvOrgCacheService } = require('../services/iptv-org-cache');
 const { audit } = require('../services/audit-log');
-const { capChannelAdditions } = require('../services/import-helpers');
+const { capChannelAdditions, withChannelCapFilter } = require('../services/import-helpers');
 
 // Apply authentication to all routes
 router.use(requireAuth);
@@ -801,7 +801,13 @@ router.post('/import-grouped-user', async (req, res) => {
     if (channelIdsToAdd.length > 0) {
       const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
       if (allowed.length > 0) {
-        await User.updateOne({ _id: userId }, { $addToSet: { channels: { $each: allowed } } });
+        // Cap enforced in the filter too — concurrent imports can't overshoot the limit.
+        const updated = await User.updateOne(withChannelCapFilter(userId, allowed.length), {
+          $addToSet: { channels: { $each: allowed } },
+        });
+        if (updated.matchedCount === 0) {
+          console.warn(`[iptv-org] channel list limit hit concurrently for ${userId}`);
+        }
       }
       if (rejected > 0) {
         console.warn(`[iptv-org] channel list limit reached for ${userId}: ${rejected} skipped`);

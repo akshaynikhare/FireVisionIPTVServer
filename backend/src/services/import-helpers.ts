@@ -115,6 +115,8 @@ export function extractExtinfTitle(line: string): string {
 /**
  * Cap how many channel refs can be added to a user's channels[] (route-level, not a schema
  * validator — a validator would brick over-limit legacy users on ANY save, even removals).
+ * This pre-check is best-effort under concurrency (the count is a snapshot); pair $addToSet
+ * updates with withChannelCapFilter() below for an atomic backstop.
  */
 export function capChannelAdditions(
   currentCount: number,
@@ -124,6 +126,33 @@ export function capChannelAdditions(
   const room = Math.max(0, max - currentCount);
   if (ids.length <= room) return { allowed: ids, rejected: 0 };
   return { allowed: ids.slice(0, room), rejected: ids.length - room };
+}
+
+/**
+ * Update filter enforcing the channels cap atomically at write time — closes the window
+ * where two concurrent imports both observe room and overshoot USER_CHANNELS_MAX.
+ * The update matches nothing (matchedCount 0) when the addition would exceed the cap.
+ */
+export function withChannelCapFilter(userId: any, addCount: number): Record<string, any> {
+  const max = Number(process.env.USER_CHANNELS_MAX) || 5000;
+  return {
+    _id: userId,
+    $expr: { $lte: [{ $size: { $ifNull: ['$channels', []] } }, max - addCount] },
+  };
+}
+
+/**
+ * Repair a channel name corrupted by the old first-comma EXTINF parse. Only rewrites when
+ * the prefix before the last `",` shows attribute leakage (a quoted attribute or a URL) —
+ * a legitimate title like `Show "Name", Extended` is left untouched.
+ */
+export function repairLeakedExtinfName(name: string): string | null {
+  const idx = name.lastIndexOf('",');
+  if (idx < 0) return null;
+  const prefix = name.slice(0, idx);
+  if (!prefix.includes('="') && !prefix.includes('://')) return null;
+  const fixed = name.slice(idx + 2).trim();
+  return fixed && fixed !== name ? fixed : null;
 }
 
 /**
@@ -154,6 +183,8 @@ module.exports = {
   clubByChannelId,
   dedupAgainstCatalog,
   capChannelAdditions,
+  withChannelCapFilter,
+  repairLeakedExtinfName,
   patternCategory,
   extractExtinfTitle,
 };

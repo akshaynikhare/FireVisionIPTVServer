@@ -9,8 +9,9 @@
  *   after:  Tata Play Marathi Classics
  *
  * The real title always follows the LAST `",` (end of the final quoted attribute), so the
- * repair takes the substring after it. The parsers now use extractExtinfTitle(), so new
- * imports can't recreate this.
+ * repair takes the substring after it — but ONLY when the prefix shows attribute leakage
+ * (`="` or a URL), so a legitimate title like `Show "Name", Extended` is never truncated.
+ * The parsers now use extractExtinfTitle(), so new imports can't recreate this.
  *
  * Safe to re-run: repaired names no longer contain `",`.
  *
@@ -27,16 +28,10 @@ import mongoose from 'mongoose';
 require('dotenv').config({ path: path.resolve(__dirname, '../../../../.env') });
 
 import Channel from '../../models/Channel';
+import { repairLeakedExtinfName } from '../../services/import-helpers';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/firevision-iptv';
 const COMMIT = process.argv.includes('--commit');
-
-function repairedName(name: string): string | null {
-  const idx = name.lastIndexOf('",');
-  if (idx < 0) return null;
-  const fixed = name.slice(idx + 2).trim();
-  return fixed && fixed !== name ? fixed : null;
-}
 
 async function run(): Promise<void> {
   console.log(`\n=== Migration 0009: fix channel names (${COMMIT ? 'COMMIT' : 'DRY-RUN'}) ===`);
@@ -46,8 +41,14 @@ async function run(): Promise<void> {
   const docs: any[] = await Channel.find({ channelName: /",/ }, { channelName: 1 }).lean();
   console.log(`Corrupted names found: ${docs.length}`);
 
+  // repairLeakedExtinfName only rewrites names whose prefix shows attribute leakage
+  // (`="` or a URL) — a legitimate title containing `",` is left untouched.
   const fixes = docs
-    .map((d) => ({ _id: d._id, from: d.channelName as string, to: repairedName(d.channelName) }))
+    .map((d) => ({
+      _id: d._id,
+      from: d.channelName as string,
+      to: repairLeakedExtinfName(d.channelName),
+    }))
     .filter((f): f is { _id: any; from: string; to: string } => f.to !== null);
 
   fixes.slice(0, 5).forEach((f) => console.log(`  "${f.from.slice(0, 60)}…" → "${f.to}"`));

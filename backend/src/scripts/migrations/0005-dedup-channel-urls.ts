@@ -8,8 +8,9 @@
  *
  *   1. Survivor per group = tested-working first, then most alternates, then oldest.
  *   2. Losers' alternateStreams fold into the survivor (deduped, capped at 50).
- *   3. Every user referencing a loser gets the survivor added, losers pulled.
- *   4. Losers are deleted.
+ *   3. Losers are deleted FIRST — add endpoints validate channel existence, so a
+ *      deleted loser can't be concurrently assigned while step 4 runs.
+ *   4. Every user referencing a loser gets the survivor added, then losers pulled.
  *
  * Safe to re-run: once collapsed, no group has more than one row per URL.
  *
@@ -86,6 +87,9 @@ async function run(): Promise<void> {
         await Channel.updateOne({ _id: survivor._id }, { $set: { alternateStreams: alts } });
       }
       const loserIds = losers.map((l) => l._id);
+      // Delete losers FIRST: add endpoints validate channel existence, so once deleted a
+      // loser id can't be concurrently assigned between the remap and the pull below.
+      await Channel.deleteMany({ _id: { $in: loserIds } });
       // Users holding a loser keep access via the survivor; then loser refs are removed.
       await User.updateMany(
         { channels: { $in: loserIds } },
@@ -95,7 +99,6 @@ async function run(): Promise<void> {
         { channels: { $in: loserIds } },
         { $pull: { channels: { $in: loserIds } } },
       );
-      await Channel.deleteMany({ _id: { $in: loserIds } });
     }
   }
 

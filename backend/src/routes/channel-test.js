@@ -8,7 +8,16 @@ const http = require('http');
 const https = require('https');
 const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
-const { statsCache } = require('../services/cache');
+const { statsCache, channelCache } = require('../services/cache');
+
+// Tests update metadata.isWorking, which the cached catalog payload includes —
+// bust the cached counts AND the catalog after test results land.
+function invalidateChannelCaches() {
+  return Promise.all([
+    statsCache.deletePattern('chcount:*'),
+    channelCache.deletePattern('catalog:*'),
+  ]);
+}
 
 // Apply authentication to all routes — admin only for testing operations
 router.use(requireAuth);
@@ -95,7 +104,7 @@ router.post('/test-channel', async (req, res) => {
       'metadata.isWorking': result.working,
       'metadata.responseTime': result.responseTime,
     });
-    await statsCache.deletePattern('chcount:*');
+    await invalidateChannelCaches();
     audit({
       userId: req.user.id,
       action: 'test_channel',
@@ -187,7 +196,7 @@ router.post('/test-batch', async (req, res) => {
         }
       }
 
-      await statsCache.deletePattern('chcount:*');
+      await invalidateChannelCaches();
       audit({
         userId: req.user.id,
         action: 'test_channel_batch',
@@ -271,7 +280,7 @@ router.post('/test-all', async (req, res) => {
       }
 
       const workingCount = results.filter((r) => r.working).length;
-      await statsCache.deletePattern('chcount:*');
+      await invalidateChannelCaches();
       audit({
         userId: req.user.id,
         action: 'test_channel_all',

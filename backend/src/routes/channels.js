@@ -583,6 +583,8 @@ router.post('/:id/flag', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
+    // flaggedBad is part of the cached catalog payload — bust it so clients see the flag.
+    await invalidateCatalogCache();
     flagLimits.set(flagKey, Date.now());
 
     audit({
@@ -622,6 +624,7 @@ router.post('/:id/unflag', requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'unflag_channel',
@@ -673,6 +676,7 @@ router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
     };
     await channel.save();
 
+    await invalidateCatalogCache();
     flagLimits.set(flagKey, Date.now());
 
     audit({
@@ -714,6 +718,7 @@ router.post('/:id/alternates/:index/unflag', requireAuth, requireAdmin, async (r
     };
     await channel.save();
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'unflag_alternate_stream',

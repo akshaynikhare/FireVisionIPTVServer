@@ -7,6 +7,7 @@ import {
   capChannelAdditions,
   patternCategory,
   extractExtinfTitle,
+  repairLeakedExtinfName,
 } from '../services/import-helpers';
 
 describe('import-helpers', () => {
@@ -100,6 +101,32 @@ describe('import-helpers', () => {
 
     it('returns empty string when no title separator exists', () => {
       expect(extractExtinfTitle('#EXTINF:-1 tvg-id="x"')).toBe('');
+    });
+  });
+
+  describe('repairLeakedExtinfName', () => {
+    it('repairs a name with a leaked logo URL', () => {
+      expect(
+        repairLeakedExtinfName(
+          'fl_lossy,q_auto,h_250,w_250/https://cdn.example.com/x.png",Tata Play Marathi Classics',
+        ),
+      ).toBe('Tata Play Marathi Classics');
+    });
+
+    it('repairs a name with leaked user-agent attributes', () => {
+      expect(
+        repairLeakedExtinfName(
+          'like Gecko Chrome/76.0.3809.25 Safari/537.36" group-title="News",24 TV (1080p)',
+        ),
+      ).toBe('24 TV (1080p)');
+    });
+
+    it('leaves a legitimate title containing quote-comma untouched', () => {
+      expect(repairLeakedExtinfName('Show "Name", Extended')).toBeNull();
+    });
+
+    it('returns null when there is no quote-comma at all', () => {
+      expect(repairLeakedExtinfName('Plain Channel Name')).toBeNull();
     });
   });
 
