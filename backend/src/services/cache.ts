@@ -138,5 +138,6 @@ export const channelCache = new CacheService('fv:ch:', 600); // 10 min
 export const userCache = new CacheService('fv:user:', 300); // 5 min
 export const statsCache = new CacheService('fv:stats:', 300); // 5 min
 export const releaseCache = new CacheService('fv:release:', 300); // 5 min
+export const epgCache = new CacheService('fv:epg:', 300); // 5 min — matches Cache-Control max-age
 
-module.exports = { CacheService, channelCache, userCache, statsCache, releaseCache };
+module.exports = { CacheService, channelCache, userCache, statsCache, releaseCache, epgCache };

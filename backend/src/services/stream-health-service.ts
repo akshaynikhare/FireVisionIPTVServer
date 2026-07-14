@@ -1,5 +1,6 @@
 import Channel from '../models/Channel';
 import { probeStream } from './stream-prober';
+import { channelCache } from './cache';
 import type { IChannelDocument } from '@firevision/shared';
 
 const BATCH_SIZE = 200;
@@ -75,6 +76,12 @@ class StreamHealthService {
     console.log(
       `[stream-health] Complete: ${stats.checked} checked, ${stats.promoted} promoted, ${stats.allDead} all-dead, ${stats.flaggedSkipped} flagged-skipped`,
     );
+
+    // Promotions swap channelUrl / mutate liveness in the cached catalog payload —
+    // bust it so clients pick up the promoted streams (shared Redis with the API).
+    if (stats.promoted > 0) {
+      await channelCache.deletePattern('catalog:*');
+    }
 
     return stats;
   }

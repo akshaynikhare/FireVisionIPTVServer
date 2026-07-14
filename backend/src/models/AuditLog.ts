@@ -6,7 +6,7 @@ const auditLogSchema = new Schema<IAuditLogDocument>({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    index: true,
+    // Covered by the { userId, timestamp } compound below — no standalone index.
   },
   action: {
     type: String,
@@ -16,7 +16,7 @@ const auditLogSchema = new Schema<IAuditLogDocument>({
   resource: {
     type: String,
     required: true,
-    index: true,
+    // Covered by the { resource, timestamp } compound below — no standalone index.
   },
   resourceId: {
     type: String,
@@ -42,7 +42,9 @@ const auditLogSchema = new Schema<IAuditLogDocument>({
   timestamp: {
     type: Date,
     default: Date.now,
-    index: true,
+    // Indexed ONLY via the TTL schema.index() below. A field-level `index: true` here would
+    // declare a plain timestamp_1 that blocks the TTL index from ever building (same name,
+    // different options) — which is exactly why retention never worked in production.
   },
 });
 
@@ -50,8 +52,8 @@ const auditLogSchema = new Schema<IAuditLogDocument>({
 auditLogSchema.index({ userId: 1, timestamp: -1 });
 auditLogSchema.index({ resource: 1, timestamp: -1 });
 
-// TTL index: retain audit history for 1 year, then auto-delete (prevents unbounded growth)
-auditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 });
+// TTL index: retain audit history for 180 days, then auto-delete (prevents unbounded growth)
+auditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 180 });
 
 const AuditLog = mongoose.model<IAuditLogDocument>('AuditLog', auditLogSchema);
 

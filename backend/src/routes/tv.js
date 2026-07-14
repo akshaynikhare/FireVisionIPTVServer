@@ -2,11 +2,54 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Channel = require('../models/Channel');
+const EpgProgram = require('../models/EpgProgram');
 const PairingRequest = require('../models/PairingRequest');
 const { epgService } = require('../services/epg-service');
 const { audit } = require('../services/audit-log');
+const { epgCache } = require('../services/cache');
+
+// Same cap as the /channels sync — the EPG only needs to cover what the TV can list.
+const TV_CHANNELS_MAX = Number(process.env.TV_CHANNELS_MAX) || 2000;
 
 // NO authentication required for TV endpoints
+
+// Load the channels relevant to a user's EPG, projected to only the fields the guide
+// needs, and pre-intersect candidate EPG ids against the ids that actually have guide
+// data (~1.7k) — otherwise the $in carries 3 ids per channel (~100k+) for nothing.
+async function loadEpgChannelIds(user) {
+  const catalogView = user.role === 'Admin' || user.allCatalog === true;
+  const query = catalogView ? { ownerId: null } : { _id: { $in: user.channels } };
+  const channels = await Channel.find(query)
+    .sort({ channelGroup: 1, order: 1 })
+    .limit(TV_CHANNELS_MAX)
+    .select('channelId tvgId tvgName channelName tvgLogo channelImg')
+    .lean();
+
+  let knownEpgIds = await epgCache.get('known-ids');
+  if (!knownEpgIds) {
+    knownEpgIds = await EpgProgram.distinct('channelEpgId');
+    await epgCache.set('known-ids', knownEpgIds, 600);
+  }
+  const knownSet = new Set(knownEpgIds);
+
+  const epgIds = [];
+  const channelInfoMap = new Map();
+  for (const ch of channels) {
+    const ids = [ch.channelId, ch.tvgId, ch.tvgName].filter(Boolean);
+    for (const id of ids) {
+      if (!channelInfoMap.has(id)) {
+        channelInfoMap.set(id, {
+          epgId: id,
+          channelId: ch.channelId,
+          name: ch.channelName,
+          icon: ch.tvgLogo || ch.channelImg || '',
+        });
+        if (knownSet.has(id)) epgIds.push(id);
+      }
+    }
+  }
+  return { epgIds, channelInfoMap };
+}
 
 // Shared helper: validate code, find user, update lastLogin
 async function findUserByCode(code, res) {
@@ -405,35 +448,16 @@ router.get('/epg/:code', async (req, res) => {
     const user = await findUserByCode(req.params.code, res);
     if (!user) return;
 
-    // Get user's channels
-    let channels;
-    if (user.role === 'Admin') {
-      channels = await Channel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 }).lean();
-    } else {
-      channels = await Channel.find({
-        _id: { $in: user.channels },
-      })
-        .sort({ channelGroup: 1, order: 1 })
-        .lean();
+    // Rendered XMLTV is stable for the cache window (matches Cache-Control below).
+    const cacheKey = `xml:${user.channelListCode}:${hours}`;
+    const cachedXml = await epgCache.get(cacheKey);
+    if (cachedXml) {
+      res.setHeader('Content-Type', 'application/xml');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send(cachedXml);
     }
 
-    // Build EPG IDs from channel data (tvgId, channelId, tvgName)
-    const epgIds = [];
-    const channelInfoMap = new Map();
-
-    for (const ch of channels) {
-      const ids = [ch.channelId, ch.tvgId, ch.tvgName].filter(Boolean);
-      for (const id of ids) {
-        if (!channelInfoMap.has(id)) {
-          epgIds.push(id);
-          channelInfoMap.set(id, {
-            epgId: id,
-            name: ch.channelName,
-            icon: ch.tvgLogo || ch.channelImg || '',
-          });
-        }
-      }
-    }
+    const { epgIds, channelInfoMap } = await loadEpgChannelIds(user);
 
     // Query EPG programs
     const programs = await epgService.getEpgForChannels(epgIds, hours);
@@ -451,6 +475,7 @@ router.get('/epg/:code', async (req, res) => {
     }
 
     const xmltv = epgService.generateXmltv(channelInfos, programs);
+    await epgCache.set(cacheKey, xmltv);
 
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -471,35 +496,14 @@ router.get('/epg/:code/json', async (req, res) => {
     const user = await findUserByCode(req.params.code, res);
     if (!user) return;
 
-    // Get user's channels
-    let channels;
-    if (user.role === 'Admin') {
-      channels = await Channel.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 }).lean();
-    } else {
-      channels = await Channel.find({
-        _id: { $in: user.channels },
-      })
-        .sort({ channelGroup: 1, order: 1 })
-        .lean();
+    const cacheKey = `json:${user.channelListCode}:${hours}`;
+    const cachedPayload = await epgCache.get(cacheKey);
+    if (cachedPayload) {
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.json(cachedPayload);
     }
 
-    // Build EPG IDs
-    const epgIds = [];
-    const channelNameMap = new Map();
-
-    for (const ch of channels) {
-      const ids = [ch.channelId, ch.tvgId, ch.tvgName].filter(Boolean);
-      for (const id of ids) {
-        if (!channelNameMap.has(id)) {
-          epgIds.push(id);
-          channelNameMap.set(id, {
-            channelId: ch.channelId,
-            channelName: ch.channelName,
-            tvgLogo: ch.tvgLogo || ch.channelImg || '',
-          });
-        }
-      }
-    }
+    const { epgIds, channelInfoMap } = await loadEpgChannelIds(user);
 
     const programs = await epgService.getEpgForChannels(epgIds, hours);
 
@@ -507,11 +511,11 @@ router.get('/epg/:code/json', async (req, res) => {
     const grouped = {};
     for (const prog of programs) {
       if (!grouped[prog.channelEpgId]) {
-        const info = channelNameMap.get(prog.channelEpgId) || {};
+        const info = channelInfoMap.get(prog.channelEpgId) || {};
         grouped[prog.channelEpgId] = {
           channelId: prog.channelEpgId,
-          channelName: info.channelName || prog.channelEpgId,
-          tvgLogo: info.tvgLogo || '',
+          channelName: info.name || prog.channelEpgId,
+          tvgLogo: info.icon || '',
           programs: [],
         };
       }
@@ -526,14 +530,17 @@ router.get('/epg/:code/json', async (req, res) => {
       });
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    res.json({
+    const payload = {
       success: true,
       hours,
       channelCount: Object.keys(grouped).length,
       programCount: programs.length,
       channels: Object.values(grouped),
-    });
+    };
+    await epgCache.set(cacheKey, payload);
+
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.json(payload);
   } catch (error) {
     console.error('Error fetching EPG JSON:', error);
     res.status(500).json({

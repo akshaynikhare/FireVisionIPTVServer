@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { iptvOrgCacheService } = require('../services/iptv-org-cache');
 const { audit } = require('../services/audit-log');
+const { capChannelAdditions, withChannelCapFilter } = require('../services/import-helpers');
 
 // Apply authentication to all routes
 router.use(requireAuth);
@@ -798,10 +799,19 @@ router.post('/import-grouped-user', async (req, res) => {
     }
 
     if (channelIdsToAdd.length > 0) {
-      await User.updateOne(
-        { _id: userId },
-        { $addToSet: { channels: { $each: channelIdsToAdd } } },
-      );
+      const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
+      if (allowed.length > 0) {
+        // Cap enforced in the filter too — concurrent imports can't overshoot the limit.
+        const updated = await User.updateOne(withChannelCapFilter(userId, allowed.length), {
+          $addToSet: { channels: { $each: allowed } },
+        });
+        if (updated.matchedCount === 0) {
+          console.warn(`[iptv-org] channel list limit hit concurrently for ${userId}`);
+        }
+      }
+      if (rejected > 0) {
+        console.warn(`[iptv-org] channel list limit reached for ${userId}: ${rejected} skipped`);
+      }
     }
 
     audit({
@@ -917,8 +927,22 @@ router.post('/import-user', async (req, res) => {
     }
 
     if (channelIdsToAdd.length > 0) {
-      user.channels.push(...channelIdsToAdd);
-      await user.save();
+      const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
+      if (allowed.length > 0) {
+        // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+        // concurrent imports overshoot USER_CHANNELS_MAX.
+        const updated = await User.updateOne(withChannelCapFilter(user._id, allowed.length), {
+          $addToSet: { channels: { $each: allowed } },
+        });
+        if (updated.matchedCount === 0) {
+          console.warn(`[iptv-org] channel list limit hit concurrently for ${req.user.id}`);
+        }
+      }
+      if (rejected > 0) {
+        console.warn(
+          `[iptv-org] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
+        );
+      }
     }
 
     audit({

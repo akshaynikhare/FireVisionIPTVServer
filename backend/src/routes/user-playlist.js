@@ -5,6 +5,13 @@ const User = require('../models/User');
 const Channel = require('../models/Channel');
 const { requireAuth } = require('./auth');
 const { audit } = require('../services/audit-log');
+const {
+  resolveChannelGroups,
+  clubByChannelId,
+  capChannelAdditions,
+  withChannelCapFilter,
+  extractExtinfTitle,
+} = require('../services/import-helpers');
 
 // Get current user's channels
 router.get('/me/channels', requireAuth, async (req, res) => {
@@ -98,23 +105,44 @@ router.post('/me/channels/add', requireAuth, async (req, res) => {
     }).select('_id');
     const validIds = validChannels.map((c) => c._id.toString());
 
-    const toAdd = validIds.filter((id) => !existingIds.has(id));
-    user.channels.push(...toAdd.map((id) => new mongoose.Types.ObjectId(id)));
-    await user.save();
+    const wanted = validIds.filter((id) => !existingIds.has(id));
+    const { allowed: toAdd, rejected } = capChannelAdditions(user.channels.length, wanted);
+    let finalCount = user.channels.length;
+    let addedCount = 0;
+    if (toAdd.length > 0) {
+      // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+      // concurrent additions overshoot USER_CHANNELS_MAX.
+      const updated = await User.findOneAndUpdate(
+        withChannelCapFilter(user._id, toAdd.length),
+        { $addToSet: { channels: { $each: toAdd.map((id) => new mongoose.Types.ObjectId(id)) } } },
+        { new: true },
+      );
+      if (updated) {
+        finalCount = updated.channels.length;
+        addedCount = toAdd.length;
+      } else {
+        console.warn(`[user-playlist] channel list limit hit concurrently for ${req.user.id}`);
+      }
+    }
+    if (rejected > 0) {
+      console.warn(
+        `[user-playlist] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
+      );
+    }
     audit({
       userId: req.user.id,
       action: 'add_channels',
       resource: 'user_playlist',
-      resourceId: `${toAdd.length} channels`,
+      resourceId: `${addedCount} channels`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: `Added ${toAdd.length} channels`,
-      count: user.channels.length,
-      addedCount: toAdd.length,
+      message: `Added ${addedCount} channels`,
+      count: finalCount,
+      addedCount,
     });
   } catch (error) {
     console.error('Add my channels error:', error);
@@ -232,7 +260,9 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
         const tvgNameMatch = line.match(/tvg-name="([^"]*)"/);
         const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/);
         const groupTitleMatch = line.match(/group-title="([^"]*)"/);
-        const channelNameMatch = line.match(/,(.+)$/);
+        // Title = text after the attribute list, NOT after the first comma — attribute
+        // values (logo URLs, user-agents) legally contain commas.
+        const channelName = extractExtinfTitle(line);
 
         currentChannel = {
           channelId: tvgIdMatch ? tvgIdMatch[1] : `channel_${Date.now()}_${i}`,
@@ -240,7 +270,7 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
           channelImg: tvgLogoMatch ? tvgLogoMatch[1] : '',
           tvgLogo: tvgLogoMatch ? tvgLogoMatch[1] : '',
           channelGroup: groupTitleMatch ? groupTitleMatch[1] : 'Uncategorized',
-          channelName: channelNameMatch ? channelNameMatch[1].trim() : 'Unknown',
+          channelName: channelName || 'Unknown',
           order: parsedChannels.length,
         };
       } else if (line && !line.startsWith('#') && currentChannel) {
@@ -257,9 +287,14 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
       });
     }
 
+    // Club same-tvg-id entries into alternateStreams and categorize from the iptv-org cache
+    // so an imported list isn't dumped into 'Uncategorized'.
+    const importChannels = clubByChannelId(parsedChannels);
+    await resolveChannelGroups(importChannels);
+
     // Dedup only against THIS user's own (private) channels — never the shared catalog
     // or other users' imports.
-    const urls = parsedChannels.map((ch) => ch.channelUrl);
+    const urls = importChannels.map((ch) => ch.channelUrl);
     const existingChannels = await Channel.find({
       channelUrl: { $in: urls },
       ownerId: req.user.id,
@@ -267,7 +302,7 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
     const existingUrlMap = new Map(existingChannels.map((ch) => [ch.channelUrl, ch._id]));
 
     // Create the rest as private channels owned by this user.
-    const toCreate = parsedChannels
+    const toCreate = importChannels
       .filter((ch) => !existingUrlMap.has(ch.channelUrl))
       .map((ch) => ({ ...ch, ownerId: req.user.id }));
     let createdChannels = [];
@@ -291,24 +326,45 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
     const userChannelIds = new Set(user.channels.map((id) => id.toString()));
-    const toAdd = allChannelIds.filter((id) => !userChannelIds.has(id.toString()));
-    user.channels.push(...toAdd.map((id) => new mongoose.Types.ObjectId(id)));
-    await user.save();
+    const wanted = allChannelIds.filter((id) => !userChannelIds.has(id.toString()));
+    const { allowed: toAdd, rejected } = capChannelAdditions(user.channels.length, wanted);
+    let finalCount = user.channels.length;
+    let addedCount = 0;
+    if (toAdd.length > 0) {
+      // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+      // concurrent imports overshoot USER_CHANNELS_MAX.
+      const updated = await User.findOneAndUpdate(
+        withChannelCapFilter(user._id, toAdd.length),
+        { $addToSet: { channels: { $each: toAdd.map((id) => new mongoose.Types.ObjectId(id)) } } },
+        { new: true },
+      );
+      if (updated) {
+        finalCount = updated.channels.length;
+        addedCount = toAdd.length;
+      } else {
+        console.warn(`[user-playlist] channel list limit hit concurrently for ${req.user.id}`);
+      }
+    }
+    if (rejected > 0) {
+      console.warn(
+        `[user-playlist] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
+      );
+    }
 
     audit({
       userId: req.user.id,
       action: 'import_m3u',
       resource: 'user_playlist',
-      resourceId: `${toAdd.length} channels`,
+      resourceId: `${addedCount} channels`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: `Added ${toAdd.length} channels to your list`,
-      added: toAdd.length,
-      count: user.channels.length,
+      message: `Added ${addedCount} channels to your list`,
+      added: addedCount,
+      count: finalCount,
     });
   } catch (error) {
     console.error('User import M3U error:', error);

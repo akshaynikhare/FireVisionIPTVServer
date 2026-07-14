@@ -19,7 +19,9 @@ const subtaskSchema = new Schema(
 
 const scheduledTaskRunSchema = new Schema(
   {
-    taskName: { type: String, required: true, index: true },
+    // No field-level index — it would declare a plain taskName_1 that blocks the
+    // partial-unique lock index below (same name, different options) from building.
+    taskName: { type: String, required: true },
     status: {
       type: String,
       enum: ['pending', 'running', 'completed', 'failed'],
@@ -56,6 +58,8 @@ scheduledTaskRunSchema.index(
   { taskName: 1 },
   { unique: true, partialFilterExpression: { status: 'running' } },
 );
+// TTL: retain task-run history 30 days, then auto-delete (prevents unbounded growth)
+scheduledTaskRunSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 export const ScheduledTaskRun = mongoose.model('ScheduledTaskRun', scheduledTaskRunSchema);
 

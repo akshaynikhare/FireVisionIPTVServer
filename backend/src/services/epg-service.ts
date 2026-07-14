@@ -2,6 +2,7 @@ import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { createGunzip } from 'zlib';
 import EpgProgram from '../models/EpgProgram';
+import { epgCache } from './cache';
 
 const Channel = require('../models/Channel');
 
@@ -142,6 +143,10 @@ class EpgService {
 
       const durationMs = Date.now() - startTime;
       this.lastRefreshedAt = new Date();
+
+      // Bust cached EPG responses AND the known-ids set — a refresh can introduce
+      // programs for channelEpgIds the cached set would otherwise filter out.
+      await epgCache.deletePattern('*');
 
       console.log(
         `[epg-service] EPG refresh complete: ${totalPrograms} programs upserted from ${sources.length} sources in ${durationMs}ms`,
@@ -301,6 +306,11 @@ class EpgService {
 
       // Skip programs that already ended more than 24h ago
       if (endTime.getTime() < Date.now() - 86400000) continue;
+
+      // Skip programs starting beyond the lookahead window — bounds stored EPG size.
+      // Upstream XMLTV often carries ~6 days; we only keep ~2 days ahead by default.
+      const maxAheadMs = (Number(process.env.EPG_MAX_LOOKAHEAD_HOURS) || 48) * 3600000;
+      if (startTime.getTime() > Date.now() + maxAheadMs) continue;
 
       const title = this.extractText(prog.title);
       if (!title) continue;

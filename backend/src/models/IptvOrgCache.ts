@@ -64,14 +64,16 @@ const livenessSchema = new Schema(
 
 const iptvOrgChannelSchema = new Schema<IIptvOrgChannelDocument>(
   {
-    channelId: { type: String, required: true, index: true },
+    // channelId is covered by the unique compound { channelId: 1, streamUrl: 1 } below.
+    channelId: { type: String, required: true },
     channelName: { type: String, required: true },
     streamUrl: { type: String, required: true },
     streamQuality: { type: String, default: null },
     streamUserAgent: { type: String, default: null },
     streamReferrer: { type: String, default: null },
     tvgLogo: { type: String, default: null },
-    country: { type: String, default: null, index: true },
+    // country is covered by the compound country_1_* indexes below.
+    country: { type: String, default: null },
     categories: { type: [String], default: [], index: true },
     languageCodes: { type: [String], default: [], index: true },
     languageNames: { type: [String], default: [] },

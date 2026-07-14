@@ -8,6 +8,14 @@ const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
+const { channelCache } = require('../services/cache');
+
+// The shared admin/demo catalog is identical for every admin hit and is the heaviest
+// read. Cache it (10 min TTL via channelCache) and bust it on any catalog mutation.
+// Per-user lists are NOT cached here — they change through many assignment paths.
+function invalidateCatalogCache() {
+  return channelCache.deletePattern('catalog:*');
+}
 
 // Max channels the TV app receives in one sync. An Admin's "channel list" is the
 // entire global catalog (can be tens of thousands) — no TV client can browse that,
@@ -57,27 +65,55 @@ function slimAlternates(channel) {
   return channel;
 }
 
+// Whitelist projection for the list endpoints (/, /grouped, /search) — verified against what
+// the Android app deserializes and the web frontend reads from THESE endpoints. Drops metrics,
+// timestamps, ownerId, DRM key, unused metadata and heavy alternate subfields (~40% smaller).
+// Single-channel endpoints (/:id, /:id/with-fallbacks) still return the full document.
+const CHANNEL_LIST_FIELDS = [
+  'channelId channelName channelUrl channelImg tvgLogo tvgName tvgId channelGroup',
+  'channelDrmType order isActive',
+  'metadata.country metadata.language metadata.quality',
+  'metadata.isWorking metadata.lastTested metadata.responseTime',
+  'flaggedBad.isFlagged flaggedBad.reason',
+  'alternateStreams.streamUrl alternateStreams.quality',
+  'alternateStreams.liveness.status alternateStreams.liveness.responseTimeMs',
+  'alternateStreams.liveness.lastCheckedAt',
+  'alternateStreams.flaggedBad.isFlagged alternateStreams.flaggedBad.reason',
+].join(' ');
+
 // Get channels (for Android app sync) — accepts TV code or session auth, excludes DRM keys
 router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const isAdmin = req.user.role === 'Admin';
-    // Admin/demo see the shared catalog only (ownerId:null); a user sees their own selection.
-    const query = isAdmin
+    // allCatalog users are served the shared catalog like admins — avoids a giant $in.
+    const catalogView = req.user.role === 'Admin' || req.user.allCatalog === true;
+
+    // The catalog payload is identical across requests — serve from cache when present.
+    if (catalogView) {
+      const cached = await channelCache.get('catalog:list');
+      if (cached) return res.json(cached);
+    }
+
+    // Catalog view sees the shared catalog only (ownerId:null); a user sees their own selection.
+    const query = catalogView
       ? { ownerId: null }
       : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
 
     const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
-      // Bound the admin/demo firehose; a user's own selection is returned in full.
-      .limit(isAdmin ? TV_CHANNELS_MAX : 0)
-      .select('-__v -createdAt -updatedAt -channelDrmKey')
+      // Bound every response — large payloads crash low-end TV sticks.
+      .limit(TV_CHANNELS_MAX)
+      .select(CHANNEL_LIST_FIELDS)
       .lean();
 
-    res.json({
+    const payload = {
       success: true,
       count: channels.length,
       data: channels.map(slimAlternates),
-    });
+    };
+
+    if (catalogView) await channelCache.set('catalog:list', payload);
+
+    res.json(payload);
   } catch (error) {
     console.error('Error fetching channels:', error);
     res.status(500).json({
@@ -90,33 +126,43 @@ router.get('/', requireTvOrSessionAuth, async (req, res) => {
 // Get channels grouped by category
 router.get('/grouped', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const isAdmin = req.user.role === 'Admin';
-    // Admin/demo see the shared catalog only (ownerId:null); a user sees their own selection.
-    const query = isAdmin
+    const catalogView = req.user.role === 'Admin' || req.user.allCatalog === true;
+
+    if (catalogView) {
+      const cached = await channelCache.get('catalog:grouped');
+      if (cached) return res.json(cached);
+    }
+
+    // Catalog view sees the shared catalog only (ownerId:null); a user sees their own selection.
+    const query = catalogView
       ? { ownerId: null }
       : { _id: { $in: (req.user.channels || []).filter(Boolean) }, isActive: { $ne: false } };
 
     const channels = await Channel.find(query)
       .sort({ channelGroup: 1, order: 1 })
-      // Bound the admin/demo firehose; a user's own selection is returned in full.
-      .limit(isAdmin ? TV_CHANNELS_MAX : 0)
-      .select('-channelDrmKey')
+      // Bound every response — large payloads crash low-end TV sticks.
+      .limit(TV_CHANNELS_MAX)
+      .select(CHANNEL_LIST_FIELDS)
       .lean();
 
-    // Group by channelGroup
+    // Group by channelGroup (dead/flagged alternates slimmed, same as /)
     const grouped = channels.reduce((acc, channel) => {
       const group = channel.channelGroup || 'Uncategorized';
       if (!acc[group]) {
         acc[group] = [];
       }
-      acc[group].push(channel);
+      acc[group].push(slimAlternates(channel));
       return acc;
     }, {});
 
-    res.json({
+    const payload = {
       success: true,
       data: grouped,
-    });
+    };
+
+    if (catalogView) await channelCache.set('catalog:grouped', payload);
+
+    res.json(payload);
   } catch (error) {
     console.error('Error fetching grouped channels:', error);
     res.status(500).json({
@@ -148,7 +194,12 @@ router.get('/playlist.m3u', async (req, res) => {
       return res.status(403).json({ success: false, error: 'Invalid playlist code' });
     }
 
-    const m3uContent = await Channel.generateM3UPlaylist();
+    // Rendered playlist is identical for every caller — cache it (busted with catalog:* on mutations).
+    let m3uContent = await channelCache.get('catalog:m3u');
+    if (!m3uContent) {
+      m3uContent = await Channel.generateM3UPlaylist();
+      await channelCache.set('catalog:m3u', m3uContent);
+    }
     res.setHeader('Content-Type', 'application/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
     res.send(m3uContent);
@@ -181,17 +232,18 @@ router.get('/search', requireTvOrSessionAuth, async (req, res) => {
       ],
     };
 
-    if (req.user.role !== 'Admin') {
+    if (req.user.role !== 'Admin' && req.user.allCatalog !== true) {
       searchFilter._id = { $in: (req.user.channels || []).filter(Boolean) };
       searchFilter.isActive = { $ne: false };
     } else {
-      // Admin/demo search the shared catalog only, never users' private channels.
+      // Admin/demo/allCatalog search the shared catalog only, never users' private channels.
       searchFilter.ownerId = null;
     }
 
     const channels = await Channel.find(searchFilter)
       .sort({ channelGroup: 1, order: 1 })
-      .select('-__v -createdAt -updatedAt -channelDrmKey')
+      .limit(TV_CHANNELS_MAX)
+      .select(CHANNEL_LIST_FIELDS)
       .lean();
 
     res.json({ success: true, count: channels.length, data: channels.map(slimAlternates) });
@@ -362,6 +414,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       alternateStreams,
     });
     await channel.save();
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'create_channel',
@@ -424,6 +477,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'update_channel',
@@ -448,6 +502,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     }
     // Remove the deleted channel id from every user's channels array to avoid orphan refs
     await User.updateMany({ channels: req.params.id }, { $pull: { channels: req.params.id } });
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'delete_channel',
@@ -528,6 +583,8 @@ router.post('/:id/flag', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
+    // flaggedBad is part of the cached catalog payload — bust it so clients see the flag.
+    await invalidateCatalogCache();
     flagLimits.set(flagKey, Date.now());
 
     audit({
@@ -567,6 +624,7 @@ router.post('/:id/unflag', requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'unflag_channel',
@@ -618,6 +676,7 @@ router.post('/:id/alternates/:index/flag', requireAuth, async (req, res) => {
     };
     await channel.save();
 
+    await invalidateCatalogCache();
     flagLimits.set(flagKey, Date.now());
 
     audit({
@@ -659,6 +718,7 @@ router.post('/:id/alternates/:index/unflag', requireAuth, requireAdmin, async (r
     };
     await channel.save();
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'unflag_alternate_stream',

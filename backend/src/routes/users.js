@@ -294,7 +294,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid user ID format' });
     }
 
-    const { username, email, password, role, isActive } = req.body;
+    const { username, email, password, role, isActive, allCatalog } = req.body;
 
     // Check if user is accessing their own profile or is admin
     const isAdmin = req.user.role === 'Admin';
@@ -343,11 +343,12 @@ router.put('/:id', requireAuth, async (req, res) => {
       user.password = password; // Will be hashed by pre-save hook
     }
 
-    // Only admin can change role and isActive
+    // Only admin can change role, isActive and allCatalog
     const previousRole = user.role;
     if (isAdmin) {
       if (role !== undefined) user.role = role;
       if (isActive !== undefined) user.isActive = isActive;
+      if (allCatalog !== undefined) user.allCatalog = allCatalog === true;
     }
 
     await user.save();

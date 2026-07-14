@@ -83,7 +83,8 @@ class ExternalSourceCacheService {
     }
 
     const query: Record<string, any> = { source, region };
-    const allowedStatuses = ['online', 'offline', 'error', 'unknown'];
+    // Must match the liveness.status enum — a value outside this list silently disables the filter.
+    const allowedStatuses = ['alive', 'dead', 'unknown'];
     if (
       filters.status &&
       typeof filters.status === 'string' &&

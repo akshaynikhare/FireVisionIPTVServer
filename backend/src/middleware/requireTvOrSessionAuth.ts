@@ -18,7 +18,9 @@ const requireTvOrSessionAuth = async (req: Request, res: Response, next: NextFun
       const user = (await User.findOne({
         channelListCode: tvCode.toUpperCase(),
         isActive: true,
-      })) as any;
+      }).select(
+        'username email role channels channelListCode isActive emailVerified allCatalog',
+      )) as any;
 
       if (user) {
         req.user = {
@@ -30,6 +32,7 @@ const requireTvOrSessionAuth = async (req: Request, res: Response, next: NextFun
           channelListCode: user.channelListCode,
           isActive: user.isActive,
           emailVerified: user.emailVerified ?? false,
+          allCatalog: user.allCatalog === true,
         };
         return next();
       }
@@ -49,7 +52,10 @@ const requireTvOrSessionAuth = async (req: Request, res: Response, next: NextFun
       });
     }
 
-    const session = await Session.findOne({ sessionId }).populate('userId');
+    const session = await Session.findOne({ sessionId }).populate(
+      'userId',
+      'username email role channels channelListCode isActive emailVerified allCatalog',
+    );
 
     if (!session) {
       return res.status(401).json({
@@ -86,6 +92,7 @@ const requireTvOrSessionAuth = async (req: Request, res: Response, next: NextFun
       channelListCode: user.channelListCode,
       isActive: user.isActive,
       emailVerified: user.emailVerified,
+      allCatalog: user.allCatalog === true,
     };
     req.sessionId = sessionId;
 
