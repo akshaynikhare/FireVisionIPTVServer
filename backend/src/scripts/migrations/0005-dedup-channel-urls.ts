@@ -10,7 +10,9 @@
  *   2. Losers' alternateStreams fold into the survivor (deduped, capped at 50).
  *   3. Losers are deleted FIRST — add endpoints validate channel existence, so a
  *      deleted loser can't be concurrently assigned while step 4 runs.
- *   4. Every user referencing a loser gets the survivor added, then losers pulled.
+ *   4. Every user referencing a loser gets the survivor added, then losers pulled —
+ *      repeated until no holders remain, so in-flight assignments that validated
+ *      before the delete are re-granted the survivor instead of silently dropped.
  *
  * Safe to re-run: once collapsed, no group has more than one row per URL.
  *
@@ -88,17 +90,24 @@ async function run(): Promise<void> {
       }
       const loserIds = losers.map((l) => l._id);
       // Delete losers FIRST: add endpoints validate channel existence, so once deleted a
-      // loser id can't be concurrently assigned between the remap and the pull below.
+      // loser id can't pass validation for NEW assignments while we remap below.
       await Channel.deleteMany({ _id: { $in: loserIds } });
       // Users holding a loser keep access via the survivor; then loser refs are removed.
-      await User.updateMany(
-        { channels: { $in: loserIds } },
-        { $addToSet: { channels: survivor._id } },
-      );
-      await User.updateMany(
-        { channels: { $in: loserIds } },
-        { $pull: { channels: { $in: loserIds } } },
-      );
+      // Loop until no holders remain: an assignment validated before the delete can still
+      // land between the remap and the pull — the retry re-grants the survivor to any
+      // straggler instead of silently dropping their reference.
+      for (let pass = 0; pass < 5; pass++) {
+        const holders = await User.countDocuments({ channels: { $in: loserIds } });
+        if (holders === 0) break;
+        await User.updateMany(
+          { channels: { $in: loserIds } },
+          { $addToSet: { channels: survivor._id } },
+        );
+        await User.updateMany(
+          { channels: { $in: loserIds } },
+          { $pull: { channels: { $in: loserIds } } },
+        );
+      }
     }
   }
 

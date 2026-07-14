@@ -928,8 +928,16 @@ router.post('/import-user', async (req, res) => {
 
     if (channelIdsToAdd.length > 0) {
       const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
-      user.channels.push(...allowed);
-      await user.save();
+      if (allowed.length > 0) {
+        // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+        // concurrent imports overshoot USER_CHANNELS_MAX.
+        const updated = await User.updateOne(withChannelCapFilter(user._id, allowed.length), {
+          $addToSet: { channels: { $each: allowed } },
+        });
+        if (updated.matchedCount === 0) {
+          console.warn(`[iptv-org] channel list limit hit concurrently for ${req.user.id}`);
+        }
+      }
       if (rejected > 0) {
         console.warn(
           `[iptv-org] channel list limit reached for ${req.user.id}: ${rejected} skipped`,

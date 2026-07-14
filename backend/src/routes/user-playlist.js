@@ -9,6 +9,7 @@ const {
   resolveChannelGroups,
   clubByChannelId,
   capChannelAdditions,
+  withChannelCapFilter,
   extractExtinfTitle,
 } = require('../services/import-helpers');
 
@@ -106,8 +107,23 @@ router.post('/me/channels/add', requireAuth, async (req, res) => {
 
     const wanted = validIds.filter((id) => !existingIds.has(id));
     const { allowed: toAdd, rejected } = capChannelAdditions(user.channels.length, wanted);
-    user.channels.push(...toAdd.map((id) => new mongoose.Types.ObjectId(id)));
-    await user.save();
+    let finalCount = user.channels.length;
+    let addedCount = 0;
+    if (toAdd.length > 0) {
+      // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+      // concurrent additions overshoot USER_CHANNELS_MAX.
+      const updated = await User.findOneAndUpdate(
+        withChannelCapFilter(user._id, toAdd.length),
+        { $addToSet: { channels: { $each: toAdd.map((id) => new mongoose.Types.ObjectId(id)) } } },
+        { new: true },
+      );
+      if (updated) {
+        finalCount = updated.channels.length;
+        addedCount = toAdd.length;
+      } else {
+        console.warn(`[user-playlist] channel list limit hit concurrently for ${req.user.id}`);
+      }
+    }
     if (rejected > 0) {
       console.warn(
         `[user-playlist] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
@@ -117,16 +133,16 @@ router.post('/me/channels/add', requireAuth, async (req, res) => {
       userId: req.user.id,
       action: 'add_channels',
       resource: 'user_playlist',
-      resourceId: `${toAdd.length} channels`,
+      resourceId: `${addedCount} channels`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: `Added ${toAdd.length} channels`,
-      count: user.channels.length,
-      addedCount: toAdd.length,
+      message: `Added ${addedCount} channels`,
+      count: finalCount,
+      addedCount,
     });
   } catch (error) {
     console.error('Add my channels error:', error);
@@ -312,8 +328,23 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
     const userChannelIds = new Set(user.channels.map((id) => id.toString()));
     const wanted = allChannelIds.filter((id) => !userChannelIds.has(id.toString()));
     const { allowed: toAdd, rejected } = capChannelAdditions(user.channels.length, wanted);
-    user.channels.push(...toAdd.map((id) => new mongoose.Types.ObjectId(id)));
-    await user.save();
+    let finalCount = user.channels.length;
+    let addedCount = 0;
+    if (toAdd.length > 0) {
+      // Atomic $addToSet with the cap in the filter — a snapshot-then-save would let
+      // concurrent imports overshoot USER_CHANNELS_MAX.
+      const updated = await User.findOneAndUpdate(
+        withChannelCapFilter(user._id, toAdd.length),
+        { $addToSet: { channels: { $each: toAdd.map((id) => new mongoose.Types.ObjectId(id)) } } },
+        { new: true },
+      );
+      if (updated) {
+        finalCount = updated.channels.length;
+        addedCount = toAdd.length;
+      } else {
+        console.warn(`[user-playlist] channel list limit hit concurrently for ${req.user.id}`);
+      }
+    }
     if (rejected > 0) {
       console.warn(
         `[user-playlist] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
@@ -324,16 +355,16 @@ router.post('/me/import-m3u', requireAuth, async (req, res) => {
       userId: req.user.id,
       action: 'import_m3u',
       resource: 'user_playlist',
-      resourceId: `${toAdd.length} channels`,
+      resourceId: `${addedCount} channels`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
 
     res.json({
       success: true,
-      message: `Added ${toAdd.length} channels to your list`,
-      added: toAdd.length,
-      count: user.channels.length,
+      message: `Added ${addedCount} channels to your list`,
+      added: addedCount,
+      count: finalCount,
     });
   } catch (error) {
     console.error('User import M3U error:', error);
