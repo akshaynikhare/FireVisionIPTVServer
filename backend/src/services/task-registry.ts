@@ -2,7 +2,8 @@ import { iptvOrgCacheService } from './iptv-org-cache';
 import { externalSourceCacheService } from './external-source-cache';
 import { epgService } from './epg-service';
 import { streamHealthService } from './stream-health-service';
-import { ExternalSourceCacheMeta } from '../models/ExternalSourceCache';
+import { ExternalSourceCacheMeta, ExternalSourceChannel } from '../models/ExternalSourceCache';
+import { IptvOrgChannel } from '../models/IptvOrgCache';
 
 export interface SubtaskResult {
   name: string;
@@ -91,6 +92,39 @@ async function livenessHandler(): Promise<TaskResult> {
       durationMs: 0,
       error: err.message,
     });
+  }
+
+  // Prune stale dead cache rows right after the sweep re-confirmed their state.
+  // Opt-in; caches are regenerable, so a still-listed stream re-imports on next refresh.
+  if (process.env.DEAD_STREAM_PRUNE_ENABLED === 'true') {
+    const pruneStart = Date.now();
+    try {
+      const parsedDays = Number(process.env.DEAD_STREAM_PRUNE_DAYS);
+      const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 7;
+      const cutoff = new Date(Date.now() - days * 86400000);
+      const filter = { 'liveness.status': 'dead', 'liveness.lastCheckedAt': { $lt: cutoff } };
+      const [iptv, ext] = await Promise.all([
+        IptvOrgChannel.deleteMany(filter),
+        ExternalSourceChannel.deleteMany(filter),
+      ]);
+      subtasks.push({
+        name: 'prune-dead-streams',
+        status: 'completed',
+        durationMs: Date.now() - pruneStart,
+        result: {
+          iptvOrgDeleted: iptv.deletedCount || 0,
+          externalDeleted: ext.deletedCount || 0,
+          olderThanDays: days,
+        },
+      });
+    } catch (err: any) {
+      subtasks.push({
+        name: 'prune-dead-streams',
+        status: 'failed',
+        durationMs: Date.now() - pruneStart,
+        error: err.message,
+      });
+    }
   }
 
   const completed = subtasks.filter((s) => s.status === 'completed').length;

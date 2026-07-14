@@ -12,8 +12,20 @@ interface LogOptions {
   errorMessage?: string;
 }
 
+// High-volume, low-value actions we don't persist — they dominated the audit log (~81% of rows)
+// and provide little forensic value. Liveness/health probing is already visible in scheduler runs.
+const NOISY_ACTIONS = new Set([
+  'test_channel',
+  'test_channel_batch',
+  'test_channel_all',
+  'check_liveness_single',
+  'check_liveness_batch',
+]);
+
 /** Fire-and-forget audit log entry. Never throws. */
 export function audit(opts: LogOptions): void {
+  if (NOISY_ACTIONS.has(opts.action)) return;
+
   AuditLog.create({
     userId: opts.userId,
     action: opts.action,

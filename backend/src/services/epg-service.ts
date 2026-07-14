@@ -302,6 +302,11 @@ class EpgService {
       // Skip programs that already ended more than 24h ago
       if (endTime.getTime() < Date.now() - 86400000) continue;
 
+      // Skip programs starting beyond the lookahead window — bounds stored EPG size.
+      // Upstream XMLTV often carries ~6 days; we only keep ~2 days ahead by default.
+      const maxAheadMs = (Number(process.env.EPG_MAX_LOOKAHEAD_HOURS) || 48) * 3600000;
+      if (startTime.getTime() > Date.now() + maxAheadMs) continue;
+
       const title = this.extractText(prog.title);
       if (!title) continue;
 
