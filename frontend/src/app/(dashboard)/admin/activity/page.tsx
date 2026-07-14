@@ -54,6 +54,26 @@ function formatDate(ts: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function ResourceCell({ log }: { log: AuditEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!log.resourceId) {
+    return <span className="text-sm text-muted-foreground block truncate">{log.resource}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded((v) => !v)}
+      aria-expanded={expanded}
+      title={expanded ? 'Click to collapse' : 'Click to show full ID'}
+      className={`block w-full min-w-0 text-left text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+        expanded ? 'whitespace-normal break-all' : 'truncate'
+      }`}
+    >
+      {log.resource}: {log.resourceId}
+    </button>
+  );
+}
+
 export default function ActivityPage() {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +185,7 @@ export default function ActivityPage() {
       ) : (
         <DataTable<AuditEntry>
           data={logs}
-          gridTemplate="100px 140px 140px minmax(120px,1fr) 120px 120px"
+          gridTemplate="minmax(100px,1fr) minmax(110px,1.2fr) minmax(130px,1.4fr) minmax(160px,2.6fr) minmax(90px,1fr) minmax(110px,1.1fr)"
           resizable
           ariaLabel="Activity log table"
           emptyMessage="No activity logs found"
@@ -233,15 +253,7 @@ export default function ActivityPage() {
                     onChange={setSelectedResources}
                   />
                 ),
-                cell: (log) => (
-                  <span
-                    className="text-sm truncate text-muted-foreground block min-w-0"
-                    title={log.resourceId ? `${log.resource}: ${log.resourceId}` : log.resource}
-                  >
-                    {log.resource}
-                    {log.resourceId ? `: ${log.resourceId.slice(0, 8)}…` : ''}
-                  </span>
-                ),
+                cell: (log) => <ResourceCell log={log} />,
               },
               {
                 key: 'status',

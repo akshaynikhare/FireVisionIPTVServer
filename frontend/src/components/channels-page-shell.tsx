@@ -107,6 +107,11 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [healthStats, setHealthStats] = useState<{
+    working: number;
+    notWorking: number;
+    untested: number;
+  } | null>(null);
 
   // Column filter state
   const [filterOptions, setFilterOptions] = useState<{
@@ -275,6 +280,7 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
         const body = res.data;
         setChannels(Array.isArray(body) ? body : body.data || body.channels || []);
         setTotalCount(body.totalCount ?? (Array.isArray(body) ? body.length : body.count || 0));
+        setHealthStats(body.health ?? null);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return;
         if (
@@ -1405,9 +1411,16 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       {/* Stream health stats */}
       {(() => {
         const list = isAdmin ? channels : filtered;
-        const working = list.filter((c) => c.metadata?.isWorking === true).length;
-        const notWorking = list.filter((c) => c.metadata?.isWorking === false).length;
-        const untested = list.length - working - notWorking;
+        const working =
+          isAdmin && healthStats
+            ? healthStats.working
+            : list.filter((c) => c.metadata?.isWorking === true).length;
+        const notWorking =
+          isAdmin && healthStats
+            ? healthStats.notWorking
+            : list.filter((c) => c.metadata?.isWorking === false).length;
+        const untested =
+          isAdmin && healthStats ? healthStats.untested : list.length - working - notWorking;
         return (
           <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/50 border border-border text-xs">
             <Zap className="h-4 w-4 text-muted-foreground shrink-0" />
