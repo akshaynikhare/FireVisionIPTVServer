@@ -12,7 +12,14 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "test": "jest",
-    "migrate:fix-indexes": "tsx src/scripts/migrations/0002-fix-indexes.ts"
+    "migrate:fix-indexes": "tsx src/scripts/migrations/0002-fix-indexes.ts",
+    "migrate:sync-indexes": "tsx src/scripts/migrations/0003-sync-indexes.ts",
+    "migrate:categorize": "tsx src/scripts/migrations/0004-categorize-backfill.ts",
+    "migrate:dedup-urls": "tsx src/scripts/migrations/0005-dedup-channel-urls.ts",
+    "migrate:epg-trim": "tsx src/scripts/migrations/0006-epg-trim.ts",
+    "migrate:prune-orphan-refs": "tsx src/scripts/migrations/0007-prune-orphan-refs.ts",
+    "migrate:categorize-patterns": "tsx src/scripts/migrations/0008-categorize-patterns.ts",
+    "migrate:fix-names": "tsx src/scripts/migrations/0009-fix-channel-names.ts"
   },
   "dependencies": {
     "@firevision/shared": "*",
