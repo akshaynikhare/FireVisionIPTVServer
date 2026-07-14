@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('./auth');
 const { iptvOrgCacheService } = require('../services/iptv-org-cache');
 const { audit } = require('../services/audit-log');
+const { capChannelAdditions } = require('../services/import-helpers');
 
 // Apply authentication to all routes
 router.use(requireAuth);
@@ -798,10 +799,13 @@ router.post('/import-grouped-user', async (req, res) => {
     }
 
     if (channelIdsToAdd.length > 0) {
-      await User.updateOne(
-        { _id: userId },
-        { $addToSet: { channels: { $each: channelIdsToAdd } } },
-      );
+      const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
+      if (allowed.length > 0) {
+        await User.updateOne({ _id: userId }, { $addToSet: { channels: { $each: allowed } } });
+      }
+      if (rejected > 0) {
+        console.warn(`[iptv-org] channel list limit reached for ${userId}: ${rejected} skipped`);
+      }
     }
 
     audit({
@@ -917,8 +921,14 @@ router.post('/import-user', async (req, res) => {
     }
 
     if (channelIdsToAdd.length > 0) {
-      user.channels.push(...channelIdsToAdd);
+      const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
+      user.channels.push(...allowed);
       await user.save();
+      if (rejected > 0) {
+        console.warn(
+          `[iptv-org] channel list limit reached for ${req.user.id}: ${rejected} skipped`,
+        );
+      }
     }
 
     audit({

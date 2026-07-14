@@ -6,6 +6,7 @@ const { SeedChannel } = require('../models/SeedChannel');
 const { requireAuth, requireAdmin } = require('./auth');
 const { externalSourceCacheService } = require('../services/external-source-cache');
 const { audit } = require('../services/audit-log');
+const { capChannelAdditions } = require('../services/import-helpers');
 
 const VALID_SOURCES = ['pluto-tv', 'samsung-tv-plus', 'youtube-live', 'prasar-bharati'];
 const SEED_SOURCES = ['youtube-live', 'prasar-bharati'];
@@ -604,13 +605,19 @@ router.post('/import-user', async (req, res) => {
 
     let totalChannels = user.channels.length;
     if (channelIdsToAdd.length > 0) {
-      // Use atomic $addToSet to prevent lost updates under concurrent requests
-      const updated = await User.findByIdAndUpdate(
-        userId,
-        { $addToSet: { channels: { $each: channelIdsToAdd } } },
-        { new: true },
-      );
-      totalChannels = updated ? updated.channels.length : totalChannels;
+      const { allowed, rejected } = capChannelAdditions(user.channels.length, channelIdsToAdd);
+      if (allowed.length > 0) {
+        // Use atomic $addToSet to prevent lost updates under concurrent requests
+        const updated = await User.findByIdAndUpdate(
+          userId,
+          { $addToSet: { channels: { $each: allowed } } },
+          { new: true },
+        );
+        totalChannels = updated ? updated.channels.length : totalChannels;
+      }
+      if (rejected > 0) {
+        console.warn(`[ext-sources] channel list limit reached for ${userId}: ${rejected} skipped`);
+      }
     }
 
     audit({
