@@ -9,6 +9,7 @@ declare namespace Express {
       channelListCode?: string;
       isActive: boolean;
       emailVerified: boolean;
+      allCatalog?: boolean;
     };
     sessionId?: string;
     jwt?: {

@@ -12,6 +12,22 @@ const { validateUrlForSSRF } = require('../utils/ssrf-guard');
 const AuditLog = require('../models/AuditLog');
 const { ExternalSourceChannel } = require('../models/ExternalSourceCache');
 const { ScheduledTaskRun } = require('../models/ScheduledTaskRun');
+const { channelCache, statsCache } = require('../services/cache');
+const {
+  resolveChannelGroups,
+  clubByChannelId,
+  dedupAgainstCatalog,
+  extractExtinfTitle,
+} = require('../services/import-helpers');
+
+// Bust the cached admin/demo catalog (served by GET /channels + /grouped) on any catalog
+// mutation, and drop cached channel-list counts. Keeps the TV/demo view consistent after edits.
+function invalidateCatalogCache() {
+  return Promise.all([
+    channelCache.deletePattern('catalog:*'),
+    statsCache.deletePattern('chcount:*'),
+  ]);
+}
 
 // Apply session authentication and admin role check to all admin routes
 router.use(requireAuth);
@@ -51,6 +67,7 @@ router.post('/channels', async (req, res) => {
       metadata,
     });
     await channel.save();
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'create_channel',
@@ -139,6 +156,7 @@ router.put('/channels/:id', async (req, res) => {
       });
     }
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'update_channel',
@@ -177,6 +195,7 @@ router.delete('/channels/:id', async (req, res) => {
     // Remove the deleted channel id from every user's channels array to avoid orphan refs
     await User.updateMany({ channels: req.params.id }, { $pull: { channels: req.params.id } });
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'delete_channel',
@@ -221,6 +240,7 @@ router.delete('/channels', async (req, res) => {
       );
     }
 
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'delete_all_channels',
@@ -298,7 +318,9 @@ router.post('/channels/import-m3u', async (req, res) => {
         const tvgNameMatch = line.match(/tvg-name="([^"]*)"/);
         const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/);
         const groupTitleMatch = line.match(/group-title="([^"]*)"/);
-        const channelNameMatch = line.match(/,(.+)$/);
+        // Title = text after the attribute list, NOT after the first comma — attribute
+        // values (logo URLs, user-agents) legally contain commas.
+        const channelName = extractExtinfTitle(line);
 
         currentChannel = {
           channelId: tvgIdMatch ? tvgIdMatch[1] : `channel_${Date.now()}_${i}`,
@@ -306,7 +328,7 @@ router.post('/channels/import-m3u', async (req, res) => {
           channelImg: tvgLogoMatch ? tvgLogoMatch[1] : '',
           tvgLogo: tvgLogoMatch ? tvgLogoMatch[1] : '',
           channelGroup: groupTitleMatch ? groupTitleMatch[1] : 'Uncategorized',
-          channelName: channelNameMatch ? channelNameMatch[1].trim() : 'Unknown',
+          channelName: channelName || 'Unknown',
           order: channels.length,
         };
       } else if (line && !line.startsWith('#') && currentChannel) {
@@ -329,9 +351,19 @@ router.post('/channels/import-m3u', async (req, res) => {
       });
     }
 
-    // Insert only SSRF-safe channels into database
-    const insertedChannels = await Channel.insertMany(safeChannels, { ordered: false });
+    // Club same-tvg-id entries into alternateStreams, categorize from the iptv-org cache so the
+    // catalog isn't dumped into 'Uncategorized', then drop URLs already in the catalog so a
+    // re-import doesn't create duplicate rows.
+    const clubbed = clubByChannelId(safeChannels);
+    await resolveChannelGroups(clubbed);
+    const toInsert = await dedupAgainstCatalog(clubbed);
 
+    // Insert only SSRF-safe, non-duplicate channels into database
+    const insertedChannels = toInsert.length
+      ? await Channel.insertMany(toInsert, { ordered: false })
+      : [];
+
+    await invalidateCatalogCache();
     audit({
       userId: req.user.id,
       action: 'import_m3u',
@@ -341,9 +373,13 @@ router.post('/channels/import-m3u', async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
 
+    const duplicateCount = clubbed.length - toInsert.length;
+    const notes = [];
+    if (blockedCount > 0) notes.push(`${blockedCount} blocked by security policy`);
+    if (duplicateCount > 0) notes.push(`${duplicateCount} already in catalog`);
     const message =
-      blockedCount > 0
-        ? `Imported ${insertedChannels.length} channels (${blockedCount} blocked by security policy)`
+      notes.length > 0
+        ? `Imported ${insertedChannels.length} channels (${notes.join(', ')})`
         : `Successfully imported ${insertedChannels.length} channels`;
 
     res.json({
@@ -351,6 +387,7 @@ router.post('/channels/import-m3u', async (req, res) => {
       message,
       count: insertedChannels.length,
       blockedCount,
+      duplicateCount,
     });
   } catch (error) {
     console.error('Error importing M3U:', error);
@@ -489,18 +526,48 @@ router.get('/channels', async (req, res) => {
     const p = parseInt(page, 10) || 1;
     const ps = Math.min(parseInt(pageSize, 10) || 50, 200);
 
-    const [channels, totalCount] = await Promise.all([
+    // countDocuments on the catalog is expensive and identical across pages of the same
+    // filter — cache it (short TTL, busted on catalog mutations) and run it alongside the find.
+    const filterKey = JSON.stringify({ group, status, language, country, search });
+    const countKey = `chcount:${filterKey}`;
+    const healthKey = `chcount:health:${filterKey}`;
+
+    const [channels, totalCount, health] = await Promise.all([
       Channel.find(filter)
         .sort({ channelGroup: 1, order: 1 })
         .skip((p - 1) * ps)
-        .limit(ps),
-      Channel.countDocuments(filter),
+        .limit(ps)
+        .lean(),
+      (async () => {
+        const cached = await statsCache.get(countKey);
+        if (typeof cached === 'number') return cached;
+        const fresh = await Channel.countDocuments(filter);
+        await statsCache.set(countKey, fresh);
+        return fresh;
+      })(),
+      (async () => {
+        const cached = await statsCache.get(healthKey);
+        if (cached) return cached;
+        const agg = await Channel.aggregate([
+          { $match: filter },
+          { $group: { _id: '$metadata.isWorking', n: { $sum: 1 } } },
+        ]);
+        const fresh = { working: 0, notWorking: 0, untested: 0 };
+        for (const row of agg) {
+          if (row._id === true) fresh.working += row.n;
+          else if (row._id === false) fresh.notWorking += row.n;
+          else fresh.untested += row.n;
+        }
+        await statsCache.set(healthKey, fresh);
+        return fresh;
+      })(),
     ]);
 
     res.json({
       success: true,
       count: channels.length,
       totalCount,
+      health,
       page: p,
       pageSize: ps,
       data: channels,

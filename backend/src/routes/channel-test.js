@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const { validateUrlForSSRF, isPrivateIP, createPinnedLookup } = require('../utils/ssrf-guard');
 const { audit } = require('../services/audit-log');
+const { statsCache } = require('../services/cache');
 
 // Apply authentication to all routes — admin only for testing operations
 router.use(requireAuth);
@@ -94,6 +95,7 @@ router.post('/test-channel', async (req, res) => {
       'metadata.isWorking': result.working,
       'metadata.responseTime': result.responseTime,
     });
+    await statsCache.deletePattern('chcount:*');
     audit({
       userId: req.user.id,
       action: 'test_channel',
@@ -185,6 +187,7 @@ router.post('/test-batch', async (req, res) => {
         }
       }
 
+      await statsCache.deletePattern('chcount:*');
       audit({
         userId: req.user.id,
         action: 'test_channel_batch',
@@ -268,6 +271,7 @@ router.post('/test-all', async (req, res) => {
       }
 
       const workingCount = results.filter((r) => r.working).length;
+      await statsCache.deletePattern('chcount:*');
       audit({
         userId: req.user.id,
         action: 'test_channel_all',

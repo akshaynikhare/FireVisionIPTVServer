@@ -11,6 +11,8 @@ export interface IUser {
   isActive: boolean;
   profilePicture: string | null;
   channels: Types.ObjectId[];
+  // Serve the whole shared catalog (capped) instead of the channels[] selection.
+  allCatalog?: boolean;
   lastLogin?: Date;
   metadata?: {
     deviceName?: string;

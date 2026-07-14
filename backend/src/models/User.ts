@@ -60,6 +60,12 @@ const userSchema = new Schema<IUserDocument>(
         ref: 'Channel',
       },
     ],
+    // Serve the whole shared catalog (capped at TV_CHANNELS_MAX) instead of channels[] —
+    // for "wants everything" users; avoids a giant $in and an unbounded channels array.
+    allCatalog: {
+      type: Boolean,
+      default: false,
+    },
     lastLogin: {
       type: Date,
     },

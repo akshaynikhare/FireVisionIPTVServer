@@ -33,7 +33,7 @@ const channelSchema = new Schema<IChannelDocument>(
     channelGroup: {
       type: String,
       default: 'Uncategorized',
-      index: true,
+      // Covered by the compound { channelGroup: 1, order: 1 } index below — no standalone index.
     },
     channelDrmKey: {
       type: String,
@@ -136,33 +136,54 @@ channelSchema.index({ channelName: 'text' });
 // users can import the same channelId as their own private channels.
 channelSchema.index({ ownerId: 1, channelId: 1 }, { unique: true });
 
-// Method to convert to M3U format entry
-channelSchema.methods.toM3U = function (this: IChannelDocument): string {
+// Build a single M3U #EXTINF entry from a channel-like object.
+// Works for both Mongoose docs and lean POJOs so the playlist export can stream lean docs.
+function buildM3ULine(ch: {
+  channelId?: string;
+  tvgName?: string;
+  channelName: string;
+  tvgLogo?: string;
+  channelImg?: string;
+  channelGroup?: string;
+  channelUrl: string;
+}): string {
   // Escape double quotes in interpolated values to prevent M3U attribute injection
-  const esc = (s: string) => s.replace(/"/g, "'");
+  const esc = (s: string | undefined) => (s ?? '').replace(/"/g, "'");
 
   let m3uLine = `#EXTINF:-1`;
 
-  if (this.channelId) m3uLine += ` tvg-id="${esc(this.channelId)}"`;
-  if (this.tvgName || this.channelName)
-    m3uLine += ` tvg-name="${esc(this.tvgName || this.channelName)}"`;
-  if (this.tvgLogo || this.channelImg)
-    m3uLine += ` tvg-logo="${esc(this.tvgLogo || this.channelImg)}"`;
-  if (this.channelGroup) m3uLine += ` group-title="${esc(this.channelGroup)}"`;
+  if (ch.channelId) m3uLine += ` tvg-id="${esc(ch.channelId)}"`;
+  if (ch.tvgName || ch.channelName) m3uLine += ` tvg-name="${esc(ch.tvgName || ch.channelName)}"`;
+  if (ch.tvgLogo || ch.channelImg) m3uLine += ` tvg-logo="${esc(ch.tvgLogo || ch.channelImg)}"`;
+  if (ch.channelGroup) m3uLine += ` group-title="${esc(ch.channelGroup)}"`;
 
-  m3uLine += `,${this.channelName}\n${this.channelUrl}`;
+  m3uLine += `,${ch.channelName}\n${ch.channelUrl}`;
 
   return m3uLine;
+}
+
+// Method to convert to M3U format entry
+channelSchema.methods.toM3U = function (this: IChannelDocument): string {
+  return buildM3ULine(this);
 };
 
-// Static method to generate full M3U playlist
+// Static method to generate full M3U playlist.
+// Streams via a lean cursor + field projection so we never hydrate tens of thousands
+// of full Mongoose documents into memory at once.
 channelSchema.statics.generateM3UPlaylist = async function (): Promise<string> {
-  // The global M3U export serves the shared catalog only, never users' private channels.
-  const channels = await this.find({ ownerId: null }).sort({ channelGroup: 1, order: 1 });
+  const cursor = this.find({ ownerId: null })
+    .select(
+      'channelId channelName channelUrl channelImg tvgLogo tvgName channelGroup ' +
+        'metadata.isWorking flaggedBad.isFlagged ' +
+        'alternateStreams.streamUrl alternateStreams.liveness.status alternateStreams.flaggedBad.isFlagged',
+    )
+    .sort({ channelGroup: 1, order: 1 })
+    .lean()
+    .cursor();
 
   let m3uContent = '#EXTM3U\n\n';
 
-  channels.forEach((channel: IChannelDocument) => {
+  for (let channel: any = await cursor.next(); channel != null; channel = await cursor.next()) {
     const primaryDead = channel.metadata?.isWorking === false;
     const primaryFlagged = channel.flaggedBad?.isFlagged === true;
 
@@ -172,15 +193,12 @@ channelSchema.statics.generateM3UPlaylist = async function (): Promise<string> {
           alt.liveness?.status === 'alive' && alt.flaggedBad?.isFlagged !== true,
       );
       if (viableAlt) {
-        const originalUrl = channel.channelUrl;
-        channel.channelUrl = viableAlt.streamUrl;
-        m3uContent += channel.toM3U() + '\n\n';
-        channel.channelUrl = originalUrl;
-        return;
+        m3uContent += buildM3ULine({ ...channel, channelUrl: viableAlt.streamUrl }) + '\n\n';
+        continue;
       }
     }
-    m3uContent += channel.toM3U() + '\n\n';
-  });
+    m3uContent += buildM3ULine(channel) + '\n\n';
+  }
 
   return m3uContent;
 };
