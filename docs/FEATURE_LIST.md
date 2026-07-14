@@ -596,3 +596,26 @@ Complete inventory of every feature in the application.
 - Import dedup is scoped per user, so re-importing a playlist won't create duplicates
 - "Browse Demo Channels" pairs to a dedicated `DEMO_CHANNEL_LIST_CODE`; the admin/TV channel sync is bounded by `TV_CHANNELS_MAX`
 - One-time migration backfills ownership with conservative attribution and guarantees no user loses channels
+
+## Database Growth Prevention & Serving Performance
+
+- EPG ingest bounded to `EPG_MAX_LOOKAHEAD_HOURS` (default 48h) ahead — upstream guides carrying ~6 days no longer bloat storage
+- Noisy audit actions (`test_channel*`, `check_liveness*`) are no longer persisted; audit retention tightened to 180 days (TTL)
+- Scheduled task-run history auto-expires after 30 days (TTL); redundant indexes dropped from channels/iptv-org/audit collections
+- Optional scheduler step prunes stale dead cache streams after each liveness sweep (`DEAD_STREAM_PRUNE_ENABLED`, `DEAD_STREAM_PRUNE_DAYS`)
+- Migration `npm run migrate:sync-indexes` reconciles live indexes with the schemas on deploy (dry-run by default, `--commit` to apply)
+
+## Import Hygiene: Categorization, Clubbing & Dedup
+
+- M3U imports without `group-title` resolve a category from the iptv-org cache (by tvg-id, then name), then from name patterns (series `S01 E09`, movies `(2021)`, genre keywords, `DE:`-style country prefixes) before falling back to `Uncategorized`
+- Multiple streams sharing a tvg-id are clubbed into one channel with `alternateStreams` (capped at 50) instead of duplicate rows
+- Admin catalog imports skip URLs already present in the catalog, so re-imports no longer create duplicate channels
+- EXTINF titles are extracted after the attribute list (not the first comma), so attribute values containing commas (Cloudinary logo URLs, user-agent strings) no longer corrupt channel names
+
+## Channel Serving: Caching, Payloads & Limits
+
+- Shared catalog responses (`/channels`, `/channels/grouped`, `/playlist.m3u`) and rendered EPG (XMLTV + JSON) are Redis-cached with invalidation on catalog mutations
+- Channel list endpoints return a whitelisted field set verified against what the TV app and web frontend actually read (~40% smaller payloads)
+- M3U playlist generation streams via a lean cursor instead of hydrating the full catalog in memory
+- Auth middleware fetches only the user fields it needs; every channel list response is bounded by `TV_CHANNELS_MAX`
+- Per-user channel lists are capped at `USER_CHANNELS_MAX` (default 5000) additions; admins can set `allCatalog` on a user to serve them the whole shared catalog instead
