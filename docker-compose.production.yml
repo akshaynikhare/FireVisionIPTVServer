@@ -8,7 +8,10 @@ services:
       PORT: 3000
       APP_VERSION: ${APP_VERSION}
       MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
-      REDIS_URL: redis://redis:6379
+      # container_name, not the service name: the api/frontend also sit on the shared
+      # gkz-network where another stack's redis carries the alias "redis" (and requires
+      # auth) — the bare name resolves there and fails with NOAUTH.
+      REDIS_URL: redis://firevision-redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
@@ -107,7 +110,10 @@ services:
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/firevision-iptv
-      REDIS_URL: redis://redis:6379
+      # container_name, not the service name: the api/frontend also sit on the shared
+      # gkz-network where another stack's redis carries the alias "redis" (and requires
+      # auth) — the bare name resolves there and fails with NOAUTH.
+      REDIS_URL: redis://firevision-redis:6379
       LIVENESS_CHECK_INTERVAL_MS: ${LIVENESS_CHECK_INTERVAL_MS}
       EPG_REFRESH_INTERVAL_MS: ${EPG_REFRESH_INTERVAL_MS}
       CACHE_REFRESH_INTERVAL_MS: ${CACHE_REFRESH_INTERVAL_MS}
@@ -118,6 +124,10 @@ services:
         '-c',
         'echo "Waiting 5m for API to settle..." && sleep 300 && npx tsx backend/src/scheduler-entrypoint.ts',
       ]
+    # The backend image's HEALTHCHECK probes the HTTP port, but the scheduler runs no
+    # HTTP server — it would show unhealthy forever. Disable the inherited check.
+    healthcheck:
+      disable: true
     depends_on:
       - mongodb
       - redis
