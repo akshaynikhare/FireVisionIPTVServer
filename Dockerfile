@@ -59,9 +59,10 @@ RUN mkdir -p uploads apks && \
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check — 127.0.0.1, not localhost: Node 18 resolves localhost to ::1 first
+# and the app listens on IPv4, so the check would fail with ECONNREFUSED ::1.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "require('http').get('http://127.0.0.1:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Run as non-root user
 RUN addgroup -g 1001 -S nodejs && \
