@@ -1,6 +1,6 @@
 # API Documentation
 
-**Base URL:** `http://localhost:8009/api/v1` (dev) | `https://tv.cadnative.com/api/v1` (prod)
+**Base URL:** `http://localhost:3000/api/v1` (dev) | `https://tv.cadnative.com/api/v1` (prod)
 
 ## Conventions
 
@@ -220,16 +220,22 @@ Authenticate user and receive JWT access and refresh tokens.
 ```json
 {
   "success": true,
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  },
   "user": {
     "id": "64f7a8b9c1d2e3f4a5b6c7d8",
     "username": "user",
+    "email": "user@example.com",
     "role": "User",
-    "channelListCode": "ABC123"
+    "channelListCode": "ABC123",
+    "emailVerified": false
   }
 }
 ```
+
+**Note:** `username` may be a username or an email address.
 
 ---
 
@@ -237,7 +243,7 @@ Authenticate user and receive JWT access and refresh tokens.
 
 **POST** `/jwt/refresh`
 
-Exchange a refresh token for a new access token.
+Exchange (and rotate) a refresh token for a new access token and refresh token.
 
 **Request Body:**
 
@@ -252,7 +258,8 @@ Exchange a refresh token for a new access token.
 ```json
 {
   "success": true,
-  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
@@ -331,7 +338,7 @@ http://example.com/stream/hbo.m3u8
 
 **POST** `/public/signup`
 
-Create a new user account. Rate limited to 10 requests per hour.
+Create a new user account and receive JWT tokens. Rate limited to 10 requests per hour per IP. A verification email is sent; the account is created with `emailVerified: false`.
 
 **Auth:** Not required
 
@@ -350,17 +357,84 @@ Create a new user account. Rate limited to 10 requests per hour.
 ```json
 {
   "success": true,
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
   "user": {
     "id": "64f7a8b9c1d2e3f4a5b6c7d8",
     "username": "new_user",
     "email": "newuser@example.com",
     "role": "User",
-    "channelListCode": "XYZ789"
+    "channelListCode": "XYZ789",
+    "emailVerified": false
+  },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
   }
 }
 ```
+
+---
+
+### 2. Register (Session-based, reCAPTCHA)
+
+**POST** `/auth/register`
+
+Alternative registration that creates a session-backed account. When `GOOGLE_RECAPTCHA_SECRET_KEY` is configured, a Google reCAPTCHA v3 token is **required** and a score below the threshold blocks registration. A verification email is sent.
+
+**Auth:** Not required (rate limited via the auth limiter)
+
+**Request Body:**
+
+```json
+{
+  "username": "new_user",
+  "email": "newuser@example.com",
+  "password": "SecurePass123!",
+  "recaptchaToken": "03AGdBq26..."
+}
+```
+
+- `recaptchaToken` (required only when reCAPTCHA is enabled server-side)
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Registration successful. Please check your email to verify your account.",
+  "user": {
+    "id": "64f7a8b9c1d2e3f4a5b6c7d8",
+    "username": "new_user",
+    "email": "newuser@example.com",
+    "channelListCode": "XYZ789",
+    "emailVerified": false
+  }
+}
+```
+
+---
+
+## Email Verification & Password Reset
+
+| Method | Path                        | Auth    | Body                     | Purpose                                                                               |
+| ------ | --------------------------- | ------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| POST   | `/auth/verify-email`        | Public  | `{ token }`              | Verify email using the token from the verification email                              |
+| POST   | `/auth/resend-verification` | Session | —                        | Resend the verification email to the logged-in user                                   |
+| POST   | `/auth/forgot-password`     | Public  | `{ email }`              | Request a password-reset link (always returns success to prevent account enumeration) |
+| POST   | `/auth/reset-password`      | Public  | `{ token, newPassword }` | Reset password with the emailed token; invalidates all sessions                       |
+
+---
+
+## OAuth (Google / GitHub)
+
+Two entry points exist. The `/auth/*` routes redirect back to `/login?oauth_code=<code>`, then the SPA exchanges the code via `POST /auth/oauth-exchange` (`{ code }`) for a `sessionId`. The `/oauth/*` routes return JWT tokens directly from the callback.
+
+| Method | Path                                                | Auth   | Purpose                                                                      |
+| ------ | --------------------------------------------------- | ------ | ---------------------------------------------------------------------------- |
+| GET    | `/auth/google` / `/auth/github`                     | Public | Start OAuth (session flow); redirects to provider                            |
+| GET    | `/auth/google/callback` / `/auth/github/callback`   | Public | Provider callback; redirects to `/login?oauth_code=<code>`                   |
+| POST   | `/auth/oauth-exchange`                              | Public | Exchange one-time `code` (60s expiry) for `{ sessionId, user }`              |
+| GET    | `/oauth/google/start` / `/oauth/github/start`       | Public | Start OAuth (JWT flow); redirects to provider                                |
+| GET    | `/oauth/google/callback` / `/oauth/github/callback` | Public | Callback returns `{ provider, tokens: { accessToken, refreshToken }, user }` |
 
 ---
 
@@ -488,7 +562,7 @@ Create a new user account. Rate limited to 10 requests per hour.
 }
 ```
 
-**Note:** Only admins can change `role` and `isActive` fields.
+**Note:** Only admins can change `role`, `isActive`, and `allCatalog`. Non-admins cannot change `password` here (use `/auth/change-password`). Setting `allCatalog: true` (admin-only) serves the user the entire shared catalog (capped at `TV_CHANNELS_MAX`) instead of their `channels` selection. Role changes are recorded as a dedicated security audit entry.
 
 **Response (200 OK):**
 
@@ -526,105 +600,13 @@ Create a new user account. Rate limited to 10 requests per hour.
 
 ---
 
-### 6. Assign Channels to User
+> **Removed:** The admin channel-assignment endpoints `POST /users/:id/channels`, `POST /users/:id/channels/add`, and `POST /users/:id/channels/remove` no longer exist. Users now manage their own channel selection through the **User Playlist** endpoints (`/user-playlist/me/channels*`). To grant a user the whole catalog, set `allCatalog: true` via `PUT /users/:id`.
 
-**POST** `/users/:id/channels`
-
-Replace all user channels with the provided list.
-
-**Auth Required:** Admin only
-**Headers:** `X-Session-Id: <session_id>`
-
-**Request Body:**
-
-```json
-{
-  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8", "64f7a8b9c1d2e3f4a5b6c7d9"]
-}
-```
-
-**Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "message": "Channels assigned successfully",
-  "data": {
-    "userId": "64f7a8b9c1d2e3f4a5b6c7d8",
-    "channelsCount": 2
-  }
-}
-```
-
----
-
-### 7. Add Channels to User
-
-**POST** `/users/:id/channels/add`
-
-Add channels to user without removing existing ones.
-
-**Auth Required:** Admin only
-**Headers:** `X-Session-Id: <session_id>`
-
-**Request Body:**
-
-```json
-{
-  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7da"]
-}
-```
-
-**Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "message": "Added 1 channels",
-  "data": {
-    "userId": "64f7a8b9c1d2e3f4a5b6c7d8",
-    "channelsCount": 3,
-    "addedCount": 1
-  }
-}
-```
-
----
-
-### 8. Remove Channels from User
-
-**POST** `/users/:id/channels/remove`
-
-**Auth Required:** Admin only
-**Headers:** `X-Session-Id: <session_id>`
-
-**Request Body:**
-
-```json
-{
-  "channelIds": ["64f7a8b9c1d2e3f4a5b6c7d8"]
-}
-```
-
-**Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "message": "Removed 1 channels",
-  "data": {
-    "userId": "64f7a8b9c1d2e3f4a5b6c7d8",
-    "channelsCount": 2,
-    "removedCount": 1
-  }
-}
-```
-
----
-
-### 9. Regenerate Playlist Code
+### 6. Regenerate Playlist Code
 
 **PUT** `/users/:id/regenerate-code`
+
+Issue a new unique `channelListCode` and clear any revocation flag.
 
 **Auth Required:** Admin or own profile
 **Headers:** `X-Session-Id: <session_id>`
@@ -643,6 +625,28 @@ Add channels to user without removing existing ones.
 
 ---
 
+### 7. Revoke Playlist Code
+
+**PUT** `/users/:id/revoke-code`
+
+Revoke the user's pairing/playlist code (sets `codeRevokedAt`). The user must regenerate a code before it can be used again.
+
+**Auth Required:** Admin or own profile
+**Headers:** `X-Session-Id: <session_id>`
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Playlist code revoked"
+}
+```
+
+**Note:** `GET /users` supports server-side filtering, pagination, and sorting via query params (`role`, `status`, `search`, `page`, `pageSize`, `sortBy`, `sortOrder`) and returns `{ count, totalCount, page, pageSize, data }`. `GET /users/filter-options` returns distinct `role` and `status` values for admin filter UIs.
+
+---
+
 ## User Playlist
 
 Endpoints for users to manage their own channel playlists.
@@ -658,8 +662,7 @@ Endpoints for users to manage their own channel playlists.
 ```json
 {
   "success": true,
-  "count": 5,
-  "data": [
+  "channels": [
     {
       "id": "64f7a8b9c1d2e3f4a5b6c7d8",
       "channelName": "HBO HD",
@@ -677,7 +680,7 @@ Endpoints for users to manage their own channel playlists.
 
 **PUT** `/user-playlist/me/channels`
 
-Replace all channels in the user's playlist.
+Replace all channels in the user's playlist. IDs must reference either the shared catalog or the user's own private imports; other users' private channels are rejected.
 
 **Auth Required:** Yes (Session or JWT)
 
@@ -695,9 +698,7 @@ Replace all channels in the user's playlist.
 {
   "success": true,
   "message": "Channels updated successfully",
-  "data": {
-    "channelsCount": 2
-  }
+  "count": 2
 }
 ```
 
@@ -707,7 +708,7 @@ Replace all channels in the user's playlist.
 
 **POST** `/user-playlist/me/channels/add`
 
-Add channels without removing existing ones.
+Add channels without removing existing ones. Duplicates are skipped. Enforces the per-user channel cap (`USER_CHANNELS_MAX`, default 5000) atomically; additions over the cap are silently skipped.
 
 **Auth Required:** Yes (Session or JWT)
 
@@ -725,10 +726,8 @@ Add channels without removing existing ones.
 {
   "success": true,
   "message": "Added 1 channels",
-  "data": {
-    "channelsCount": 6,
-    "addedCount": 1
-  }
+  "count": 6,
+  "addedCount": 1
 }
 ```
 
@@ -754,16 +753,55 @@ Add channels without removing existing ones.
 {
   "success": true,
   "message": "Removed 1 channels",
-  "data": {
-    "channelsCount": 5,
-    "removedCount": 1
-  }
+  "count": 5,
+  "removedCount": 1
 }
 ```
 
 ---
 
-### 5. Get My M3U Playlist
+### 5. Get My Channels with Fallbacks
+
+**GET** `/user-playlist/me/channels-with-fallbacks`
+
+Same as `/me/channels` but each channel includes its viable alternate streams (alive, non-flagged only) for client-side fallback playback.
+
+**Auth Required:** Yes (Session or JWT)
+
+**Response (200 OK):** `{ "success": true, "channels": [ { ...channel, "alternateStreams": [...] } ] }`
+
+---
+
+### 6. Import M3U into My Playlist
+
+**POST** `/user-playlist/me/import-m3u`
+
+Parse raw M3U content, create the parsed channels as the user's **private** channels (`ownerId = user`), deduplicate against the user's own channels, and add them to the playlist. Respects the per-user channel cap.
+
+**Auth Required:** Yes (Session or JWT)
+
+**Request Body:**
+
+```json
+{
+  "m3uContent": "#EXTM3U\n#EXTINF:-1,HBO HD\nhttp://example.com/hbo.m3u8"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Imported channels into your playlist",
+  "added": 12,
+  "count": 42
+}
+```
+
+---
+
+### 7. Get My M3U Playlist
 
 **GET** `/user-playlist/me/playlist.m3u`
 
@@ -783,11 +821,13 @@ http://example.com/stream/hbo.m3u8
 
 ## Channel Management Endpoints
 
+> **Auth note:** `GET /channels`, `/channels/grouped`, `/channels/search`, and `/channels/:id` require **TV-code or session auth** (`requireTvOrSessionAuth`) — not public. Admins and `allCatalog` users receive the shared catalog; regular users receive only their selected channels. Responses are capped at `TV_CHANNELS_MAX` (default 2000) and served from a Redis-backed catalog cache when available.
+
 ### 1. Get All Channels
 
 **GET** `/channels`
 
-**Auth:** Not required
+**Auth:** TV code or session
 
 **Response (200 OK):**
 
@@ -822,7 +862,7 @@ http://example.com/stream/hbo.m3u8
 
 **GET** `/channels/grouped`
 
-**Auth:** Not required
+**Auth:** TV code or session
 
 **Response (200 OK):**
 
@@ -848,11 +888,11 @@ http://example.com/stream/hbo.m3u8
 
 **GET** `/channels/search?q=hbo`
 
-**Auth:** Not required
+**Auth:** TV code or session
 
 **Query Parameters:**
 
-- `q` (required): Search query
+- `q` (required): Search query (max 500 chars; matches channelName, channelGroup, or channelId)
 
 **Response (200 OK):**
 
@@ -869,6 +909,49 @@ http://example.com/stream/hbo.m3u8
   ]
 }
 ```
+
+---
+
+### 4. Get Single Channel
+
+**GET** `/channels/:id`
+
+**Auth:** TV code or session. Non-admin users must have the channel in their selection.
+
+Returns the full channel (minus `channelDrmKey`) including all `alternateStreams` with liveness and flag details.
+
+**Response (200 OK):** `{ "success": true, "data": { ...channel } }`
+
+---
+
+### 5. Get Categories
+
+**GET** `/categories`
+
+**Auth:** TV code or session
+
+Distinct `channelGroup` values scoped to what the caller can see, with per-group channel counts.
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "categories": [{ "id": "Movies", "name": "Movies", "display_order": 0, "channel_count": 42 }],
+  "total": 1
+}
+```
+
+---
+
+### 6. Favorites Sync
+
+Store/retrieve the caller's favorite channel IDs (persisted on the user's `metadata`). Mounted at `/favorites`.
+
+| Method | Path         | Auth               | Body / Response                                                                  |
+| ------ | ------------ | ------------------ | -------------------------------------------------------------------------------- |
+| POST   | `/favorites` | TV code or session | Body `{ channel_ids: string[], device_id? }` → `{ success, message, timestamp }` |
+| GET    | `/favorites` | TV code or session | `{ success, channel_ids: string[], timestamp }`                                  |
 
 ---
 
@@ -926,14 +1009,14 @@ http://example.com/stream/hbo.m3u8
 ```json
 {
   "deviceId": "device-abc-123",
-  "proxyPlay": false,
-  "streamUrl": "http://example.com/alt-stream.m3u8"
+  "proxyPlay": false
 }
 ```
 
 - `deviceId` (required): Unique device identifier
-- `proxyPlay` (optional): Whether playback used the server proxy
-- `streamUrl` (optional): The actual stream URL that played. If this differs from the channel's primary `channelUrl` and matches an alternate stream, the server auto-promotes it: the alternate becomes the new primary and the old primary is demoted to alternates with `liveness.status = dead`
+- `proxyPlay` (optional): Whether playback used the server proxy (increments `metrics.proxyPlayCount`)
+
+**Note:** This endpoint only records playback metrics (`playCount`/`proxyPlayCount`, `lastPlayedAt`). Alternate-stream **auto-promotion** happens exclusively in the scheduler's Stream Health Check task (dead/flagged primary → best alive alternate), not on report-play — this was moved out of the request path to avoid races with the scheduler.
 
 **Rate Limit:** 1 report per channel per device per 1 minute
 
@@ -1108,26 +1191,93 @@ http://example.com/stream/hbo.m3u8
 **Auth Required:** Admin only
 **Headers:** `X-Session-Id: <session_id>`
 
+Imports raw M3U content into the shared catalog (`ownerId: null`). Max 50 MB / 100k lines. Channels sharing a real `tvg-id` are clubbed into one channel with `alternateStreams`; EXTINF titles are parsed safely (commas inside attribute values handled); URLs are SSRF-validated; the batch is deduplicated against the existing catalog. Uncategorized channels are auto-categorized against the IPTV-org cache and name/pattern rules.
+
 **Request Body:**
 
 ```json
 {
-  "m3uUrl": "http://example.com/playlist.m3u",
-  "replaceExisting": false
+  "m3uContent": "#EXTM3U\n#EXTINF:-1,HBO HD\nhttp://example.com/hbo.m3u8",
+  "clearExisting": false
 }
 ```
+
+- `m3uContent` (required): Raw M3U text
+- `clearExisting` (optional): Wipe the existing catalog (private/user channels are never touched) before importing
 
 **Response (200 OK):**
 
 ```json
 {
   "success": true,
-  "message": "Imported 50 channels successfully",
-  "imported": 50,
-  "skipped": 5,
-  "errors": 0
+  "message": "Imported 50 channels",
+  "count": 50,
+  "blockedCount": 2,
+  "duplicateCount": 5
 }
 ```
+
+---
+
+### 6. Delete All Catalog Channels
+
+**DELETE** `/admin/channels`
+
+**Auth Required:** Admin only
+
+Deletes every shared-catalog channel (`ownerId: null` only; private user imports untouched) and removes orphaned refs from all users. Requires a confirmation flag.
+
+**Request Body:** `{ "confirmed": true }`
+
+**Response (200 OK):** `{ "success": true, "message": "...", "deletedCount": 200 }`
+
+---
+
+### 7. Alternate-Stream Diagnostics
+
+**GET** `/admin/channels/alternates-stats`
+
+**Auth Required:** Admin only
+
+Coverage stats for alternate streams across the catalog.
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalChannels": 1200,
+    "channelsWithAlternates": 340,
+    "channelsWithoutAlternates": 860,
+    "totalAlternateStreams": 910
+  }
+}
+```
+
+---
+
+### 8. List Catalog Channels (Filtered)
+
+**GET** `/admin/channels/filter-options` and **GET** `/admin/channels`
+
+**Auth Required:** Admin only
+
+`/admin/channels` supports query filters `group`, `status` (Live/Dead), `language`, `country` (all CSV), `search`, `page`, `pageSize`, and returns `{ count, totalCount, health: { working, notWorking, untested }, page, pageSize, data }`. `/admin/channels/filter-options` returns distinct `group`, `status`, `language`, and `country` values.
+
+---
+
+## Admin Stats & Dashboard
+
+All require Admin auth. Mounted under `/admin`.
+
+| Method | Path                         | Purpose                                                                                                                                                                            |
+| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`               | Quick channel + app-version counts                                                                                                                                                 |
+| GET    | `/admin/stats/detailed`      | Full dashboard snapshot: channels, users, sessions (IP-masked), pairings, activity                                                                                                 |
+| GET    | `/admin/stats/trends/:type`  | Time-series for `users` \| `sessions` \| `pairings`; `?range=7d\|30d\|90d`                                                                                                         |
+| GET    | `/admin/stats/stream-health` | Channel health aggregate (working/failing/untested, dead/alive/unresponsive/play/proxyPlay totals, most-failing, most-popular, removal-candidates) plus per-source external health |
+| GET    | `/admin/stats/scheduler`     | Per-task run history (last status/duration/error, totals, avg duration)                                                                                                            |
 
 ---
 
@@ -1190,12 +1340,15 @@ http://example.com/stream/hbo.m3u8
 {
   "success": true,
   "valid": true,
-  "user": {
+  "data": {
     "username": "john_doe",
-    "isActive": true
+    "role": "User",
+    "channelsCount": 42
   }
 }
 ```
+
+`channelsCount` is the string `"All"` for `allCatalog`/admin codes.
 
 ---
 
@@ -1227,6 +1380,21 @@ http://example.com/stream/hbo.m3u8
   }
 }
 ```
+
+---
+
+### 5. Additional TV Endpoints
+
+All are public and keyed by the 6-char playlist `:code`.
+
+| Method | Path                       | Returns                                    | Purpose                                                                         |
+| ------ | -------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| GET    | `/tv/epg/:code`            | XMLTV (`application/xml`)                  | EPG guide for the code's channels; `?hours=` (default 24, max 72); cached ~300s |
+| GET    | `/tv/epg/:code/json`       | JSON                                       | Same EPG as JSON (`{ hours, channelCount, programCount, channels[] }`)          |
+| GET    | `/tv/proxy-url/:code?url=` | JSON `{ data: { proxyUrl, originalUrl } }` | Resolve a server-proxy URL for a stream when direct playback fails              |
+| GET    | `/tv/stream/:code?url=`    | Proxied stream (binary / rewritten M3U)    | SSRF-guarded stream proxy scoped to a valid code                                |
+
+The M3U from `/tv/playlist/:code` embeds an `x-tvg-url` pointing at `/tv/epg/:code`. The QR-code TV pairing shown in the dashboard is built client-side from the PIN pairing flow above (no dedicated QR endpoint).
 
 ---
 
@@ -1278,7 +1446,9 @@ TV polls this endpoint to check whether the user has confirmed pairing.
 ```json
 {
   "success": true,
+  "paired": false,
   "status": "pending",
+  "expiresAt": "2026-03-16T10:10:00.000Z",
   "message": "Waiting for user to confirm pairing"
 }
 ```
@@ -1288,20 +1458,19 @@ TV polls this endpoint to check whether the user has confirmed pairing.
 ```json
 {
   "success": true,
+  "paired": true,
   "status": "completed",
-  "user": {
-    "username": "john_doe",
-    "channelListCode": "5T6FEP",
-    "role": "User"
-  }
+  "channelListCode": "5T6FEP",
+  "message": "Device paired successfully"
 }
 ```
 
-**Response (410 Gone) - Expired:**
+**Response - Expired / Invalid:**
 
 ```json
 {
   "success": false,
+  "paired": false,
   "status": "expired",
   "message": "Pairing PIN has expired"
 }
@@ -1366,7 +1535,6 @@ Web dashboard confirms the pairing by submitting the PIN.
   "success": true,
   "updateAvailable": true,
   "latestVersion": "v1.5",
-  "latestVersionCode": 5,
   "currentVersion": 100,
   "isMandatory": false,
   "releaseNotes": "Bug fixes and improvements",
@@ -1374,6 +1542,8 @@ Web dashboard confirms the pairing by submitting the PIN.
   "minCompatibleVersion": 1
 }
 ```
+
+App version data is sourced from the GitHub Releases API (not a local DB collection).
 
 ---
 
@@ -1436,7 +1606,7 @@ Returns the download URL as JSON instead of redirecting.
 
 **GET** `/app/versions`
 
-Returns version history. Versions are managed via GitHub Releases.
+Version history is managed via GitHub Releases, so this returns an empty list with a pointer to the source.
 
 **Auth:** Not required
 
@@ -1445,17 +1615,13 @@ Returns version history. Versions are managed via GitHub Releases.
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "versionName": "v1.5",
-      "versionCode": 5,
-      "releaseNotes": "Bug fixes and improvements",
-      "downloadUrl": "https://github.com/.../app-release.apk",
-      "releasedAt": "2026-01-15T10:00:00.000Z"
-    }
-  ]
+  "data": [],
+  "source": "github",
+  "message": "Version history is managed via GitHub Releases"
 }
 ```
+
+**Note:** `GET /app/download` and `GET /app/apk` both 302-redirect to the latest APK on GitHub. `GET /app/demo-code` returns the configured `DEMO_CHANNEL_LIST_CODE` (404 if unset).
 
 ---
 
@@ -1479,10 +1645,13 @@ Returns default configuration values for client applications.
     "defaultServerUrl": "https://tv.cadnative.com",
     "pairingPinExpiryMinutes": 10,
     "appName": "FireVision IPTV",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "recaptchaSiteKey": "6Lc..."
   }
 }
 ```
+
+`defaultTvCode` comes only from `DEFAULT_TV_CODE`/`DEMO_CHANNEL_LIST_CODE` (never a real admin's code). `recaptchaSiteKey` is `null` when reCAPTCHA is not configured.
 
 ---
 
@@ -1502,10 +1671,12 @@ Returns server name, version, and available features.
   "data": {
     "name": "FireVision IPTV Server",
     "version": "1.0.0",
+    "status": "online",
     "features": {
-      "publicSignup": true,
-      "pinPairing": true,
-      "jwtAuth": true
+      "channelStreaming": true,
+      "pinBasedPairing": true,
+      "autoUpdates": true,
+      "userManagement": true
     }
   }
 }
@@ -1519,15 +1690,17 @@ Returns server name, version, and available features.
 
 **GET** `/image-proxy?url=<encoded_url>`
 
-Proxies and caches channel logo images. Cached with a 24-hour TTL.
+Validates a channel logo URL against SSRF/DNS-rebinding rules, then **302-redirects** the browser to the original image (redirect mode — no server-side image caching). On error it returns a 1x1 transparent PNG placeholder. Sends `Cache-Control: public, max-age=86400`.
 
-**Auth:** Not required
+**Auth:** Required (JWT `Authorization: Bearer` or session `X-Session-Id`; also accepts `token`/`sid` query params for `<img>` tags)
 
 **Query Parameters:**
 
 - `url` (required): URL-encoded image URL
 
-**Response:** Proxied image with appropriate content-type headers.
+**Response:** 302 redirect to the original image.
+
+Admin-only helpers: `GET /image-proxy/stats` (reports redirect mode) and `DELETE /image-proxy/cache` (no-op, kept for compatibility).
 
 ---
 
@@ -1552,16 +1725,18 @@ Proxies HLS and other media streams with CORS headers.
 
 Rate limiting protects the API from abuse. Limits are tracked per authenticated user (not per IP) when a valid session or JWT is present, preventing multiple devices on the same network from sharing a single rate-limit bucket.
 
-| Scope                                                                  | Limit                            | Key                          | Notes                           |
-| ---------------------------------------------------------------------- | -------------------------------- | ---------------------------- | ------------------------------- |
-| General API (`/api/*`)                                                 | 1000 req / 15 min                | Session ID, JWT `sub`, or IP | Admin sessions are fully exempt |
-| Auth endpoints (`/auth/login`, `/auth/register`, `/jwt/login`)         | 20 req / 15 min                  | IP                           | Pre-auth, always IP-based       |
-| Email actions (`/auth/forgot-password`, `/auth/resend-verification`)   | 5 req / 1 hour                   | IP                           | Prevents email abuse            |
-| TV pairing mutations (`/tv/pair`, `/tv/verify`, `/tv/pairing/confirm`) | 10 req / 5 min                   | IP                           | Prevents PIN brute-force        |
-| TV pairing status polling (`/tv/pairing/status`)                       | 120 req / 10 min                 | IP                           | ~1 poll every 5 seconds         |
-| Health sync (`/channels/health-sync`)                                  | 1 per device / 5 min             | Device ID                    | In-memory, per-device           |
-| Report status (`/channels/:id/report-status`)                          | 1 per channel per device / 5 min | Channel+Device               | In-memory                       |
-| Report play (`/channels/:id/report-play`)                              | 1 per channel per device / 1 min | Channel+Device               | In-memory                       |
+| Scope                                                                                                        | Limit                            | Key                          | Notes                           |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------- | ---------------------------- | ------------------------------- |
+| General API (`/api/*`)                                                                                       | 1000 req / 15 min                | Session ID, JWT `sub`, or IP | Admin sessions are fully exempt |
+| Auth endpoints (`/auth/login`, `/auth/register`, `/auth/verify-email`, `/auth/reset-password`, `/jwt/login`) | 20 req / 15 min                  | IP                           | Pre-auth, always IP-based       |
+| OAuth start (`/oauth/google/start`, `/oauth/github/start`)                                                   | limited per IP                   | IP                           | Throttles OAuth initiation      |
+| Public signup (`/public/signup`)                                                                             | 10 req / 1 hour                  | IP                           | Separate from `/auth/register`  |
+| Email actions (`/auth/forgot-password`, `/auth/resend-verification`)                                         | 5 req / 1 hour                   | IP                           | Prevents email abuse            |
+| TV pairing mutations (`/tv/pair`, `/tv/verify`, `/tv/pairing/confirm`)                                       | 10 req / 5 min                   | IP                           | Prevents PIN brute-force        |
+| TV pairing status polling (`/tv/pairing/status`)                                                             | 120 req / 10 min                 | IP                           | ~1 poll every 5 seconds         |
+| Health sync (`/channels/health-sync`)                                                                        | 1 per device / 5 min             | Device ID                    | In-memory, per-device           |
+| Report status (`/channels/:id/report-status`)                                                                | 1 per channel per device / 5 min | Channel+Device               | In-memory                       |
+| Report play (`/channels/:id/report-play`)                                                                    | 1 per channel per device / 1 min | Channel+Device               | In-memory                       |
 
 Standard rate limit headers (`RateLimit-*`) are included in all responses.
 
@@ -1650,3 +1825,75 @@ Same as `/me/channels` but includes filtered alternate streams for each channel.
 ### 8. Unflag Alternate Stream
 
 `POST /api/v1/channels/:id/alternates/:index/unflag` (Admin only)
+
+---
+
+## External Sources
+
+Integrations for Pluto TV, Samsung TV Plus, YouTube Live, and Prasar Bharati. All routes require auth (`/api/v1/external-sources`); admin-only ones are marked. Channel/region reads are served from a per-source+region MongoDB cache.
+
+| Method              | Path                                                   | Auth  | Purpose                                                                                                           |
+| ------------------- | ------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| GET                 | `/external-sources/{source}/regions`                   | Auth  | List regions for a source (`pluto-tv`, `samsung-tv-plus`, `youtube-live`, `prasar-bharati`)                       |
+| GET                 | `/external-sources/{source}/channels?country=&status=` | Auth  | Cached channels for a source/region (optional liveness `status` filter)                                           |
+| GET                 | `/external-sources/liveness-status?source=&region=`    | Auth  | Liveness stats `{ alive, dead, unknown }`, `livenessCheckInProgress`, `lastLivenessCheckAt`                       |
+| GET/POST/PUT/DELETE | `/external-sources/seed-channels[/:id]`                | Admin | CRUD seed channels (YouTube Live / Prasar Bharati only)                                                           |
+| POST                | `/external-sources/check-liveness`                     | Admin | Trigger a batch liveness check (`{ source, region }`, fire-and-forget)                                            |
+| POST                | `/external-sources/check-liveness/:docId`              | Admin | Check liveness for a single cached channel                                                                        |
+| POST                | `/external-sources/refresh-cache`                      | Admin | Refetch a source/region into the cache (`{ source, region }`)                                                     |
+| POST                | `/external-sources/clear-cache`                        | Admin | Clear cache for a source/region (or all if omitted)                                                               |
+| POST                | `/external-sources/import`                             | Admin | Import selected channels into the shared catalog (`{ channels[], replaceExisting?, confirmDeleteAll? }`, max 10k) |
+| POST                | `/external-sources/import-user`                        | Auth  | Import selected channels into the caller's private playlist (`{ channels[] }`, max 500; respects channel cap)     |
+
+---
+
+## Channel Testing (Admin)
+
+Mounted at `/api/v1/test`. All admin-only. Each test probes the stream (SSRF-guarded), updates `metadata.isWorking/lastTested/responseTime`, and atomically bumps liveness metrics.
+
+| Method | Path                 | Body                                                 | Purpose                                                                 |
+| ------ | -------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| POST   | `/test/test-channel` | `{ channelId }`                                      | Test one channel; returns working/statusCode/responseTime/manifest info |
+| POST   | `/test/test-batch`   | `{ channelIds[] }` (max 200) + `x-session-id`        | Test a batch with per-session locking                                   |
+| POST   | `/test/test-all`     | `{ limit?, skip? }` (limit max 200) + `x-session-id` | Test all channels with pagination + locking                             |
+
+There is also `POST /channels/:id/test` (session auth) to test a single channel in place.
+
+---
+
+## EPG (Admin)
+
+Mounted at `/api/v1/epg`, all Admin-only.
+
+| Method | Path           | Purpose                                         |
+| ------ | -------------- | ----------------------------------------------- |
+| GET    | `/epg/status`  | EPG stats (`epgService.getStats()`)             |
+| POST   | `/epg/refresh` | Trigger a background EPG refresh                |
+| GET    | `/epg/sources` | Discovered EPG source URLs and channel coverage |
+
+Public EPG for TV clients is served via `/tv/epg/:code` (XMLTV) and `/tv/epg/:code/json` (see TV endpoints).
+
+---
+
+## Scheduler (Admin)
+
+Mounted at `/api/v1/scheduler`, all Admin-only. Drives the standalone scheduler process (liveness check, EPG refresh, IPTV-org cache refresh, stream health check/auto-promotion, YouTube URL refresh).
+
+| Method | Path                                        | Purpose                                                          |
+| ------ | ------------------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/scheduler/tasks`                          | All tasks with last-run info, `nextRunAt`, and `isRunning`       |
+| GET    | `/scheduler/runs?page=&pageSize=&taskName=` | Paginated run history                                            |
+| GET    | `/scheduler/runs/:id`                       | Single run detail (with subtasks)                                |
+| POST   | `/scheduler/trigger/:taskName`              | Manually trigger a task (409 if already running, 404 if unknown) |
+
+---
+
+## Activity Log (Admin)
+
+Mounted at `/api/v1/activity`, all Admin-only. Backed by the `auditlogs` collection (180-day TTL).
+
+| Method | Path                                                                            | Purpose                                              |
+| ------ | ------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| GET    | `/activity?page=&pageSize=&action=&resource=&userId=&status=&search=&from=&to=` | Paginated, filterable audit log                      |
+| GET    | `/activity/recent`                                                              | Last 15 entries for dashboard widgets                |
+| GET    | `/activity/filter-options`                                                      | Distinct `action`/`resource` values + status options |

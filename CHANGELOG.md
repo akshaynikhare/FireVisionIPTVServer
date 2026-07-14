@@ -8,6 +8,123 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This p
 
 ---
 
+## [1.3.1] - 2026-07-14
+
+### Fixed
+
+- container healthchecks use IPv4 loopback; bind Next.js standalone server to all interfaces
+- point production `REDIS_URL` at the `firevision-redis` service; disable scheduler HTTP healthcheck
+
+---
+
+## [1.3.0] - 2026-07-14
+
+### Added
+
+- bound database growth with EPG cap, audit-log TTLs and lean indexes
+- categorize, club and dedup channels at import; fix EXTINF titles
+- cache channel serving, slim response payloads and cap list sizes
+- add data-cleanup migrations (dry-run by default)
+- expandable audit resource IDs and channel health stats in admin UI
+
+### Fixed
+
+- enforce channel cap atomically on all add paths; harden dedup remap
+- enforce channel ownership boundary; scheduler exits on fatal errors
+- external source status filter never matched alive or dead streams
+- address review findings on cache staleness, cap races and migration safety
+
+### Other
+
+- record growth-prevention features and architecture decisions (ADRs)
+
+---
+
+## [1.2.1] - 2026-07-14
+
+### Other
+
+- wire `DEMO_CHANNEL_LIST_CODE` through prod compose and the deploy workflow
+
+---
+
+## [1.2.0] - 2026-07-14
+
+### Added
+
+- per-user channel ownership plus security & reliability hardening
+
+### Other
+
+- polish README for public discoverability; add screenshots and missing images
+- refactor code structure for improved readability and maintainability
+
+---
+
+## [1.1.4] - 2026-04-06
+
+### Added
+
+- add build-time environment variables for the frontend Docker image
+
+---
+
+## [1.1.3] - 2026-04-06
+
+### Added
+
+- integrate Google reCAPTCHA for registration and enhance login error handling
+
+### Other
+
+- rename `SENTRY_DSN` to `BACKEND_SENTRY_DSN` for consistency across environments
+- add how-to guide for adding channels to a playlist, with images and clearer instructions
+- refactor code structure for improved readability and maintainability
+
+---
+
+## [1.1.2] - 2026-04-04
+
+### Other
+
+- refactor code structure for improved readability and maintainability
+
+---
+
+## [1.1.1] - 2026-04-04
+
+### Added
+
+- include user-owned channels in access-control queries
+
+---
+
+## [1.1.0] - 2026-04-04
+
+### Added
+
+- unify color palette across web and Android apps with new design tokens; add color palette reference
+- implement alternate stream handling and promote-confirmation in the channel detail modal
+- enhance channel flagging logic and alternate stream display
+- add alternate-streams fields to channel updates and a diagnostic stats endpoint
+- add QR code scanner component and integrate it into the device pairing flow
+- implement user-based rate limiting and enhance mobile sidebar functionality (#35, #36)
+- refactor registration page to use the AuthSidePanel component
+- enhance layout and UI components for improved responsiveness and usability
+- add SVG logo, icons, og-image, robots.txt and project description for branding and SEO
+- add tests for IPTV-org grouped routes and stream metrics
+- add FUNDING.yml for sponsorship information
+
+### Fixed
+
+- add type annotation for alternate streams in the channel schema
+
+### Other
+
+- add self-hosting guide for non-technical users and `docker-compose.selfhost.yml`
+
+---
+
 ## [1.0.13] - 2026-03-30
 
 ### Added
