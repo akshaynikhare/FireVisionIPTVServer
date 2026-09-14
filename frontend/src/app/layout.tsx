@@ -100,15 +100,15 @@ export default function RootLayout({
         >
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
+        {process.env.GA_MEASUREMENT_ID && <GoogleAnalytics gaId={process.env.GA_MEASUREMENT_ID} />}
+        {process.env.FRONTEND_SENTRY_DSN && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__SENTRY_DSN__=${JSON.stringify(process.env.FRONTEND_SENTRY_DSN)};`,
+            }}
+          />
+        )}
       </body>
-      {process.env.GA_MEASUREMENT_ID && <GoogleAnalytics gaId={process.env.GA_MEASUREMENT_ID} />}
-      {process.env.FRONTEND_SENTRY_DSN && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__SENTRY_DSN__=${JSON.stringify(process.env.FRONTEND_SENTRY_DSN)};`,
-          }}
-        />
-      )}
     </html>
   );
 }
