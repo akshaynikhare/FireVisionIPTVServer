@@ -76,6 +76,7 @@ const userSchema = new Schema<IUserDocument>(
       pairedAt: Date,
       favorites: [String],
       favoritesLastModified: Number,
+      favoritesClientModified: Number,
       favoritesDeviceId: String,
     },
     googleId: {

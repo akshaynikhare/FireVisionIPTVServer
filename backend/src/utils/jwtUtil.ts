@@ -60,11 +60,13 @@ async function persistRefreshToken(token: string, user: IUserDocument, req: Requ
 
 async function rotateRefreshToken(oldToken: string, user: IUserDocument, req: Request) {
   const oldHash = hashToken(oldToken);
-  const oldDoc = await RefreshToken.findOne({ tokenHash: oldHash });
-  if (oldDoc && !oldDoc.revokedAt) {
-    oldDoc.revokedAt = new Date();
-    await oldDoc.save();
-  }
+  const oldDoc = await RefreshToken.findOneAndUpdate(
+    { tokenHash: oldHash, revokedAt: null, expiresAt: { $gt: new Date() } },
+    { $set: { revokedAt: new Date() } },
+    { new: true },
+  );
+  if (!oldDoc) return null;
+
   const newToken = signRefreshToken(user);
   await persistRefreshToken(newToken, user, req);
   return newToken;

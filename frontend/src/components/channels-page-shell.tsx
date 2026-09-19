@@ -207,6 +207,8 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   // Favorites
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const favoriteIdsRef = useRef<Set<string>>(new Set());
+  const favoriteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const favoriteTimestampRef = useRef(0);
   const [favSyncing, setFavSyncing] = useState<Set<string>>(new Set());
 
   function updateFavoriteIds(next: Set<string>) {
@@ -231,15 +233,19 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     if (wasFav) next.delete(channelId);
     else next.add(channelId);
     updateFavoriteIds(next);
+    const snapshot = Array.from(next);
+    const timestamp = Math.max(Date.now(), favoriteTimestampRef.current + 1);
+    favoriteTimestampRef.current = timestamp;
+    const syncRequest = favoriteSyncQueueRef.current.then(async () => {
+      await api.post('/favorites', { channel_ids: snapshot, timestamp });
+    });
+    favoriteSyncQueueRef.current = syncRequest.catch(() => undefined);
     try {
-      await api.post('/favorites', { channel_ids: Array.from(favoriteIdsRef.current) });
+      await syncRequest;
     } catch {
-      // revert just this channel
-      const reverted = new Set(favoriteIdsRef.current);
-      if (wasFav) reverted.add(channelId);
-      else reverted.delete(channelId);
-      updateFavoriteIds(reverted);
       toast('Failed to update favorites', 'error');
+      await favoriteSyncQueueRef.current;
+      await fetchFavorites();
     } finally {
       setFavSyncing((prev) => {
         const s = new Set(prev);

@@ -12,7 +12,13 @@ import Channel from '../models/Channel';
 
 // Pass-through auth middleware
 jest.mock('../middleware/requireTvOrSessionAuth', () => ({
-  requireTvOrSessionAuth: (_req: any, _res: any, next: any) => next(),
+  requireTvOrSessionAuth: (req: any, _res: any, next: any) => {
+    req.user =
+      req.headers['x-test-role'] === 'User'
+        ? { id: new mongoose.Types.ObjectId(), role: 'User', channels: [] }
+        : { id: 'test-admin', role: 'Admin', channels: [] };
+    next();
+  },
 }));
 jest.mock('../routes/auth', () => ({
   requireAuth: (_req: any, _res: any, next: any) => next(),
@@ -96,6 +102,25 @@ describe('POST /channels/:id/report-status', () => {
     expect(res.status).toBe(200);
     const updated: any = await Channel.findById(ch._id).lean();
     expect(updated.metrics.aliveCount).toBe(1);
+  });
+
+  it('accepts the public channelId used by the Android client', async () => {
+    const ch = await createChannel({ channelId: 'android-channel-id' });
+    const res = await request(app)
+      .post('/channels/android-channel-id/report-status')
+      .send({ status: 'alive', deviceId: 'android-device' });
+    expect(res.status).toBe(200);
+    const updated: any = await Channel.findById(ch._id).lean();
+    expect(updated.metrics.aliveCount).toBe(1);
+  });
+
+  it('does not allow users to report channels outside their assignment', async () => {
+    const ch = await createChannel();
+    const res = await request(app)
+      .post(`/channels/${ch._id}/report-status`)
+      .set('x-test-role', 'User')
+      .send({ status: 'dead', deviceId: 'unassigned-device' });
+    expect(res.status).toBe(404);
   });
 
   it('increments unresponsiveCount for status=unresponsive', async () => {

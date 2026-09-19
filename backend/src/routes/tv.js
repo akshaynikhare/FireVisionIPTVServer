@@ -90,6 +90,20 @@ async function findUserByCode(code, res) {
   return user;
 }
 
+async function canProxyUrl(user, url) {
+  const catalogView = user.role === 'Admin' || user.allCatalog === true;
+  const scope = catalogView
+    ? { ownerId: null }
+    : { _id: { $in: (user.channels || []).filter(Boolean) } };
+  return Boolean(
+    await Channel.exists({
+      ...scope,
+      isActive: { $ne: false },
+      $or: [{ channelUrl: url }, { 'alternateStreams.streamUrl': url }],
+    }),
+  );
+}
+
 // Get playlist by code (TV App endpoint)
 router.get('/playlist/:code', async (req, res) => {
   try {
@@ -161,7 +175,7 @@ router.get('/proxy-url/:code', async (req, res) => {
     if (!user) return;
 
     const { url } = req.query;
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'url parameter is required' });
     }
 
@@ -169,6 +183,12 @@ router.get('/proxy-url/:code', async (req, res) => {
       new URL(url);
     } catch {
       return res.status(400).json({ success: false, error: 'Invalid URL format' });
+    }
+
+    if (!(await canProxyUrl(user, url))) {
+      return res
+        .status(403)
+        .json({ success: false, error: 'Stream is not assigned to this account' });
     }
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -189,7 +209,7 @@ router.get('/stream/:code', async (req, res) => {
     if (!user) return;
 
     const { url } = req.query;
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return res.status(400).send('URL parameter is required');
     }
 
@@ -197,6 +217,10 @@ router.get('/stream/:code', async (req, res) => {
       new URL(url);
     } catch {
       return res.status(400).send('Invalid URL format');
+    }
+
+    if (!(await canProxyUrl(user, url))) {
+      return res.status(403).send('Stream is not assigned to this account');
     }
 
     const http = require('http');
@@ -659,13 +683,30 @@ router.post('/pairing/confirm', async (req, res) => {
     const user = session.userId;
     console.log(`User authenticated for pairing: ${user.username} (${user.role})`);
 
-    // Find pairing request
-    const pairingRequest = await PairingRequest.findOne({
-      pin: pin.toString(),
-      status: 'pending',
-    });
+    // Atomically claim the PIN so concurrent confirmations cannot both succeed.
+    const now = new Date();
+    const pairingRequest = await PairingRequest.findOneAndUpdate(
+      {
+        pin: pin.toString(),
+        status: 'pending',
+        expiresAt: { $gt: now },
+      },
+      { $set: { userId: user._id, status: 'completed' } },
+      { new: true },
+    );
 
     if (!pairingRequest) {
+      const expiredRequest = await PairingRequest.findOneAndUpdate(
+        { pin: pin.toString(), status: 'pending', expiresAt: { $lte: now } },
+        { $set: { status: 'expired' } },
+        { new: true },
+      );
+      if (expiredRequest) {
+        return res.status(400).json({
+          success: false,
+          error: 'PIN has expired. Please generate a new one on your TV.',
+        });
+      }
       console.warn('PIN not found or not pending:', pin);
       return res.status(404).json({
         success: false,
@@ -673,21 +714,6 @@ router.post('/pairing/confirm', async (req, res) => {
           'Invalid or expired PIN. The TV may have generated a new PIN or the PIN has already been used.',
       });
     }
-
-    // Check if expired
-    if (pairingRequest.isExpired()) {
-      console.warn('PIN expired:', pin);
-      await pairingRequest.markExpired();
-      return res.status(400).json({
-        success: false,
-        error: 'PIN has expired. Please generate a new one on your TV.',
-      });
-    }
-
-    // Link user to pairing request
-    pairingRequest.userId = user._id;
-    pairingRequest.status = 'completed';
-    await pairingRequest.save();
 
     // Update user metadata
     user.metadata = user.metadata || {};

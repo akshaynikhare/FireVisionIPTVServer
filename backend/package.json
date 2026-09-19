@@ -5,7 +5,7 @@
   "license": "MIT",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node dist/server.js",
     "dev": "tsx watch src/server.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",

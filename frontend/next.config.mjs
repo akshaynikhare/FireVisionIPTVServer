@@ -28,5 +28,9 @@ const nextConfig = {
 
 export default withSentryConfig(nextConfig, {
   silent: true,
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });

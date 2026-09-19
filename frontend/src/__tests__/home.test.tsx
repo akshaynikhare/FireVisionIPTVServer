@@ -4,7 +4,7 @@ import Home from '../app/page';
 describe('Home page', () => {
   it('renders the heading', () => {
     render(<Home />);
-    expect(screen.getByText('FireVision IPTV')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /fire\s*vision/i })).toBeInTheDocument();
   });
 
   it('renders sign in and register links', () => {

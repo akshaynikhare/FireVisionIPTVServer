@@ -62,11 +62,12 @@ router.put('/me/channels', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Some channel IDs are invalid' });
     }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { channels: channelIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+      { new: true },
+    );
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-
-    user.channels = channelIds.map((id) => new mongoose.Types.ObjectId(id));
-    await user.save();
     audit({
       userId: req.user.id,
       action: 'set_channels',
@@ -162,14 +163,13 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
     }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { channels: { $in: channelIds.map((id) => new mongoose.Types.ObjectId(id)) } } },
+      { new: true },
+    );
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-
-    const before = user.channels.length;
-    const removeSet = new Set(channelIds.map((id) => id.toString()));
-    user.channels = user.channels.filter((id) => !removeSet.has(id.toString()));
-    await user.save();
-    const removed = before - user.channels.length;
+    const removed = channelIds.length;
     audit({
       userId: req.user.id,
       action: 'remove_channels',

@@ -6,7 +6,7 @@ const { requireTvOrSessionAuth } = require('../middleware/requireTvOrSessionAuth
 // Sync favorites from TV app or web UI
 router.post('/', requireTvOrSessionAuth, async (req, res) => {
   try {
-    const { channel_ids, device_id } = req.body;
+    const { channel_ids, device_id, timestamp: clientTimestamp } = req.body;
 
     if (!Array.isArray(channel_ids)) {
       return res.status(400).json({
@@ -15,22 +15,42 @@ router.post('/', requireTvOrSessionAuth, async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+    const timestamp = Number(clientTimestamp || Date.now());
+    if (!Number.isSafeInteger(timestamp) || timestamp <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'timestamp must be a positive integer' });
     }
 
     const now = Date.now();
-    user.metadata = user.metadata || {};
-    user.metadata.favorites = channel_ids;
-    user.metadata.favoritesLastModified = now;
-    if (device_id) {
-      user.metadata.favoritesDeviceId = device_id;
+    const user = await User.findOneAndUpdate(
+      {
+        _id: req.user.id,
+        $or: [
+          { 'metadata.favoritesClientModified': { $exists: false } },
+          { 'metadata.favoritesClientModified': { $lt: timestamp } },
+        ],
+      },
+      {
+        $set: {
+          'metadata.favorites': channel_ids,
+          'metadata.favoritesLastModified': now,
+          'metadata.favoritesClientModified': timestamp,
+          ...(device_id ? { 'metadata.favoritesDeviceId': device_id } : {}),
+        },
+      },
+      { new: true },
+    );
+    if (!user && !(await User.exists({ _id: req.user.id }))) {
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
-    user.markModified('metadata');
-    await user.save();
 
-    res.json({ success: true, message: 'Favorites synced', timestamp: now });
+    res.json({
+      success: true,
+      applied: Boolean(user),
+      message: user ? 'Favorites synced' : 'Ignored stale favorites update',
+      timestamp: now,
+    });
   } catch (error) {
     console.error('Error syncing favorites:', error);
     res.status(500).json({ success: false, error: 'Failed to sync favorites' });
