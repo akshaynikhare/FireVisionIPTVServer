@@ -209,6 +209,8 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   const favoriteIdsRef = useRef<Set<string>>(new Set());
   const favoriteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const favoriteRevisionRef = useRef(0);
+  // Toggles the server hasn't stored yet, so a conflict can rebase all of them.
+  const favoritePendingRef = useRef<Map<string, boolean>>(new Map());
   const [favSyncing, setFavSyncing] = useState<Set<string>>(new Set());
 
   function updateFavoriteIds(next: Set<string>) {
@@ -230,38 +232,51 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   }
 
   async function postFavorites(ids: Set<string>) {
+    const sent = new Map(favoritePendingRef.current);
     const res = await api.post('/favorites', {
       channel_ids: Array.from(ids),
       revision: favoriteRevisionRef.current,
     });
     favoriteRevisionRef.current = res.data.revision ?? favoriteRevisionRef.current;
+    // Everything in this payload is stored now; leave behind only clicks made while it flew.
+    sent.forEach((desired, id) => {
+      if (favoritePendingRef.current.get(id) === desired) favoritePendingRef.current.delete(id);
+    });
+  }
+
+  function applyPendingFavorites(base: Set<string>) {
+    const next = new Set(base);
+    favoritePendingRef.current.forEach((desired, id) => {
+      if (desired) next.add(id);
+      else next.delete(id);
+    });
+    return next;
   }
 
   async function toggleFavorite(channelId: string) {
     setFavSyncing((prev) => new Set(prev).add(channelId));
-    const wasFav = favoriteIdsRef.current.has(channelId);
-    const applyToggle = (base: Set<string>) => {
-      const next = new Set(base);
-      if (wasFav) next.delete(channelId);
-      else next.add(channelId);
-      return next;
-    };
+    const desired = !favoriteIdsRef.current.has(channelId);
+    favoritePendingRef.current.set(channelId, desired);
 
-    const next = applyToggle(favoriteIdsRef.current);
+    const next = new Set(favoriteIdsRef.current);
+    if (desired) next.add(channelId);
+    else next.delete(channelId);
     updateFavoriteIds(next);
 
-    // Serialized so each write carries the revision the previous one returned. A 409 means
+    // Serialized so each write carries the revision the previous one returned. Each job
+    // sends the live state rather than its click-time snapshot, because an earlier queued
+    // write may have rebased onto another device's favorites in the meantime. A 409 means
     // the stored revision moved on — another device, or our own initial load landing after
-    // this click — so re-apply the toggle on top of the server's state rather than
-    // discarding what the user just asked for.
+    // this click — so re-apply every unstored toggle on top of the server's state rather
+    // than discarding what the user asked for.
     const syncRequest = favoriteSyncQueueRef.current.then(async () => {
       try {
-        await postFavorites(next);
+        await postFavorites(favoriteIdsRef.current);
       } catch (err) {
         if ((err as { response?: { status?: number } })?.response?.status !== 409) throw err;
         const server = await fetchFavorites();
         if (!server) throw err;
-        const merged = applyToggle(server);
+        const merged = applyPendingFavorites(server);
         updateFavoriteIds(merged);
         await postFavorites(merged);
       }

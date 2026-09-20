@@ -639,5 +639,5 @@ Complete inventory of every feature in the application.
 
 - Favorites are ordered by a server-issued revision rather than client timestamps, so devices with skewed clocks no longer discard each other's updates
 - A write carrying a stale revision is rejected with HTTP 409 and the current server state, instead of silently reporting success
-- The web UI re-applies the user's toggle on top of the returned state and retries, so a click is never lost to a conflict
+- The web UI rebases every not-yet-stored toggle on top of the returned state and retries, so no click is lost to a conflict and queued writes never overwrite another device's additions
 - Requests that omit a revision keep last-write-wins behaviour for existing TV clients
