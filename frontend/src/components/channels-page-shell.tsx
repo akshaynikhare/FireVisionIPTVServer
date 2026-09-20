@@ -285,6 +285,9 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     try {
       await syncRequest;
     } catch {
+      // Drop this click's intent — otherwise a later conflict rebase would resurrect a
+      // favorite the user already saw reverted by the refresh below.
+      favoritePendingRef.current.delete(channelId);
       toast('Failed to update favorites', 'error');
       await favoriteSyncQueueRef.current;
       await fetchFavorites();

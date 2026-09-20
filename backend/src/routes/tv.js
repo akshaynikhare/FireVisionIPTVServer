@@ -746,30 +746,8 @@ router.post('/pairing/confirm', async (req, res) => {
       });
     }
 
-    // Update user metadata
-    try {
-      user.metadata = user.metadata || {};
-      user.metadata.lastPairedDevice = pairingRequest.deviceName;
-      user.metadata.deviceModel = pairingRequest.deviceModel;
-      user.metadata.pairedAt = new Date();
-      user.lastLogin = new Date();
-      await user.save();
-    } catch (saveError) {
-      // Release the claim so the PIN the TV is still showing can be retried, which is
-      // what the 500 tells the dashboard to do.
-      await PairingRequest.updateOne(
-        { _id: pairingRequest._id, userId: user._id, status: 'pending' },
-        { $set: { userId: null } },
-      ).catch((releaseError) =>
-        console.error('Failed to release pairing claim:', releaseError.message),
-      );
-      throw saveError;
-    }
-
-    // Only now is the pairing complete and safe to hand the channel list code to the TV.
-    // Re-check the expiry here: the claim holds status at 'pending' so nothing else expires
-    // the record while the save runs, which would otherwise let a PIN that lapsed mid-save
-    // complete and hand out the credential outside its validity window.
+    // Complete the pairing before touching anything else. The claim held status at
+    // 'pending', so re-check the expiry here — nothing else expires a claimed record.
     const completion = await PairingRequest.updateOne(
       {
         _id: pairingRequest._id,
@@ -791,6 +769,20 @@ router.post('/pairing/confirm', async (req, res) => {
         success: false,
         error: 'PIN has expired. Please generate a new one on your TV.',
       });
+    }
+
+    // Device metadata is a record of the pairing that just succeeded, not part of it. The
+    // TV can already fetch its credential, so a failure here must not fail the request or
+    // leave metadata describing a pairing that never completed.
+    try {
+      user.metadata = user.metadata || {};
+      user.metadata.lastPairedDevice = pairingRequest.deviceName;
+      user.metadata.deviceModel = pairingRequest.deviceModel;
+      user.metadata.pairedAt = new Date();
+      user.lastLogin = new Date();
+      await user.save();
+    } catch (saveError) {
+      console.error('Pairing completed but device metadata was not saved:', saveError.message);
     }
 
     audit({
