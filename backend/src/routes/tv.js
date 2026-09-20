@@ -763,10 +763,18 @@ router.post('/pairing/confirm', async (req, res) => {
     }
 
     // Only now is the pairing complete and safe to hand the channel list code to the TV.
-    await PairingRequest.updateOne(
+    // If the claim no longer holds — the PIN lapsed while the save was in flight — the TV
+    // will never see the code, so don't report success.
+    const completion = await PairingRequest.updateOne(
       { _id: pairingRequest._id, userId: user._id, status: 'pending' },
       { $set: { status: 'completed' } },
     );
+    if (completion.matchedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'PIN has expired. Please generate a new one on your TV.',
+      });
+    }
 
     audit({
       userId: String(user._id),
@@ -828,8 +836,19 @@ router.get('/pairing/status/:pin', async (req, res) => {
       });
     }
 
-    // Check if expired
+    // Check if expired. A claimed request (userId set, still pending) has a confirmation
+    // in flight, so leave it alone — expiring it here would strand a pairing that is about
+    // to complete. The TTL index reaps it if that confirmation never finishes.
     if (pairingRequest.isExpired() && pairingRequest.status === 'pending') {
+      if (pairingRequest.userId) {
+        return res.json({
+          success: true,
+          paired: false,
+          status: 'pending',
+          expiresAt: pairingRequest.expiresAt,
+          message: 'Completing pairing...',
+        });
+      }
       await pairingRequest.markExpired();
       return res.json({
         success: false,

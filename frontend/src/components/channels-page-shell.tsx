@@ -222,37 +222,55 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
       const ids: string[] = res.data.channel_ids || [];
       favoriteRevisionRef.current = res.data.revision ?? 0;
       updateFavoriteIds(new Set(ids));
+      return new Set(ids);
     } catch {
       // silent — favorites are non-critical
+      return null;
     }
+  }
+
+  async function postFavorites(ids: Set<string>) {
+    const res = await api.post('/favorites', {
+      channel_ids: Array.from(ids),
+      revision: favoriteRevisionRef.current,
+    });
+    favoriteRevisionRef.current = res.data.revision ?? favoriteRevisionRef.current;
   }
 
   async function toggleFavorite(channelId: string) {
     setFavSyncing((prev) => new Set(prev).add(channelId));
     const wasFav = favoriteIdsRef.current.has(channelId);
-    const next = new Set(favoriteIdsRef.current);
-    if (wasFav) next.delete(channelId);
-    else next.add(channelId);
+    const applyToggle = (base: Set<string>) => {
+      const next = new Set(base);
+      if (wasFav) next.delete(channelId);
+      else next.add(channelId);
+      return next;
+    };
+
+    const next = applyToggle(favoriteIdsRef.current);
     updateFavoriteIds(next);
-    const snapshot = Array.from(next);
-    // Serialized so each write carries the revision the previous one returned; a 409 means
-    // another device won the race, so re-read rather than keep the optimistic state.
+
+    // Serialized so each write carries the revision the previous one returned. A 409 means
+    // the stored revision moved on — another device, or our own initial load landing after
+    // this click — so re-apply the toggle on top of the server's state rather than
+    // discarding what the user just asked for.
     const syncRequest = favoriteSyncQueueRef.current.then(async () => {
-      const res = await api.post('/favorites', {
-        channel_ids: snapshot,
-        revision: favoriteRevisionRef.current,
-      });
-      favoriteRevisionRef.current = res.data.revision ?? favoriteRevisionRef.current;
+      try {
+        await postFavorites(next);
+      } catch (err) {
+        if ((err as { response?: { status?: number } })?.response?.status !== 409) throw err;
+        const server = await fetchFavorites();
+        if (!server) throw err;
+        const merged = applyToggle(server);
+        updateFavoriteIds(merged);
+        await postFavorites(merged);
+      }
     });
     favoriteSyncQueueRef.current = syncRequest.catch(() => undefined);
     try {
       await syncRequest;
-    } catch (err) {
-      const conflict = (err as { response?: { status?: number } })?.response?.status === 409;
-      toast(
-        conflict ? 'Favorites changed on another device' : 'Failed to update favorites',
-        'error',
-      );
+    } catch {
+      toast('Failed to update favorites', 'error');
       await favoriteSyncQueueRef.current;
       await fetchFavorites();
     } finally {
