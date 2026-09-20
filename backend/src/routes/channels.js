@@ -38,8 +38,11 @@ function channelIdentityFilter(ids) {
   return { $or: alternatives };
 }
 
+// Admins administer the shared catalog, not other users' private channels. Scoping to
+// ownerId:null also disambiguates a channelId that collides between a private channel and
+// a catalog one — without it the match depends on insertion order.
 function accessibleChannelFilter(user, identityFilter) {
-  if (user.role === 'Admin') return identityFilter;
+  if (user.role === 'Admin') return { $and: [identityFilter, { ownerId: null }] };
   const accessFilter =
     user.allCatalog === true
       ? { ownerId: null }

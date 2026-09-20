@@ -163,13 +163,19 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
     }
 
-    const user = await User.findByIdAndUpdate(
+    // Pre-image, so the count reflects channels that were actually on the playlist rather
+    // than however many ids the caller sent — duplicates and unknown ids must not inflate it.
+    const before = await User.findByIdAndUpdate(
       req.user.id,
       { $pull: { channels: { $in: channelIds.map((id) => new mongoose.Types.ObjectId(id)) } } },
-      { new: true },
+      { new: false },
     );
-    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-    const removed = channelIds.length;
+    if (!before) return res.status(404).json({ success: false, error: 'User not found' });
+
+    const previous = new Set((before.channels || []).map((id) => id.toString()));
+    const removed = new Set(channelIds.map((id) => id.toString()).filter((id) => previous.has(id)))
+      .size;
+    const remaining = previous.size - removed;
     audit({
       userId: req.user.id,
       action: 'remove_channels',
@@ -182,7 +188,7 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
     res.json({
       success: true,
       message: `Removed ${removed} channels`,
-      count: user.channels.length,
+      count: remaining,
       removedCount: removed,
     });
   } catch (error) {

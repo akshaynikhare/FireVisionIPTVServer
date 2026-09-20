@@ -21,7 +21,7 @@ export interface IUser {
     pairedAt?: Date;
     favorites?: string[];
     favoritesLastModified?: number;
-    favoritesClientModified?: number;
+    favoritesRevision?: number;
     favoritesDeviceId?: string;
   };
   googleId?: string;

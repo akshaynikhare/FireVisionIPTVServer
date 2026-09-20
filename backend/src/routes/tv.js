@@ -7,6 +7,7 @@ const PairingRequest = require('../models/PairingRequest');
 const { epgService } = require('../services/epg-service');
 const { audit } = require('../services/audit-log');
 const { epgCache } = require('../services/cache');
+const { signStreamToken, verifyStreamToken } = require('../utils/stream-token');
 
 // Same cap as the /channels sync — the EPG only needs to cover what the TV can list.
 const TV_CHANNELS_MAX = Number(process.env.TV_CHANNELS_MAX) || 2000;
@@ -90,18 +91,36 @@ async function findUserByCode(code, res) {
   return user;
 }
 
-async function canProxyUrl(user, url) {
+function channelScopeFilter(user) {
   const catalogView = user.role === 'Admin' || user.allCatalog === true;
-  const scope = catalogView
-    ? { ownerId: null }
-    : { _id: { $in: (user.channels || []).filter(Boolean) } };
-  return Boolean(
-    await Channel.exists({
-      ...scope,
-      isActive: { $ne: false },
-      $or: [{ channelUrl: url }, { 'alternateStreams.streamUrl': url }],
-    }),
-  );
+  return catalogView ? { ownerId: null } : { _id: { $in: (user.channels || []).filter(Boolean) } };
+}
+
+// A URL is proxyable either because it is a stream stored on an assigned channel, or
+// because it was emitted by this proxy while rewriting that channel's manifest and still
+// carries a valid signature. Returns the root channel id to bind rewritten child URLs to.
+async function authorizeProxyUrl(user, url, { code, token } = {}) {
+  const scope = channelScopeFilter(user);
+
+  const direct = await Channel.findOne(
+    {
+      $and: [
+        scope,
+        { isActive: { $ne: false } },
+        { $or: [{ channelUrl: url }, { 'alternateStreams.streamUrl': url }] },
+      ],
+    },
+    { _id: 1 },
+  ).lean();
+  if (direct) return { rootId: direct._id.toString() };
+
+  const claim = verifyStreamToken(token, code, url);
+  if (!claim) return null;
+
+  const stillAssigned = await Channel.exists({
+    $and: [scope, { _id: claim.rootId }, { isActive: { $ne: false } }],
+  });
+  return stillAssigned ? { rootId: claim.rootId } : null;
 }
 
 // Get playlist by code (TV App endpoint)
@@ -185,7 +204,7 @@ router.get('/proxy-url/:code', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid URL format' });
     }
 
-    if (!(await canProxyUrl(user, url))) {
+    if (!(await authorizeProxyUrl(user, url, { code: req.params.code }))) {
       return res
         .status(403)
         .json({ success: false, error: 'Stream is not assigned to this account' });
@@ -219,7 +238,11 @@ router.get('/stream/:code', async (req, res) => {
       return res.status(400).send('Invalid URL format');
     }
 
-    if (!(await canProxyUrl(user, url))) {
+    const authorized = await authorizeProxyUrl(user, url, {
+      code: req.params.code,
+      token: typeof req.query.t === 'string' ? req.query.t : undefined,
+    });
+    if (!authorized) {
       return res.status(403).send('Stream is not assigned to this account');
     }
 
@@ -314,7 +337,8 @@ router.get('/stream/:code', async (req, res) => {
           } else {
             absolute = baseUrl + trimmed;
           }
-          return `/api/v1/tv/stream/${code}?url=${encodeURIComponent(absolute)}`;
+          const token = signStreamToken(code, authorized.rootId, absolute);
+          return `/api/v1/tv/stream/${code}?url=${encodeURIComponent(absolute)}&t=${token}`;
         }
 
         const lines = data.split('\n');
@@ -683,15 +707,18 @@ router.post('/pairing/confirm', async (req, res) => {
     const user = session.userId;
     console.log(`User authenticated for pairing: ${user.username} (${user.role})`);
 
-    // Atomically claim the PIN so concurrent confirmations cannot both succeed.
+    // Atomically claim the PIN so concurrent confirmations cannot both succeed. The claim
+    // only takes ownership — status stays 'pending' until the user metadata is persisted,
+    // so the TV poller never sees a completed pairing that later failed.
     const now = new Date();
     const pairingRequest = await PairingRequest.findOneAndUpdate(
       {
         pin: pin.toString(),
         status: 'pending',
+        userId: null,
         expiresAt: { $gt: now },
       },
-      { $set: { userId: user._id, status: 'completed' } },
+      { $set: { userId: user._id } },
       { new: true },
     );
 
@@ -716,12 +743,30 @@ router.post('/pairing/confirm', async (req, res) => {
     }
 
     // Update user metadata
-    user.metadata = user.metadata || {};
-    user.metadata.lastPairedDevice = pairingRequest.deviceName;
-    user.metadata.deviceModel = pairingRequest.deviceModel;
-    user.metadata.pairedAt = new Date();
-    user.lastLogin = new Date();
-    await user.save();
+    try {
+      user.metadata = user.metadata || {};
+      user.metadata.lastPairedDevice = pairingRequest.deviceName;
+      user.metadata.deviceModel = pairingRequest.deviceModel;
+      user.metadata.pairedAt = new Date();
+      user.lastLogin = new Date();
+      await user.save();
+    } catch (saveError) {
+      // Release the claim so the PIN the TV is still showing can be retried, which is
+      // what the 500 tells the dashboard to do.
+      await PairingRequest.updateOne(
+        { _id: pairingRequest._id, userId: user._id, status: 'pending' },
+        { $set: { userId: null } },
+      ).catch((releaseError) =>
+        console.error('Failed to release pairing claim:', releaseError.message),
+      );
+      throw saveError;
+    }
+
+    // Only now is the pairing complete and safe to hand the channel list code to the TV.
+    await PairingRequest.updateOne(
+      { _id: pairingRequest._id, userId: user._id, status: 'pending' },
+      { $set: { status: 'completed' } },
+    );
 
     audit({
       userId: String(user._id),
