@@ -72,17 +72,15 @@ router.post('/refresh', async (req, res) => {
     } catch {
       return res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
-    const tokenHash = hashToken(refreshToken);
-    const tokenDoc = await RefreshToken.findOne({ tokenHash });
-    if (!tokenDoc || !tokenDoc.isActive()) {
-      return res.status(401).json({ success: false, error: 'Refresh token inactive' });
-    }
     const user = await User.findById(decoded.sub);
     if (!user || !user.isActive) {
       return res.status(401).json({ success: false, error: 'User inactive' });
     }
-    const newAccess = signAccessToken(user);
     const newRefresh = await rotateRefreshToken(refreshToken, user, req);
+    if (!newRefresh) {
+      return res.status(401).json({ success: false, error: 'Refresh token inactive' });
+    }
+    const newAccess = signAccessToken(user);
     return res.json({ success: true, accessToken: newAccess, refreshToken: newRefresh });
   } catch (e) {
     console.error('Refresh error', e);

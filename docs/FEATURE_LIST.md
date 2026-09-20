@@ -619,3 +619,25 @@ Complete inventory of every feature in the application.
 - M3U playlist generation streams via a lean cursor instead of hydrating the full catalog in memory
 - Auth middleware fetches only the user fields it needs; every channel list response is bounded by `TV_CHANNELS_MAX`
 - Per-user channel lists are capped at `USER_CHANNELS_MAX` (default 5000) additions; admins can set `allCatalog` on a user to serve them the whole shared catalog instead
+
+## Runtime Analytics & Monitoring Configuration
+
+- `GA_MEASUREMENT_ID` and `FRONTEND_SENTRY_DSN` are read per request from a dynamic `/runtime-config.js` route instead of during the static build, so values set only in the container environment still reach the browser
+- Self-hosters change analytics and error-monitoring config by restarting with new environment variables — no image rebuild
+- Pages stay statically prerendered; only the config route renders on demand
+- Google Analytics mounts client-side once the runtime config has loaded, and stays off entirely when no measurement id is configured
+
+## TV Stream Proxy Authorization
+
+- The TV stream proxy authorizes a request when the URL is a stream stored on a channel assigned to the caller
+- HLS manifests reference child playlists, keys and segments by URLs derived from the upstream manifest, so each rewritten URL is signed with an HMAC bound to the channel list code, root channel, exact URL and an expiry
+- Derived resources are accepted only with a valid unexpired signature whose root channel is still assigned, so the endpoint cannot be used as an open proxy
+- Token lifetime is configurable via `STREAM_TOKEN_TTL_MS` (default 12 hours)
+- SSRF validation still runs on every upstream fetch — a signature authorizes a URL, it does not exempt it
+
+## Favorites Sync Conflict Resolution
+
+- Favorites are ordered by a server-issued revision rather than client timestamps, so devices with skewed clocks no longer discard each other's updates
+- A write carrying a stale revision is rejected with HTTP 409 and the current server state, instead of silently reporting success
+- The web UI rebases every not-yet-stored toggle on top of the returned state and retries, so no click is lost to a conflict and queued writes never overwrite another device's additions
+- Requests that omit a revision keep last-write-wins behaviour for existing TV clients

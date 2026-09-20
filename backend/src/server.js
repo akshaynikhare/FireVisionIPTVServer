@@ -150,7 +150,10 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 // Redact session/JWT credentials that arrive as query params (image-proxy
 // accepts ?sid=/?token= for <img> tags) so they never leak into access logs.
 morgan.token('url-redacted', (req) =>
-  (req.originalUrl || req.url).replace(/([?&](?:sid|token)=)[^&]*/gi, '$1REDACTED'),
+  (req.originalUrl || req.url)
+    .replace(/([?&](?:sid|token|url)=)[^&]*/gi, '$1REDACTED')
+    .replace(/(\/api\/v1\/tv\/(?:playlist|stream|epg|verify|proxy-url)\/)[^/?]+/gi, '$1REDACTED')
+    .replace(/(\/api\/v1\/tv\/pairing\/status\/)[^/?]+/gi, '$1REDACTED'),
 );
 // 'combined' format with the URL field swapped for the redacted variant.
 app.use(

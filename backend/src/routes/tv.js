@@ -7,9 +7,14 @@ const PairingRequest = require('../models/PairingRequest');
 const { epgService } = require('../services/epg-service');
 const { audit } = require('../services/audit-log');
 const { epgCache } = require('../services/cache');
+const { signStreamToken, verifyStreamToken } = require('../utils/stream-token');
 
 // Same cap as the /channels sync — the EPG only needs to cover what the TV can list.
 const TV_CHANNELS_MAX = Number(process.env.TV_CHANNELS_MAX) || 2000;
+
+// How long polling waits on a claimed-but-lapsed PIN before expiring it, covering the
+// window between claiming the PIN and persisting the user metadata.
+const PAIRING_CONFIRM_GRACE_MS = 30 * 1000;
 
 // NO authentication required for TV endpoints
 
@@ -90,6 +95,38 @@ async function findUserByCode(code, res) {
   return user;
 }
 
+function channelScopeFilter(user) {
+  const catalogView = user.role === 'Admin' || user.allCatalog === true;
+  return catalogView ? { ownerId: null } : { _id: { $in: (user.channels || []).filter(Boolean) } };
+}
+
+// A URL is proxyable either because it is a stream stored on an assigned channel, or
+// because it was emitted by this proxy while rewriting that channel's manifest and still
+// carries a valid signature. Returns the root channel id to bind rewritten child URLs to.
+async function authorizeProxyUrl(user, url, { code, token } = {}) {
+  const scope = channelScopeFilter(user);
+
+  const direct = await Channel.findOne(
+    {
+      $and: [
+        scope,
+        { isActive: { $ne: false } },
+        { $or: [{ channelUrl: url }, { 'alternateStreams.streamUrl': url }] },
+      ],
+    },
+    { _id: 1 },
+  ).lean();
+  if (direct) return { rootId: direct._id.toString() };
+
+  const claim = verifyStreamToken(token, code, url);
+  if (!claim) return null;
+
+  const stillAssigned = await Channel.exists({
+    $and: [scope, { _id: claim.rootId }, { isActive: { $ne: false } }],
+  });
+  return stillAssigned ? { rootId: claim.rootId } : null;
+}
+
 // Get playlist by code (TV App endpoint)
 router.get('/playlist/:code', async (req, res) => {
   try {
@@ -161,7 +198,7 @@ router.get('/proxy-url/:code', async (req, res) => {
     if (!user) return;
 
     const { url } = req.query;
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'url parameter is required' });
     }
 
@@ -169,6 +206,12 @@ router.get('/proxy-url/:code', async (req, res) => {
       new URL(url);
     } catch {
       return res.status(400).json({ success: false, error: 'Invalid URL format' });
+    }
+
+    if (!(await authorizeProxyUrl(user, url, { code: req.params.code }))) {
+      return res
+        .status(403)
+        .json({ success: false, error: 'Stream is not assigned to this account' });
     }
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -189,7 +232,7 @@ router.get('/stream/:code', async (req, res) => {
     if (!user) return;
 
     const { url } = req.query;
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return res.status(400).send('URL parameter is required');
     }
 
@@ -197,6 +240,14 @@ router.get('/stream/:code', async (req, res) => {
       new URL(url);
     } catch {
       return res.status(400).send('Invalid URL format');
+    }
+
+    const authorized = await authorizeProxyUrl(user, url, {
+      code: req.params.code,
+      token: typeof req.query.t === 'string' ? req.query.t : undefined,
+    });
+    if (!authorized) {
+      return res.status(403).send('Stream is not assigned to this account');
     }
 
     const http = require('http');
@@ -290,7 +341,8 @@ router.get('/stream/:code', async (req, res) => {
           } else {
             absolute = baseUrl + trimmed;
           }
-          return `/api/v1/tv/stream/${code}?url=${encodeURIComponent(absolute)}`;
+          const token = signStreamToken(code, authorized.rootId, absolute);
+          return `/api/v1/tv/stream/${code}?url=${encodeURIComponent(absolute)}&t=${token}`;
         }
 
         const lines = data.split('\n');
@@ -659,13 +711,33 @@ router.post('/pairing/confirm', async (req, res) => {
     const user = session.userId;
     console.log(`User authenticated for pairing: ${user.username} (${user.role})`);
 
-    // Find pairing request
-    const pairingRequest = await PairingRequest.findOne({
-      pin: pin.toString(),
-      status: 'pending',
-    });
+    // Atomically claim the PIN so concurrent confirmations cannot both succeed. The claim
+    // only takes ownership — status stays 'pending' until the user metadata is persisted,
+    // so the TV poller never sees a completed pairing that later failed.
+    const now = new Date();
+    const pairingRequest = await PairingRequest.findOneAndUpdate(
+      {
+        pin: pin.toString(),
+        status: 'pending',
+        userId: null,
+        expiresAt: { $gt: now },
+      },
+      { $set: { userId: user._id } },
+      { new: true },
+    );
 
     if (!pairingRequest) {
+      const expiredRequest = await PairingRequest.findOneAndUpdate(
+        { pin: pin.toString(), status: 'pending', expiresAt: { $lte: now } },
+        { $set: { status: 'expired' } },
+        { new: true },
+      );
+      if (expiredRequest) {
+        return res.status(400).json({
+          success: false,
+          error: 'PIN has expired. Please generate a new one on your TV.',
+        });
+      }
       console.warn('PIN not found or not pending:', pin);
       return res.status(404).json({
         success: false,
@@ -674,28 +746,44 @@ router.post('/pairing/confirm', async (req, res) => {
       });
     }
 
-    // Check if expired
-    if (pairingRequest.isExpired()) {
-      console.warn('PIN expired:', pin);
-      await pairingRequest.markExpired();
+    // Complete the pairing before touching anything else. The claim held status at
+    // 'pending', so re-check the expiry here — nothing else expires a claimed record.
+    const completion = await PairingRequest.updateOne(
+      {
+        _id: pairingRequest._id,
+        userId: user._id,
+        status: 'pending',
+        expiresAt: { $gt: new Date() },
+      },
+      { $set: { status: 'completed' } },
+    );
+    if (completion.matchedCount === 0) {
+      // Release the claim so polling can expire the record normally.
+      await PairingRequest.updateOne(
+        { _id: pairingRequest._id, userId: user._id, status: 'pending' },
+        { $set: { userId: null } },
+      ).catch((releaseError) =>
+        console.error('Failed to release pairing claim:', releaseError.message),
+      );
       return res.status(400).json({
         success: false,
         error: 'PIN has expired. Please generate a new one on your TV.',
       });
     }
 
-    // Link user to pairing request
-    pairingRequest.userId = user._id;
-    pairingRequest.status = 'completed';
-    await pairingRequest.save();
-
-    // Update user metadata
-    user.metadata = user.metadata || {};
-    user.metadata.lastPairedDevice = pairingRequest.deviceName;
-    user.metadata.deviceModel = pairingRequest.deviceModel;
-    user.metadata.pairedAt = new Date();
-    user.lastLogin = new Date();
-    await user.save();
+    // Device metadata is a record of the pairing that just succeeded, not part of it. The
+    // TV can already fetch its credential, so a failure here must not fail the request or
+    // leave metadata describing a pairing that never completed.
+    try {
+      user.metadata = user.metadata || {};
+      user.metadata.lastPairedDevice = pairingRequest.deviceName;
+      user.metadata.deviceModel = pairingRequest.deviceModel;
+      user.metadata.pairedAt = new Date();
+      user.lastLogin = new Date();
+      await user.save();
+    } catch (saveError) {
+      console.error('Pairing completed but device metadata was not saved:', saveError.message);
+    }
 
     audit({
       userId: String(user._id),
@@ -757,8 +845,23 @@ router.get('/pairing/status/:pin', async (req, res) => {
       });
     }
 
-    // Check if expired
+    // Check if expired. A claimed request (userId set, still pending) has a confirmation in
+    // flight, so hold off briefly rather than expiring a pairing that is about to complete —
+    // but only within a short grace window, so a confirmation that died mid-save can't leave
+    // the record pending until the TTL index reaps it.
     if (pairingRequest.isExpired() && pairingRequest.status === 'pending') {
+      const withinConfirmGrace =
+        pairingRequest.userId &&
+        Date.now() - pairingRequest.expiresAt.getTime() < PAIRING_CONFIRM_GRACE_MS;
+      if (withinConfirmGrace) {
+        return res.json({
+          success: true,
+          paired: false,
+          status: 'pending',
+          expiresAt: pairingRequest.expiresAt,
+          message: 'Completing pairing...',
+        });
+      }
       await pairingRequest.markExpired();
       return res.json({
         success: false,

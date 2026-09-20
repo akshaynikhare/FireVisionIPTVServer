@@ -62,11 +62,12 @@ router.put('/me/channels', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Some channel IDs are invalid' });
     }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { channels: channelIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+      { new: true },
+    );
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-
-    user.channels = channelIds.map((id) => new mongoose.Types.ObjectId(id));
-    await user.save();
     audit({
       userId: req.user.id,
       action: 'set_channels',
@@ -162,14 +163,19 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid channel ID format' });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+    // Pre-image, so the count reflects channels that were actually on the playlist rather
+    // than however many ids the caller sent — duplicates and unknown ids must not inflate it.
+    const before = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { channels: { $in: channelIds.map((id) => new mongoose.Types.ObjectId(id)) } } },
+      { new: false },
+    );
+    if (!before) return res.status(404).json({ success: false, error: 'User not found' });
 
-    const before = user.channels.length;
-    const removeSet = new Set(channelIds.map((id) => id.toString()));
-    user.channels = user.channels.filter((id) => !removeSet.has(id.toString()));
-    await user.save();
-    const removed = before - user.channels.length;
+    const previous = new Set((before.channels || []).map((id) => id.toString()));
+    const removed = new Set(channelIds.map((id) => id.toString()).filter((id) => previous.has(id)))
+      .size;
+    const remaining = previous.size - removed;
     audit({
       userId: req.user.id,
       action: 'remove_channels',
@@ -182,7 +188,7 @@ router.post('/me/channels/remove', requireAuth, async (req, res) => {
     res.json({
       success: true,
       message: `Removed ${removed} channels`,
-      count: user.channels.length,
+      count: remaining,
       removedCount: removed,
     });
   } catch (error) {

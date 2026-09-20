@@ -207,6 +207,10 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
   // Favorites
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const favoriteIdsRef = useRef<Set<string>>(new Set());
+  const favoriteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const favoriteRevisionRef = useRef(0);
+  // Toggles the server hasn't stored yet, so a conflict can rebase all of them.
+  const favoritePendingRef = useRef<Map<string, boolean>>(new Map());
   const [favSyncing, setFavSyncing] = useState<Set<string>>(new Set());
 
   function updateFavoriteIds(next: Set<string>) {
@@ -218,28 +222,75 @@ export default function ChannelsPageShell({ mode }: ChannelsPageShellProps) {
     try {
       const res = await api.get('/favorites');
       const ids: string[] = res.data.channel_ids || [];
+      favoriteRevisionRef.current = res.data.revision ?? 0;
       updateFavoriteIds(new Set(ids));
+      return new Set(ids);
     } catch {
       // silent — favorites are non-critical
+      return null;
     }
+  }
+
+  async function postFavorites(ids: Set<string>) {
+    const sent = new Map(favoritePendingRef.current);
+    const res = await api.post('/favorites', {
+      channel_ids: Array.from(ids),
+      revision: favoriteRevisionRef.current,
+    });
+    favoriteRevisionRef.current = res.data.revision ?? favoriteRevisionRef.current;
+    // Everything in this payload is stored now; leave behind only clicks made while it flew.
+    sent.forEach((desired, id) => {
+      if (favoritePendingRef.current.get(id) === desired) favoritePendingRef.current.delete(id);
+    });
+  }
+
+  function applyPendingFavorites(base: Set<string>) {
+    const next = new Set(base);
+    favoritePendingRef.current.forEach((desired, id) => {
+      if (desired) next.add(id);
+      else next.delete(id);
+    });
+    return next;
   }
 
   async function toggleFavorite(channelId: string) {
     setFavSyncing((prev) => new Set(prev).add(channelId));
-    const wasFav = favoriteIdsRef.current.has(channelId);
+    const desired = !favoriteIdsRef.current.has(channelId);
+    favoritePendingRef.current.set(channelId, desired);
+
     const next = new Set(favoriteIdsRef.current);
-    if (wasFav) next.delete(channelId);
-    else next.add(channelId);
+    if (desired) next.add(channelId);
+    else next.delete(channelId);
     updateFavoriteIds(next);
+
+    // Serialized so each write carries the revision the previous one returned. Each job
+    // sends the live state rather than its click-time snapshot, because an earlier queued
+    // write may have rebased onto another device's favorites in the meantime. A 409 means
+    // the stored revision moved on — another device, or our own initial load landing after
+    // this click — so re-apply every unstored toggle on top of the server's state rather
+    // than discarding what the user asked for.
+    const syncRequest = favoriteSyncQueueRef.current.then(async () => {
+      try {
+        await postFavorites(favoriteIdsRef.current);
+      } catch (err) {
+        if ((err as { response?: { status?: number } })?.response?.status !== 409) throw err;
+        const server = await fetchFavorites();
+        if (!server) throw err;
+        const merged = applyPendingFavorites(server);
+        updateFavoriteIds(merged);
+        await postFavorites(merged);
+      }
+    });
+    favoriteSyncQueueRef.current = syncRequest.catch(() => undefined);
     try {
-      await api.post('/favorites', { channel_ids: Array.from(favoriteIdsRef.current) });
+      await syncRequest;
     } catch {
-      // revert just this channel
-      const reverted = new Set(favoriteIdsRef.current);
-      if (wasFav) reverted.add(channelId);
-      else reverted.delete(channelId);
-      updateFavoriteIds(reverted);
+      // Drop this click's intent — otherwise a later conflict rebase would resurrect a
+      // favorite the user already saw reverted by the refresh below.
+      favoritePendingRef.current.delete(channelId);
       toast('Failed to update favorites', 'error');
+      await favoriteSyncQueueRef.current;
+      await fetchFavorites();
     } finally {
       setFavSyncing((prev) => {
         const s = new Set(prev);

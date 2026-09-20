@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, Manrope } from 'next/font/google';
-import { GoogleAnalytics } from '@next/third-parties/google';
+import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { QueryProvider } from '@/components/query-provider';
+import { AnalyticsBootstrap } from '@/components/analytics-bootstrap';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -91,6 +92,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Runtime-only GA/Sentry config, served per request so it survives a static build. */}
+        <Script src="/runtime-config.js" strategy="beforeInteractive" />
+      </head>
       <body className={`${spaceGrotesk.variable} ${manrope.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
@@ -100,15 +105,8 @@ export default function RootLayout({
         >
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
+        <AnalyticsBootstrap />
       </body>
-      {process.env.GA_MEASUREMENT_ID && <GoogleAnalytics gaId={process.env.GA_MEASUREMENT_ID} />}
-      {process.env.FRONTEND_SENTRY_DSN && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__SENTRY_DSN__=${JSON.stringify(process.env.FRONTEND_SENTRY_DSN)};`,
-          }}
-        />
-      )}
     </html>
   );
 }

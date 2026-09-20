@@ -123,3 +123,17 @@ export interface TestResult {
   message?: string;
   error?: string;
 }
+
+// Config the container supplies at runtime via /runtime-config.js, so self-hosters can
+// change it without rebuilding the image.
+export interface RuntimeConfig {
+  gaId?: string | null;
+  sentryDsn?: string | null;
+}
+
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: RuntimeConfig;
+    __SENTRY_DSN__?: string;
+  }
+}

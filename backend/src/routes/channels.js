@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const User = require('../models/User');
@@ -28,6 +29,28 @@ const reportStatusLimits = new Map();
 const reportPlayLimits = new Map();
 const healthSyncLimits = new Map();
 const flagLimits = new Map();
+
+function channelIdentityFilter(ids) {
+  const values = Array.isArray(ids) ? ids : [ids];
+  const objectIds = values.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const alternatives = [{ channelId: { $in: values } }];
+  if (objectIds.length) alternatives.push({ _id: { $in: objectIds } });
+  return { $or: alternatives };
+}
+
+// Admins administer the shared catalog, not other users' private channels. Scoping to
+// ownerId:null also disambiguates a channelId that collides between a private channel and
+// a catalog one — without it the match depends on insertion order.
+function accessibleChannelFilter(user, identityFilter) {
+  if (user.role === 'Admin') return { $and: [identityFilter, { ownerId: null }] };
+  const accessFilter =
+    user.allCatalog === true
+      ? { ownerId: null }
+      : {
+          $or: [{ _id: { $in: (user.channels || []).filter(Boolean) } }, { ownerId: user.id }],
+        };
+  return { $and: [identityFilter, accessFilter] };
+}
 
 // Cleanup stale rate-limit entries every 10 minutes
 // .unref() ensures this timer doesn't prevent graceful process exit
@@ -286,8 +309,15 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
     const reportedIds = [
       ...new Set(reports.map((r) => r.channelId).filter((id) => id && typeof id === 'string')),
     ];
-    const existingChannels = await Channel.find({ _id: { $in: reportedIds } }, { _id: 1 }).lean();
-    const validChannelIds = new Set(existingChannels.map((c) => c._id.toString()));
+    const existingChannels = await Channel.find(
+      accessibleChannelFilter(req.user, channelIdentityFilter(reportedIds)),
+      { _id: 1, channelId: 1 },
+    ).lean();
+    const resolvedChannelIds = new Map();
+    for (const channel of existingChannels) {
+      resolvedChannelIds.set(channel._id.toString(), channel._id);
+      if (channel.channelId) resolvedChannelIds.set(channel.channelId, channel._id);
+    }
 
     const validStatuses = ['dead', 'alive', 'unresponsive', 'played'];
     const results = { updated: 0, failed: 0, skipped: 0 };
@@ -297,7 +327,8 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
         results.skipped++;
         continue;
       }
-      if (!validChannelIds.has(report.channelId.toString())) {
+      const resolvedId = resolvedChannelIds.get(report.channelId.toString());
+      if (!resolvedId) {
         results.skipped++;
         continue;
       }
@@ -320,7 +351,7 @@ router.post('/health-sync', requireTvOrSessionAuth, async (req, res) => {
       }
 
       try {
-        const result = await Channel.findByIdAndUpdate(report.channelId, update);
+        const result = await Channel.findByIdAndUpdate(resolvedId, update);
         if (result) {
           results.updated++;
         } else {
@@ -876,7 +907,7 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
     }
 
     // Rate limiting
-    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const rateLimitKey = `${req.user.id}:${req.params.id}:${deviceId}`;
     const lastReport = reportStatusLimits.get(rateLimitKey);
     if (lastReport && Date.now() - lastReport < 5 * 60 * 1000) {
       return res.status(429).json({
@@ -899,7 +930,11 @@ router.post('/:id/report-status', requireTvOrSessionAuth, async (req, res) => {
       update.$set = { 'metrics.lastUnresponsiveAt': now };
     }
 
-    const channel = await Channel.findByIdAndUpdate(req.params.id, update, { new: true });
+    const channel = await Channel.findOneAndUpdate(
+      accessibleChannelFilter(req.user, channelIdentityFilter(req.params.id)),
+      update,
+      { new: true },
+    );
     if (!channel) {
       return res.status(404).json({ success: false, error: 'Channel not found' });
     }
@@ -930,7 +965,7 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
     }
 
     // Rate limiting
-    const rateLimitKey = `${req.params.id}:${deviceId}`;
+    const rateLimitKey = `${req.user.id}:${req.params.id}:${deviceId}`;
     const lastReport = reportPlayLimits.get(rateLimitKey);
     if (lastReport && Date.now() - lastReport < 60 * 1000) {
       return res.status(429).json({
@@ -944,8 +979,8 @@ router.post('/:id/report-play', requireTvOrSessionAuth, async (req, res) => {
       updateInc['metrics.proxyPlayCount'] = 1;
     }
 
-    const channel = await Channel.findByIdAndUpdate(
-      req.params.id,
+    const channel = await Channel.findOneAndUpdate(
+      accessibleChannelFilter(req.user, channelIdentityFilter(req.params.id)),
       {
         $inc: updateInc,
         $set: { 'metrics.lastPlayedAt': new Date() },

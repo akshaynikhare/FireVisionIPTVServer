@@ -33,7 +33,7 @@ function validateEmail(email) {
 // Configure multer for profile picture uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../../public/uploads/profiles');
+    const uploadDir = path.join(__dirname, '../../../uploads/profiles');
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
@@ -840,12 +840,9 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
     // Delete old profile picture if exists (with path traversal protection)
     if (user.profilePicture) {
       try {
-        const uploadsDir = path.resolve(__dirname, '../../../public/uploads/profiles');
-        const oldPath = path.resolve(__dirname, '../../../public', user.profilePicture);
-        // Ensure the resolved path is within the uploads directory
-        if (oldPath.startsWith(uploadsDir)) {
-          await fs.unlink(oldPath);
-        }
+        const uploadsDir = path.resolve(__dirname, '../../../uploads/profiles');
+        const oldPath = path.join(uploadsDir, path.basename(user.profilePicture));
+        await fs.unlink(oldPath);
       } catch (error) {
         console.log('Could not delete old profile picture:', error.message);
       }
@@ -901,11 +898,9 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
 
     // Delete file from disk (with path traversal protection)
     try {
-      const uploadsDir = path.resolve(__dirname, '../../../public/uploads/profiles');
-      const filePath = path.resolve(__dirname, '../../../public', user.profilePicture);
-      if (filePath.startsWith(uploadsDir)) {
-        await fs.unlink(filePath);
-      }
+      const uploadsDir = path.resolve(__dirname, '../../../uploads/profiles');
+      const filePath = path.join(uploadsDir, path.basename(user.profilePicture));
+      await fs.unlink(filePath);
     } catch (error) {
       console.log('Could not delete profile picture file:', error.message);
     }

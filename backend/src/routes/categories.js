@@ -8,8 +8,8 @@ router.get('/', requireTvOrSessionAuth, async (req, res) => {
   try {
     // Scope to what the caller can actually see: admin/demo → shared catalog (ownerId:null);
     // a user → their own selection. Mirrors GET /channels so counts line up.
-    const isAdmin = req.user.role === 'Admin';
-    const match = isAdmin
+    const catalogView = req.user.role === 'Admin' || req.user.allCatalog === true;
+    const match = catalogView
       ? { isActive: { $ne: false }, ownerId: null }
       : {
           isActive: { $ne: false },

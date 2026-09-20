@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const Channel = require('../models/Channel');
 const AuditLog = require('../models/AuditLog');
 const { requireAuth, requireAdmin } = require('./auth');
 const { escapeRegex } = require('../utils/escapeRegex');
